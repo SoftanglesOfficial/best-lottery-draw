@@ -1,0 +1,133 @@
+import { asc, eq } from 'drizzle-orm';
+import { ensureConnected, getDb } from '../db';
+import { shiftGroups, shifts } from '../schema';
+import { formatDbError } from './ipcUtils';
+import type { ShiftGroupInput, ShiftGroupRecord, ShiftInput, ShiftRecord } from '../../shared/types';
+
+export async function listShiftGroups(companyId: number) {
+  const connection = await ensureConnected();
+  if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
+  try {
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(shiftGroups)
+      .where(eq(shiftGroups.companyId, companyId))
+      .orderBy(asc(shiftGroups.name));
+    return { success: true as const, groups: rows as ShiftGroupRecord[] };
+  } catch (error) {
+    return { success: false as const, error: formatDbError(error) };
+  }
+}
+
+export async function createShiftGroup(data: ShiftGroupInput) {
+  const connection = await ensureConnected();
+  if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
+  try {
+    const db = getDb();
+    const [created] = await db.insert(shiftGroups).values(data).returning();
+    if (!created) return { success: false as const, error: 'Failed to create shift group' };
+    return { success: true as const, group: created as ShiftGroupRecord };
+  } catch (error) {
+    return { success: false as const, error: formatDbError(error) };
+  }
+}
+
+export async function updateShiftGroup(id: number, data: ShiftGroupInput) {
+  const connection = await ensureConnected();
+  if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
+  try {
+    const db = getDb();
+    const [updated] = await db.update(shiftGroups).set(data).where(eq(shiftGroups.id, id)).returning();
+    if (!updated) return { success: false as const, error: 'Shift group not found' };
+    return { success: true as const, group: updated as ShiftGroupRecord };
+  } catch (error) {
+    return { success: false as const, error: formatDbError(error) };
+  }
+}
+
+export async function deleteShiftGroup(id: number) {
+  const connection = await ensureConnected();
+  if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
+  try {
+    const db = getDb();
+    const [deleted] = await db.delete(shiftGroups).where(eq(shiftGroups.id, id)).returning({ id: shiftGroups.id });
+    if (!deleted) return { success: false as const, error: 'Shift group not found' };
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: formatDbError(error) };
+  }
+}
+
+export async function listShifts(shiftGroupId: number) {
+  const connection = await ensureConnected();
+  if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
+  try {
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(shifts)
+      .where(eq(shifts.shiftGroupId, shiftGroupId))
+      .orderBy(asc(shifts.name));
+    return { success: true as const, shifts: rows as ShiftRecord[] };
+  } catch (error) {
+    return { success: false as const, error: formatDbError(error) };
+  }
+}
+
+export async function createShift(data: ShiftInput) {
+  const connection = await ensureConnected();
+  if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
+  if (!data.name?.trim()) {
+    return { success: false as const, error: 'Shift name is required' };
+  }
+  if (!data.shiftGroupId) {
+    return { success: false as const, error: 'Shift group is required' };
+  }
+  try {
+    const db = getDb();
+    const [group] = await db
+      .select({ id: shiftGroups.id })
+      .from(shiftGroups)
+      .where(eq(shiftGroups.id, data.shiftGroupId))
+      .limit(1);
+    if (!group) {
+      return { success: false as const, error: 'Shift group not found' };
+    }
+
+    const [created] = await db
+      .insert(shifts)
+      .values({ name: data.name.trim(), shiftGroupId: data.shiftGroupId })
+      .returning();
+    if (!created) return { success: false as const, error: 'Failed to create shift' };
+    return { success: true as const, shift: created as ShiftRecord };
+  } catch (error) {
+    return { success: false as const, error: formatDbError(error) };
+  }
+}
+
+export async function updateShift(id: number, data: ShiftInput) {
+  const connection = await ensureConnected();
+  if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
+  try {
+    const db = getDb();
+    const [updated] = await db.update(shifts).set(data).where(eq(shifts.id, id)).returning();
+    if (!updated) return { success: false as const, error: 'Shift not found' };
+    return { success: true as const, shift: updated as ShiftRecord };
+  } catch (error) {
+    return { success: false as const, error: formatDbError(error) };
+  }
+}
+
+export async function deleteShift(id: number) {
+  const connection = await ensureConnected();
+  if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
+  try {
+    const db = getDb();
+    const [deleted] = await db.delete(shifts).where(eq(shifts.id, id)).returning({ id: shifts.id });
+    if (!deleted) return { success: false as const, error: 'Shift not found' };
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: formatDbError(error) };
+  }
+}
