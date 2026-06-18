@@ -1,9 +1,9 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
 import { buyers, draws, providers, transactions, users } from '../schema';
 import { formatDbError } from './ipcUtils';
 import { validateDrawOpen } from './drawValidation';
-import { countFromTicketData, extractTicketNumbers } from './transactionUtils';
+import { countFromTicketData, extractTicketNumbers, parseTicketData } from './transactionUtils';
 import type {
   BuyerSaleSummary,
   ProviderPurchaseSummary,
@@ -128,23 +128,45 @@ async function getBuyerTicketNumbers(
   return numbers;
 }
 
+function expandRangeTickets(from: string | number, to: string | number): string[] {
+  const start = Number(from);
+  const end = Number(to);
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return [];
+  const padLen = Math.max(String(from).length, String(to).length, 5);
+  const tickets: string[] = [];
+  for (let value = start; value <= end; value += 1) {
+    tickets.push(String(value).padStart(padLen, '0'));
+  }
+  return tickets;
+}
+
+function extractReturnRangeTickets(ticketData: string | null | undefined): string[] {
+  const { ranges } = parseTicketData(ticketData);
+  const tickets: string[] = [];
+  for (const range of ranges) {
+    tickets.push(...expandRangeTickets(range.from, range.to));
+  }
+  return tickets;
+}
+
 async function sumTicketCounts(
   drawId: number,
   filter: { buyerId?: number; providerId?: number; types: TransactionType[] },
 ): Promise<number> {
   const db = getDb();
-  const conditions = [eq(transactions.drawId, drawId)];
+  const conditions = [
+    eq(transactions.drawId, drawId),
+    inArray(transactions.type, filter.types),
+  ];
   if (filter.buyerId != null) conditions.push(eq(transactions.buyerId, filter.buyerId));
   if (filter.providerId != null) conditions.push(eq(transactions.providerId, filter.providerId));
 
-  const rows = await db
-    .select({ ticketCount: transactions.ticketCount, type: transactions.type })
+  const [row] = await db
+    .select({ total: sql<number>`COALESCE(SUM(${transactions.ticketCount}), 0)` })
     .from(transactions)
     .where(and(...conditions));
 
-  return rows
-    .filter((row) => filter.types.includes(row.type as TransactionType))
-    .reduce((sum, row) => sum + (row.ticketCount ?? 0), 0);
+  return Number(row?.total ?? 0);
 }
 
 async function validateTransactionCreate(data: TransactionInput, drawId: number) {
@@ -164,6 +186,10 @@ async function validateTransactionCreate(data: TransactionInput, drawId: number)
 
   const ticketCount =
     data.ticketCount ?? (data.ticketData ? countFromTicketData(data.ticketData) : 0);
+
+  if (data.type === 'sale_return' && ticketCount <= 0) {
+    throw new Error('At least one ticket is required for a sale return.');
+  }
 
   if (data.type === 'sale') {
     const newTickets = extractTicketNumbers(data.ticketData ?? '');
@@ -194,15 +220,33 @@ async function validateTransactionCreate(data: TransactionInput, drawId: number)
       buyerId: data.buyerId,
       types: ['sale_return'],
     });
-    if (returnedCount + ticketCount > soldCount) {
-      throw new Error('Return quantity exceeds sold quantity for this buyer in this draw.');
+    const available = soldCount - returnedCount;
+    if (ticketCount > available) {
+      throw new Error(`Cannot return more than available (${available})`);
     }
 
     const soldTickets = await getBuyerTicketNumbers(data.buyerId, drawId, 'sale');
-    const returnTickets = extractTicketNumbers(data.ticketData ?? '');
-    for (const number of returnTickets) {
-      if (!soldTickets.has(number)) {
-        throw new Error(`Ticket ${number} was not sold to this buyer in this draw.`);
+    const returnedTickets = await getBuyerTicketNumbers(data.buyerId, drawId, 'sale_return');
+    const returnTickets = extractReturnRangeTickets(data.ticketData ?? '');
+
+    if (returnTickets.length === 0) {
+      throw new Error('At least one ticket range is required for a sale return.');
+    }
+
+    const seenInRequest = new Set<string>();
+    for (const ticket of returnTickets) {
+      if (seenInRequest.has(ticket)) {
+        throw new Error(`Duplicate ticket ${ticket} in return ranges.`);
+      }
+      seenInRequest.add(ticket);
+
+      if (!soldTickets.has(ticket)) {
+        throw new Error(
+          `Ticket ${ticket} was not sold to this buyer in this draw.`,
+        );
+      }
+      if (returnedTickets.has(ticket)) {
+        throw new Error(`Ticket ${ticket} has already been returned.`);
       }
     }
   }
@@ -477,8 +521,36 @@ export async function getBuyerSaleSummary(buyerId: number, drawId: number) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
   }
   try {
-    const totalSold = await sumTicketCounts(drawId, { buyerId, types: ['sale'] });
-    const totalReturned = await sumTicketCounts(drawId, { buyerId, types: ['sale_return'] });
+    const db = getDb();
+
+    const [salesRow] = await db
+      .select({
+        total: sql<number>`COALESCE(SUM(${transactions.ticketCount}), 0)`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.buyerId, buyerId),
+          eq(transactions.drawId, drawId),
+          eq(transactions.type, 'sale'),
+        ),
+      );
+
+    const [returnsRow] = await db
+      .select({
+        total: sql<number>`COALESCE(SUM(${transactions.ticketCount}), 0)`,
+      })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.buyerId, buyerId),
+          eq(transactions.drawId, drawId),
+          eq(transactions.type, 'sale_return'),
+        ),
+      );
+
+    const totalSold = Number(salesRow?.total ?? 0);
+    const totalReturned = Number(returnsRow?.total ?? 0);
     const summary: BuyerSaleSummary = {
       totalSold,
       totalReturned,

@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
-import Store from 'electron-store';
 import { BrowserWindow } from 'electron';
+import { getConfigValue, setConfigValue } from './configStore';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import type { DbConfig } from '../shared/types';
@@ -12,13 +12,16 @@ const DEFAULT_CONFIG: DbConfig = {
   host: 'localhost',
   port: 5432,
   user: 'postgres',
+  password: '',
   database: 'best12_dev',
 };
 
-const store = new Store<{ db: DbConfig }>({
-  name: 'db-config',
-  defaults: { db: DEFAULT_CONFIG },
-});
+function normalizeDbConfig(config: DbConfig): DbConfig {
+  return {
+    ...config,
+    password: typeof config.password === 'string' ? config.password : '',
+  };
+}
 
 let pool: Pool | null = null;
 let db: NodePgDatabase<typeof schema> | null = null;
@@ -308,11 +311,11 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 `;
 
 export function getStoredConfig(): DbConfig {
-  return store.get('db');
+  return normalizeDbConfig(getConfigValue('db', DEFAULT_CONFIG));
 }
 
 export function saveConfig(config: DbConfig): void {
-  store.set('db', config);
+  setConfigValue('db', normalizeDbConfig(config));
 }
 
 export function hashPassword(password: string): string {
@@ -645,6 +648,7 @@ export async function ensureConnected(): Promise<{ success: boolean; error?: str
 }
 
 export async function connectDb(config: DbConfig): Promise<{ success: boolean; error?: string }> {
+  const normalized = normalizeDbConfig(config);
   try {
     if (pool) {
       stopHealthCheck();
@@ -654,14 +658,14 @@ export async function connectDb(config: DbConfig): Promise<{ success: boolean; e
       connected = false;
     }
 
-    saveConfig(config);
+    saveConfig(normalized);
 
     pool = new Pool({
-      host: config.host,
-      port: config.port,
-      user: config.user,
-      password: config.password,
-      database: config.database,
+      host: normalized.host,
+      port: normalized.port,
+      user: normalized.user,
+      password: normalized.password,
+      database: normalized.database,
     });
 
     await pool.query('SELECT 1');
@@ -713,6 +717,58 @@ export async function setupDb(): Promise<{ success: boolean; error?: string }> {
        WHERE NOT EXISTS (SELECT 1 FROM companies)`,
       ['Default Company'],
     );
+
+    const companyResult = await pool!.query<{ id: number }>(
+      `SELECT id FROM companies ORDER BY id LIMIT 1`,
+    );
+    const companyId = companyResult.rows[0]?.id;
+    if (companyId != null) {
+      await pool!.query(
+        `INSERT INTO shift_groups (name, company_id)
+         SELECT $1, $2
+         WHERE NOT EXISTS (
+           SELECT 1 FROM shift_groups WHERE company_id = $2 AND name = $1
+         )`,
+        ['Daily Draws', companyId],
+      );
+
+      const shiftGroupResult = await pool!.query<{ id: number }>(
+        `SELECT id FROM shift_groups WHERE company_id = $1 AND name = $2 LIMIT 1`,
+        [companyId, 'Daily Draws'],
+      );
+      const shiftGroupId = shiftGroupResult.rows[0]?.id;
+      if (shiftGroupId != null) {
+        for (const shiftName of ['Morning', 'Day', 'Evening']) {
+          await pool!.query(
+            `INSERT INTO shifts (name, shift_group_id)
+             SELECT $1, $2
+             WHERE NOT EXISTS (
+               SELECT 1 FROM shifts WHERE shift_group_id = $2 AND name = $1
+             )`,
+            [shiftName, shiftGroupId],
+          );
+        }
+      }
+
+      const defaultDraws = [
+        { name: 'Morning Draw', closeTime: '13:00' },
+        { name: 'Day Draw', closeTime: '18:00' },
+        { name: 'Evening Draw', closeTime: '20:00' },
+      ];
+      for (const draw of defaultDraws) {
+        await pool!.query(
+          `INSERT INTO draws (name, company_id, draw_date, close_time, status)
+           SELECT $1, $2, CURRENT_DATE, $3, 'open'
+           WHERE NOT EXISTS (
+             SELECT 1 FROM draws
+             WHERE company_id = $2
+               AND name = $1
+               AND draw_date::date = CURRENT_DATE
+           )`,
+          [draw.name, companyId, draw.closeTime],
+        );
+      }
+    }
 
     return { success: true };
   } catch (error) {
@@ -766,12 +822,13 @@ export async function getDbStatus(): Promise<{
 export async function testDbConnection(
   config: DbConfig,
 ): Promise<{ success: true; version: string } | { success: false; error: string }> {
+  const normalized = normalizeDbConfig(config);
   const testPool = new Pool({
-    host: config.host,
-    port: config.port,
-    user: config.user,
-    password: config.password,
-    database: config.database,
+    host: normalized.host,
+    port: normalized.port,
+    user: normalized.user,
+    password: normalized.password,
+    database: normalized.database,
   });
   try {
     await testPool.query('SELECT 1');

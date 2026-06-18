@@ -20,6 +20,7 @@ export function formatRanges(ticketData: string | null | undefined) {
   return ranges
     .map((range) => {
       const count =
+        range.qty ??
         range.count ??
         (Number(range.to) >= Number(range.from) ? Number(range.to) - Number(range.from) + 1 : 0);
       return `${range.from}–${range.to} (${count})`;

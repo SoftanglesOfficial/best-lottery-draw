@@ -139,6 +139,7 @@ export default function SettingsPage() {
 
 function DatabaseTab({ userRole }: { userRole?: string }) {
   const { showToast } = useToast();
+  const canRunSetup = !userRole || userRole === 'admin';
   const [config, setConfig] = useState<DbConfig>({
     host: 'localhost',
     port: 5432,
@@ -314,7 +315,7 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
         <Button type="submit" allowOffline disabled={loading !== null}>
           {loading === 'connect' ? 'Connecting…' : 'Save & Connect'}
         </Button>
-        {userRole === 'admin' ? (
+        {canRunSetup ? (
           <Button type="button" variant="secondary" allowOffline disabled={loading !== null} onClick={() => void handleSetup()}>
             {loading === 'setup' ? 'Setting up…' : 'Setup Tables & Admin'}
           </Button>

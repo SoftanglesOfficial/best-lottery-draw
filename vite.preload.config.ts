@@ -8,5 +8,13 @@ export default defineConfig({
       formats: ['cjs'],
       fileName: () => 'preload.js',
     },
+    rollupOptions: {
+      external: ['electron'],
+      output: {
+        format: 'cjs',
+        entryFileNames: 'preload.js',
+      },
+    },
+    minify: false,
   },
 });

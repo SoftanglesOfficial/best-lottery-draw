@@ -387,6 +387,13 @@ export interface Api {
   drawsAuditList: (
     drawId: number,
   ) => Promise<{ success: true; logs: AuditLogRecord[] } | { success: false; error: string }>;
+  drawsExtendTime: (
+    drawId: number,
+    userId: number,
+    userRole: UserRole,
+    newCloseTime: string,
+    reason: string,
+  ) => Promise<{ success: true; draw: DrawRecord } | { success: false; error: string }>;
   drawResultsList: (
     drawId: number,
   ) => Promise<{ success: true; results: DrawResultRecord[] } | { success: false; error: string }>;
@@ -593,6 +600,8 @@ const api: Api = {
   drawsUnlock: (id, userId, userRole, clientUpdatedAt) =>
     ipcRenderer.invoke('draws-unlock', id, userId, userRole, clientUpdatedAt),
   drawsAuditList: (drawId) => ipcRenderer.invoke('draws-audit-list', drawId),
+  drawsExtendTime: (drawId, userId, userRole, newCloseTime, reason) =>
+    ipcRenderer.invoke('draws-extend-time', drawId, userId, userRole, newCloseTime, reason),
   drawResultsList: (drawId) => ipcRenderer.invoke('draw-results-list', drawId),
   drawResultsCreate: (drawId, results) => ipcRenderer.invoke('draw-results-create', drawId, results),
   winningTicketsList: (drawId) => ipcRenderer.invoke('winning-tickets-list', drawId),

@@ -72,6 +72,7 @@ import {
   createWinningTickets,
   deleteDraw,
   deleteWinningTicket,
+  extendDrawTime,
   findWinners,
   listDrawAuditLogs,
   listDrawResults,
@@ -164,7 +165,7 @@ const IPC_CHANNELS = [
   'itemSchemes-list', 'itemSchemes-listByItem', 'itemSchemes-create', 'itemSchemes-get',
   'itemSchemes-getPrizes', 'itemSchemes-update', 'itemSchemes-delete',
   'draws-list', 'draws-create', 'draws-update', 'draws-delete', 'draws-lock', 'draws-unlock',
-  'draws-audit-list', 'draw-results-list', 'draw-results-create',
+  'draws-audit-list', 'draws-extend-time', 'draw-results-list', 'draw-results-create',
   'winning-tickets-list', 'winning-tickets-create', 'winning-tickets-delete',
   'winning-tickets-find-winners', 'transactions-search-ticket',
   'transactions-list', 'transactions-next-memo-id', 'transactions-create',
@@ -335,6 +336,17 @@ export function registerIpcHandlers(): void {
       unlockDraw(id, userId, userRole, clientUpdatedAt),
   );
   ipcMain.handle('draws-audit-list', async (_e, drawId: number) => listDrawAuditLogs(drawId));
+  ipcMain.handle(
+    'draws-extend-time',
+    async (
+      _e,
+      drawId: number,
+      userId: number,
+      userRole: UserRole,
+      newCloseTime: string,
+      reason: string,
+    ) => extendDrawTime(drawId, userId, userRole, newCloseTime, reason),
+  );
   ipcMain.handle('draw-results-list', async (_e, drawId: number) => listDrawResults(drawId));
   ipcMain.handle('draw-results-create', async (_e, drawId: number, results: DrawResultInput[]) =>
     createDrawResults(drawId, results),

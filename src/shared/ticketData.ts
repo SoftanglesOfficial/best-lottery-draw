@@ -1,4 +1,13 @@
-export type TicketRange = { from: string | number; to: string | number; count?: number };
+export type TicketRange = {
+  from: string | number;
+  to: string | number;
+  count?: number;
+  qty?: number;
+  itemId?: number;
+  code?: string;
+  rate?: number;
+  amount?: number;
+};
 export type TicketEntry = { number: string };
 
 export function parseTicketData(ticketData: string | null | undefined): {
@@ -42,6 +51,7 @@ export function countFromTicketData(ticketData: string | null | undefined): numb
   const { ranges, tickets } = parseTicketData(ticketData);
   if (ranges.length > 0) {
     return ranges.reduce((sum, range) => {
+      if (range.qty != null) return sum + range.qty;
       if (range.count != null) return sum + range.count;
       const from = Number(range.from);
       const to = Number(range.to);

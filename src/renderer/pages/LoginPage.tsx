@@ -84,6 +84,16 @@ export default function LoginPage() {
           <span className="text-xs text-gray-400">
             First time? Connect in Settings, then run Setup Tables &amp; Admin
           </span>
+          <Button
+            type="button"
+            variant="secondary"
+            allowOffline
+            onClick={() => navigate('/settings')}
+            className="mt-2 inline-flex items-center gap-2"
+          >
+            <Database className="h-4 w-4" />
+            Database Setup
+          </Button>
         </div>
       </footer>
     </div>

@@ -24,6 +24,7 @@ type TransactionListPageProps = {
   showBuyer?: boolean;
   showVoucher?: boolean;
   ticketView?: 'ranges' | 'tickets';
+  showReturnStats?: boolean;
 };
 
 export default function TransactionListPage({
@@ -33,6 +34,7 @@ export default function TransactionListPage({
   showBuyer = false,
   showVoucher = false,
   ticketView = 'ranges',
+  showReturnStats = false,
 }: TransactionListPageProps) {
   const allowed = useRoleGuard(['admin', 'owner', 'manager', 'supervisor', 'data_entry']);
   const { user } = useAuth();
@@ -41,6 +43,7 @@ export default function TransactionListPage({
 
   const [draws, setDraws] = useState<DrawRecord[]>([]);
   const [rows, setRows] = useState<TransactionRecord[]>([]);
+  const [returnRows, setReturnRows] = useState<TransactionRecord[]>([]);
   const [drawFilter, setDrawFilter] = useState('');
   const [partyFilter, setPartyFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -54,24 +57,29 @@ export default function TransactionListPage({
   const load = useCallback(async () => {
     if (companyId == null) {
       setRows([]);
+      setReturnRows([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const [txnResult, drawsResult] = await Promise.all([
+      const returnType = showReturnStats && type === 'sale' ? ('sale_return' as const) : null;
+      const [txnResult, returnsResult, drawsResult] = await Promise.all([
         transactionsList(companyId, undefined, type),
+        returnType ? transactionsList(companyId, undefined, returnType) : Promise.resolve(null),
         drawsList(companyId),
       ]);
       if (txnResult.success) setRows(txnResult.transactions);
       else showToast(txnResult.error, 'error');
+      if (returnsResult?.success) setReturnRows(returnsResult.transactions);
+      else if (returnType) setReturnRows([]);
       if (drawsResult.success) setDraws(drawsResult.draws);
     } catch {
       showToast('Failed to load transactions.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [companyId, type, showToast]);
+  }, [companyId, type, showReturnStats, showToast]);
 
   useEffect(() => {
     if (allowed) void load();
@@ -106,6 +114,32 @@ export default function TransactionListPage({
     }
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [rows, showProvider, showBuyer]);
+
+  const buyerDrawStats = useMemo(() => {
+    const soldTotals = new Map<string, number>();
+    const returnedTotals = new Map<string, number>();
+
+    for (const row of rows) {
+      if (row.buyerId == null || row.drawId == null) continue;
+      const key = `${row.buyerId}-${row.drawId}`;
+      soldTotals.set(key, (soldTotals.get(key) ?? 0) + (row.ticketCount ?? 0));
+    }
+
+    for (const row of returnRows) {
+      if (row.buyerId == null || row.drawId == null) continue;
+      const key = `${row.buyerId}-${row.drawId}`;
+      returnedTotals.set(key, (returnedTotals.get(key) ?? 0) + (row.ticketCount ?? 0));
+    }
+
+    return { soldTotals, returnedTotals };
+  }, [rows, returnRows]);
+
+  const tableColumnCount =
+    6 +
+    (showVoucher ? 1 : 0) +
+    (showProvider ? 1 : 0) +
+    (showBuyer ? 1 : 0) +
+    (showReturnStats ? 2 : 0);
 
   const handleDelete = async () => {
     if (!deleteTarget || !user) return;
@@ -195,13 +229,32 @@ export default function TransactionListPage({
                 {showBuyer ? <th className="px-4 py-3">Buyer</th> : null}
                 <th className="px-4 py-3">Draw</th>
                 <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Tickets</th>
+                {showReturnStats ? (
+                  <>
+                    <th className="px-4 py-3 text-right">Sold</th>
+                    <th className="px-4 py-3 text-right">Returned</th>
+                    <th className="px-4 py-3 text-right">Net</th>
+                  </>
+                ) : (
+                  <th className="px-4 py-3">Tickets</th>
+                )}
                 <th className="px-4 py-3">Amount</th>
                 <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((row) => (
+              {filtered.map((row) => {
+                const statsKey =
+                  row.buyerId != null && row.drawId != null
+                    ? `${row.buyerId}-${row.drawId}`
+                    : null;
+                const soldTotal = statsKey ? (buyerDrawStats.soldTotals.get(statsKey) ?? 0) : 0;
+                const returnedTotal = statsKey
+                  ? (buyerDrawStats.returnedTotals.get(statsKey) ?? 0)
+                  : 0;
+                const netTotal = soldTotal - returnedTotal;
+
+                return (
                 <Fragment key={row.id}>
                   <tr className="border-b hover:bg-gray-50">
                     <td className="px-4 py-3">{row.memoId ?? '—'}</td>
@@ -210,7 +263,21 @@ export default function TransactionListPage({
                     {showBuyer ? <td className="px-4 py-3">{row.buyerName ?? '—'}</td> : null}
                     <td className="px-4 py-3">{row.drawName ?? '—'}</td>
                     <td className="px-4 py-3">{formatTxnDate(row.enteredAt)}</td>
-                    <td className="px-4 py-3">{row.ticketCount ?? '—'}</td>
+                    {showReturnStats ? (
+                      <>
+                        <td className="px-4 py-3 text-right">{row.ticketCount ?? '—'}</td>
+                        <td
+                          className={`px-4 py-3 text-right ${
+                            returnedTotal > 0 ? 'font-medium text-red-600' : ''
+                          }`}
+                        >
+                          {returnedTotal}
+                        </td>
+                        <td className="px-4 py-3 text-right">{netTotal}</td>
+                      </>
+                    ) : (
+                      <td className="px-4 py-3">{row.ticketCount ?? '—'}</td>
+                    )}
                     <td className="px-4 py-3">{formatAmount(row.amount)}</td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
@@ -235,12 +302,7 @@ export default function TransactionListPage({
                   </tr>
                   {expandedId === row.id ? (
                     <tr className="bg-gray-50">
-                      <td
-                        colSpan={
-                          5 + (showVoucher ? 1 : 0) + (showProvider ? 1 : 0) + (showBuyer ? 1 : 0)
-                        }
-                        className="px-4 py-3"
-                      >
+                      <td colSpan={tableColumnCount} className="px-4 py-3">
                         {ticketView === 'ranges' ? (
                           <p className="text-sm text-gray-700">{formatRanges(row.ticketData)}</p>
                         ) : (
@@ -259,7 +321,8 @@ export default function TransactionListPage({
                     </tr>
                   ) : null}
                 </Fragment>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           {filtered.length === 0 ? (

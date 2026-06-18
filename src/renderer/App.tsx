@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './components/AppShell';
 import { ProtectedRoute, ActiveCompanyRoute, PublicRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './lib/auth';
@@ -47,9 +47,11 @@ import SessionTimeout from './components/SessionTimeout';
 import { ConnectionProvider } from './lib/ConnectionContext';
 import SettingsPage from './pages/SettingsPage';
 
+const AppRouter = window.location.protocol === 'file:' ? HashRouter : BrowserRouter;
+
 export default function App() {
   return (
-    <BrowserRouter>
+    <AppRouter>
       <AuthProvider>
         <ToastProvider>
         <ConnectionProvider>
@@ -120,6 +122,6 @@ export default function App() {
         </ConnectionProvider>
         </ToastProvider>
       </AuthProvider>
-    </BrowserRouter>
+    </AppRouter>
   );
 }

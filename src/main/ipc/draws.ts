@@ -635,6 +635,64 @@ export async function findWinners(drawId: number) {
   }
 }
 
+export async function extendDrawTime(
+  drawId: number,
+  userId: number,
+  userRole: UserRole,
+  newCloseTime: string,
+  reason: string,
+) {
+  const connection = await ensureConnected();
+  if (!connection.success) {
+    return { success: false as const, error: connection.error ?? 'Database is not connected' };
+  }
+  if (userRole !== 'admin') {
+    return { success: false as const, error: 'Only admin can extend draw time.' };
+  }
+  const trimmedReason = reason.trim();
+  if (!trimmedReason) {
+    return { success: false as const, error: 'Reason is required.' };
+  }
+  const trimmedTime = newCloseTime.trim();
+  if (!trimmedTime) {
+    return { success: false as const, error: 'New close time is required.' };
+  }
+
+  try {
+    const db = getDb();
+    const existing = await getDrawById(drawId);
+    if (!existing) return { success: false as const, error: 'Draw not found' };
+    if (existing.status !== 'open') {
+      return { success: false as const, error: 'Only open draws can have their close time extended.' };
+    }
+
+    const oldCloseTime = existing.closeTime ?? '';
+    const [updated] = await db
+      .update(draws)
+      .set({ closeTime: trimmedTime, updatedAt: new Date() })
+      .where(eq(draws.id, drawId))
+      .returning();
+
+    if (!updated) return { success: false as const, error: 'Failed to update draw.' };
+
+    await insertAuditLog(
+      userId,
+      'DRAW_TIME_EXTENDED',
+      'draws',
+      drawId,
+      JSON.stringify({ from: oldCloseTime, to: trimmedTime, reason: trimmedReason }),
+    );
+
+    const draw = await fetchDrawRecord(drawId);
+    return { success: true as const, draw: draw! };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: formatDbError(error),
+    };
+  }
+}
+
 export async function listDrawAuditLogs(drawId: number) {
   const connection = await ensureConnected();
   if (!connection.success) {

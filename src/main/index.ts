@@ -27,13 +27,13 @@ if (started) {
 }
 
 if (app.isPackaged) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { updateElectronApp } = require('update-electron-app');
-    updateElectronApp({ updateInterval: '1 hour' });
-  } catch {
-    console.warn('Auto-updater not available');
-  }
+  void import('update-electron-app')
+    .then(({ updateElectronApp }) => {
+      updateElectronApp({ updateInterval: '1 hour' });
+    })
+    .catch(() => {
+      console.warn('Auto-updater not available');
+    });
 }
 
 let mainWindow: BrowserWindow | null = null;
@@ -157,13 +157,22 @@ const createWindow = () => {
     minHeight: 768,
     title: 'Best-12 — Morning Booking',
     webPreferences: {
-      preload: path.join(__dirname, 'index.js'),
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      devTools: !app.isPackaged,
     },
   });
 
   registerWindowHandlers(mainWindow);
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
+    console.error('Failed to load renderer:', errorCode, errorDescription, validatedURL);
+    const html = encodeURIComponent(
+      `<h1>Failed to load app</h1><p>Error: ${errorDescription}</p><p>Code: ${errorCode}</p><p>URL: ${validatedURL}</p>`,
+    );
+    void mainWindow?.loadURL(`data:text/html;charset=utf-8,${html}`);
+  });
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);

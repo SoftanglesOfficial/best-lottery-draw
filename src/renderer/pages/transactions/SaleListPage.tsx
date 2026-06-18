@@ -2,6 +2,12 @@ import TransactionListPage from '../../components/transactions/TransactionListPa
 
 export default function SaleListPage() {
   return (
-    <TransactionListPage title="Sale List" type="sale" showBuyer ticketView="tickets" />
+    <TransactionListPage
+      title="Sale List"
+      type="sale"
+      showBuyer
+      ticketView="tickets"
+      showReturnStats
+    />
   );
 }

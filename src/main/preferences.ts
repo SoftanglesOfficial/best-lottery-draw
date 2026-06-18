@@ -1,4 +1,4 @@
-import Store from 'electron-store';
+import { getConfigValue, setConfigValue } from './configStore';
 
 export interface WindowBounds {
   x?: number;
@@ -16,49 +16,46 @@ export interface AppPreferences {
   networkMode: NetworkMode;
 }
 
-const preferencesStore = new Store<AppPreferences>({
-  name: 'app-preferences',
-  defaults: {
-    autoBackup: false,
-    lastBackupDate: null,
-    windowBounds: null,
-    networkMode: 'client',
-  },
-});
+const DEFAULTS: AppPreferences = {
+  autoBackup: false,
+  lastBackupDate: null,
+  windowBounds: null,
+  networkMode: 'client',
+};
 
 export function getPreferences(): AppPreferences {
   return {
-    autoBackup: preferencesStore.get('autoBackup', false),
-    lastBackupDate: preferencesStore.get('lastBackupDate', null),
-    windowBounds: preferencesStore.get('windowBounds', null),
-    networkMode: preferencesStore.get('networkMode', 'client'),
+    autoBackup: getConfigValue('autoBackup', DEFAULTS.autoBackup),
+    lastBackupDate: getConfigValue('lastBackupDate', DEFAULTS.lastBackupDate),
+    windowBounds: getConfigValue('windowBounds', DEFAULTS.windowBounds),
+    networkMode: getConfigValue('networkMode', DEFAULTS.networkMode),
   };
 }
 
 export function setAutoBackup(enabled: boolean): void {
-  preferencesStore.set('autoBackup', enabled);
+  setConfigValue('autoBackup', enabled);
 }
 
 export function setLastBackupDate(date: string): void {
-  preferencesStore.set('lastBackupDate', date);
+  setConfigValue('lastBackupDate', date);
 }
 
 export function setWindowBounds(bounds: WindowBounds): void {
-  preferencesStore.set('windowBounds', bounds);
+  setConfigValue('windowBounds', bounds);
 }
 
 export function getAutoBackupEnabled(): boolean {
-  return preferencesStore.get('autoBackup', false);
+  return getConfigValue('autoBackup', DEFAULTS.autoBackup);
 }
 
 export function getLastBackupDate(): string | null {
-  return preferencesStore.get('lastBackupDate', null);
+  return getConfigValue('lastBackupDate', DEFAULTS.lastBackupDate);
 }
 
 export function getNetworkMode(): NetworkMode {
-  return preferencesStore.get('networkMode', 'client');
+  return getConfigValue('networkMode', DEFAULTS.networkMode);
 }
 
 export function setNetworkMode(mode: NetworkMode): void {
-  preferencesStore.set('networkMode', mode);
+  setConfigValue('networkMode', mode);
 }

@@ -15,6 +15,7 @@ import {
   drawsAuditList,
   drawsCreate,
   drawsDelete,
+  drawsExtendTime,
   drawsList,
   drawsLock,
   drawsUnlock,
@@ -79,8 +80,45 @@ export default function DrawsPage() {
   const [historyDraw, setHistoryDraw] = useState<DrawRecord | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [extendTarget, setExtendTarget] = useState<DrawRecord | null>(null);
+  const [extendNewTime, setExtendNewTime] = useState('');
+  const [extendReason, setExtendReason] = useState('');
+  const [extending, setExtending] = useState(false);
 
+  const isAdmin = user?.role === 'admin';
   const canUnlock = user ? isAdminOrOwner(user.role) : false;
+
+  const openExtendTime = (draw: DrawRecord) => {
+    setExtendTarget(draw);
+    setExtendNewTime(draw.closeTime ?? '');
+    setExtendReason('');
+  };
+
+  const handleExtendTime = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!extendTarget || !user) return;
+    setExtending(true);
+    try {
+      const result = await drawsExtendTime(
+        extendTarget.id,
+        user.id,
+        user.role,
+        extendNewTime,
+        extendReason,
+      );
+      if (result.success) {
+        showToast('Draw close time extended.', 'success');
+        setDraws((prev) => prev.map((row) => (row.id === result.draw.id ? result.draw : row)));
+        setExtendTarget(null);
+      } else {
+        showToast(result.error, 'error');
+      }
+    } catch {
+      showToast('Failed to extend draw time.', 'error');
+    } finally {
+      setExtending(false);
+    }
+  };
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
     if (companyId == null) {
@@ -334,6 +372,15 @@ export default function DrawsPage() {
                 {lockLabel}
               </button>
             )}
+            {isAdmin && row.status === 'open' ? (
+              <button
+                type="button"
+                className="text-indigo-600 hover:underline"
+                onClick={() => openExtendTime(row)}
+              >
+                Extend Time
+              </button>
+            ) : null}
             <button
               type="button"
               className="text-gray-600 hover:text-indigo-600"
@@ -475,6 +522,43 @@ export default function DrawsPage() {
           onCancel={() => setDeleteTarget(null)}
           confirmLabel="Delete"
         />
+      ) : null}
+
+      {extendTarget ? (
+        <Modal title={`Extend Time — ${extendTarget.name}`} onClose={() => setExtendTarget(null)}>
+          <form onSubmit={handleExtendTime} className="flex flex-col gap-4">
+            <Input
+              label="Current Close Time"
+              value={extendTarget.closeTime ?? '—'}
+              readOnly
+            />
+            <Input
+              label="New Close Time *"
+              type="time"
+              required
+              value={extendNewTime}
+              onChange={(event) => setExtendNewTime(event.target.value)}
+            />
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium text-gray-700">Reason *</span>
+              <textarea
+                required
+                value={extendReason}
+                onChange={(event) => setExtendReason(event.target.value)}
+                className="min-h-[80px] rounded border border-gray-300 px-3 py-2 text-sm"
+                placeholder="Why is the close time being extended?"
+              />
+            </label>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setExtendTarget(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={extending}>
+                {extending ? 'Saving…' : 'Confirm'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
       ) : null}
 
       {historyDraw && (

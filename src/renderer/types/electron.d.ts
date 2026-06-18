@@ -397,6 +397,13 @@ interface Api {
   drawsAuditList: (
     drawId: number,
   ) => Promise<{ success: true; logs: AuditLogRecord[] } | { success: false; error: string }>;
+  drawsExtendTime: (
+    drawId: number,
+    userId: number,
+    userRole: UserRole,
+    newCloseTime: string,
+    reason: string,
+  ) => Promise<{ success: true; draw: DrawRecord } | { success: false; error: string }>;
   drawResultsList: (
     drawId: number,
   ) => Promise<{ success: true; results: DrawResultRecord[] } | { success: false; error: string }>;

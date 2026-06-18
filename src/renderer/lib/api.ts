@@ -472,6 +472,16 @@ export function drawsAuditList(drawId: number) {
   return api.drawsAuditList(drawId);
 }
 
+export function drawsExtendTime(
+  drawId: number,
+  userId: number,
+  userRole: UserRole,
+  newCloseTime: string,
+  reason: string,
+) {
+  return api.drawsExtendTime(drawId, userId, userRole, newCloseTime, reason);
+}
+
 export function drawResultsList(drawId: number) {
   return api.drawResultsList(drawId);
 }
