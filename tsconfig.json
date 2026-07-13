@@ -17,5 +17,5 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": ["src/**/*", "forge.config.ts", "forge.env.d.ts", "drizzle.config.ts", "vite.*.ts"]
+  "include": ["src/**/*", "forge.config.ts", "forge.env.d.ts", "vite.*.ts"]
 }
