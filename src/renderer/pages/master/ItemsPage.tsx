@@ -88,6 +88,10 @@ export default function ItemsPage() {
 
   const openCreate = () => {
     if (companyId == null) return;
+    if (itemGroups.length === 0) {
+      showToast('Create an item group under Master → Item Groups first.', 'error');
+      return;
+    }
     setEditing(null);
     setForm(emptyForm(companyId, itemGroups[0]?.id ?? 0));
     setModalOpen(true);
@@ -220,7 +224,7 @@ export default function ItemsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Items</h1>
-        <Button type="button" onClick={openCreate} disabled={itemGroups.length === 0}>
+        <Button type="button" onClick={openCreate}>
           New Item
         </Button>
       </div>
@@ -285,7 +289,6 @@ export default function ItemsPage() {
               label="₹ Rate"
               type="number"
               step="0.01"
-              className="text-right"
               value={form.rate ?? ''}
               onChange={(e) =>
                 setForm({ ...form, rate: e.target.value === '' ? null : Number(e.target.value) })
@@ -295,7 +298,6 @@ export default function ItemsPage() {
               label="₹ MRP"
               type="number"
               step="0.01"
-              className="text-right"
               value={form.mrp ?? ''}
               onChange={(e) =>
                 setForm({ ...form, mrp: e.target.value === '' ? null : Number(e.target.value) })
@@ -305,7 +307,6 @@ export default function ItemsPage() {
               label="₹ Rate per 100"
               type="number"
               step="0.01"
-              className="text-right"
               value={form.ratePer100 ?? ''}
               onChange={(e) =>
                 setForm({
@@ -322,7 +323,6 @@ export default function ItemsPage() {
             <Input
               label="No. of Series"
               type="number"
-              className="text-right"
               value={form.noOfSeries ?? ''}
               onChange={(e) =>
                 setForm({
@@ -339,7 +339,6 @@ export default function ItemsPage() {
             <Input
               label="Length"
               type="number"
-              className="text-right"
               value={form.length ?? ''}
               onChange={(e) =>
                 setForm({ ...form, length: e.target.value === '' ? null : Number(e.target.value) })

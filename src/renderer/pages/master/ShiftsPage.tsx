@@ -87,6 +87,10 @@ export default function ShiftsPage() {
   }, [allowed, loadShifts]);
 
   const openCreate = () => {
+    if (groups.length === 0) {
+      showToast('Create a shift group under Master → Shift Groups first.', 'error');
+      return;
+    }
     setEditing(null);
     setForm({
       name: '',
@@ -182,7 +186,7 @@ export default function ShiftsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Shifts</h1>
-        <Button type="button" onClick={openCreate} disabled={groups.length === 0}>
+        <Button type="button" onClick={openCreate}>
           New Shift
         </Button>
       </div>

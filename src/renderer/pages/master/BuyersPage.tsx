@@ -88,6 +88,10 @@ export default function BuyersPage() {
 
   const openCreate = () => {
     if (companyId == null) return;
+    if (groups.length === 0) {
+      showToast('Create a buyer group under Master → Buyer Groups first.', 'error');
+      return;
+    }
     setEditing(null);
     setForm(emptyForm(companyId, groups[0]?.id ?? 0));
     setModalOpen(true);
@@ -247,7 +251,7 @@ export default function BuyersPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Buyers</h1>
-        <Button type="button" onClick={openCreate} disabled={groups.length === 0}>
+        <Button type="button" onClick={openCreate}>
           New Buyer
         </Button>
       </div>
@@ -298,7 +302,6 @@ export default function BuyersPage() {
               label="₹ Sale Rate"
               type="number"
               step="0.01"
-              className="text-right"
               value={form.saleRate ?? ''}
               onChange={(e) =>
                 setForm({
@@ -311,7 +314,6 @@ export default function BuyersPage() {
               label="₹ Commission"
               type="number"
               step="0.01"
-              className="text-right"
               value={form.commission ?? ''}
               onChange={(e) =>
                 setForm({

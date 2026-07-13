@@ -76,6 +76,10 @@ export default function ProvidersPage() {
 
   const openCreate = () => {
     if (companyId == null) return;
+    if (groups.length === 0) {
+      showToast('Create a provider group under Master → Provider Groups first.', 'error');
+      return;
+    }
     setEditing(null);
     setForm(emptyForm(companyId, groups[0]?.id ?? 0));
     setModalOpen(true);
@@ -227,7 +231,7 @@ export default function ProvidersPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Providers</h1>
-        <Button type="button" onClick={openCreate} disabled={groups.length === 0}>
+        <Button type="button" onClick={openCreate}>
           New Provider
         </Button>
       </div>
@@ -267,7 +271,6 @@ export default function ProvidersPage() {
               label="₹ Purchase Rate"
               type="number"
               step="0.01"
-              className="text-right"
               value={form.purchaseRate ?? ''}
               onChange={(e) =>
                 setForm({
@@ -280,7 +283,6 @@ export default function ProvidersPage() {
               label="₹ Commission"
               type="number"
               step="0.01"
-              className="text-right"
               value={form.commission ?? ''}
               onChange={(e) =>
                 setForm({
