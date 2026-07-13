@@ -76,6 +76,10 @@ export function authLogin(username: string, password: string) {
   return api.authLogin(username, password);
 }
 
+export function authLogout() {
+  return api.authLogout();
+}
+
 export function authCreateUser(data: UserInput) {
   return api.authCreateUser(data);
 }
@@ -186,8 +190,8 @@ export function backupsCreate(companyId: number, userId: number) {
   return api.backupsCreate(companyId, userId);
 }
 
-export function backupsRestore(userId: number, filePath?: string) {
-  return api.backupsRestore(userId, filePath);
+export function backupsRestore(filePath?: string) {
+  return api.backupsRestore(filePath);
 }
 
 export function backupsList() {
@@ -459,13 +463,8 @@ export function drawsLock(id: number, userId: number, clientUpdatedAt?: number |
   return api.drawsLock(id, userId, clientUpdatedAt);
 }
 
-export function drawsUnlock(
-  id: number,
-  userId: number,
-  userRole: UserRole,
-  clientUpdatedAt?: number | string | null,
-) {
-  return api.drawsUnlock(id, userId, userRole, clientUpdatedAt);
+export function drawsUnlock(id: number, clientUpdatedAt?: number | string | null) {
+  return api.drawsUnlock(id, clientUpdatedAt);
 }
 
 export function drawsAuditList(drawId: number) {
@@ -526,8 +525,8 @@ export function transactionsUpdate(id: number, data: TransactionInput, userRole:
   return api.transactionsUpdate(id, data, userRole);
 }
 
-export function transactionsDelete(id: number, userId: number, userRole: UserRole) {
-  return api.transactionsDelete(id, userId, userRole);
+export function transactionsDelete(id: number) {
+  return api.transactionsDelete(id);
 }
 
 export function transactionsValidateTicketsSold(drawId: number, ticketNumbers: string[]) {

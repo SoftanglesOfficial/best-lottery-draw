@@ -3,6 +3,7 @@ import { ensureConnected, getDb } from '../db';
 import { buyers, draws, providers, transactions, users } from '../schema';
 import { formatDbError } from './ipcUtils';
 import { validateDrawOpen } from './drawValidation';
+import type { SessionContext } from './sessionContext';
 import { countFromTicketData, extractTicketNumbers, parseTicketData } from './transactionUtils';
 import type {
   BuyerSaleSummary,
@@ -458,13 +459,12 @@ export async function updateTransaction(
   }
 }
 
-export async function deleteTransaction(id: number, userId: number, userRole: UserRole) {
-  void userId;
+export async function deleteTransaction(id: number, ctx: SessionContext) {
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
   }
-  if (userRole === 'data_entry') {
+  if (ctx.role === 'data_entry') {
     return {
       success: false as const,
       error: 'You do not have permission to delete transactions',

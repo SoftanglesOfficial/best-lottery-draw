@@ -231,7 +231,7 @@ export default function DrawResultsPage() {
                           next[index] = { ...row, prizeAmount: event.target.value };
                           setManualRows(next);
                         }}
-                        className="w-28 rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                        className="w-28 rounded border border-gray-300 px-2 py-1 text-left text-sm"
                       />
                     </td>
                   </tr>

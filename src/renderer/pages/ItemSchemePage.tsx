@@ -282,7 +282,7 @@ export default function ItemSchemePage() {
                     <td className="px-3 py-2">
                       <input
                         type="number"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
                         value={prize.prizeNoLength ?? ''}
                         onChange={(e) => updatePrize(index, 'prizeNoLength', e.target.value)}
                       />
@@ -290,7 +290,7 @@ export default function ItemSchemePage() {
                     <td className="px-3 py-2">
                       <input
                         type="number"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
                         value={prize.noOfResult ?? ''}
                         onChange={(e) => updatePrize(index, 'noOfResult', e.target.value)}
                       />
@@ -299,7 +299,7 @@ export default function ItemSchemePage() {
                       <input
                         type="number"
                         step="0.01"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
                         value={prize.prizeAmount ?? ''}
                         onChange={(e) => updatePrize(index, 'prizeAmount', e.target.value)}
                       />
@@ -308,7 +308,7 @@ export default function ItemSchemePage() {
                       <input
                         type="number"
                         step="0.01"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
                         value={prize.bonusReceivable ?? ''}
                         onChange={(e) => updatePrize(index, 'bonusReceivable', e.target.value)}
                       />
@@ -317,7 +317,7 @@ export default function ItemSchemePage() {
                       <input
                         type="number"
                         step="0.01"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
                         value={prize.bonusPayable ?? ''}
                         onChange={(e) => updatePrize(index, 'bonusPayable', e.target.value)}
                       />
@@ -326,7 +326,7 @@ export default function ItemSchemePage() {
                       <input
                         type="number"
                         step="0.01"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
                         value={prize.incentiveReceivable ?? ''}
                         onChange={(e) => updatePrize(index, 'incentiveReceivable', e.target.value)}
                       />
@@ -335,7 +335,7 @@ export default function ItemSchemePage() {
                       <input
                         type="number"
                         step="0.01"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm"
+                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
                         value={prize.incentivePayable ?? ''}
                         onChange={(e) => updatePrize(index, 'incentivePayable', e.target.value)}
                       />

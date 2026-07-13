@@ -45,11 +45,10 @@ export default function DrawResultsListPage() {
     try {
       const result = await drawsList(companyId);
       if (result.success) {
-        const imported = result.draws.filter((draw) => draw.resultImported);
-        setDraws(imported);
+        setDraws(result.draws);
         setSelectedDrawId((current) => {
-          if (current && imported.some((draw) => draw.id === current)) return current;
-          return imported[0]?.id ?? null;
+          if (current && result.draws.some((draw) => draw.id === current)) return current;
+          return result.draws[0]?.id ?? null;
         });
       } else {
         showToast(result.error, 'error');
@@ -93,9 +92,15 @@ export default function DrawResultsListPage() {
     return Array.from(map.entries()).sort(([a], [b]) => a - b);
   }, [results]);
 
+  const selectedDraw = draws.find((draw) => draw.id === selectedDrawId) ?? null;
+
   const handleFindWinners = async () => {
     if (selectedDrawId == null) {
-      showToast('Select a draw with imported results first.', 'error');
+      showToast('Select a draw first.', 'error');
+      return;
+    }
+    if (!selectedDraw?.resultImported) {
+      showToast('Import results for this draw on the Draws page first.', 'error');
       return;
     }
     setFinding(true);
@@ -136,6 +141,7 @@ export default function DrawResultsListPage() {
           {draws.map((draw) => (
             <option key={draw.id} value={draw.id}>
               {draw.name}
+              {draw.resultImported ? '' : ' (no results imported)'}
             </option>
           ))}
         </select>
@@ -143,8 +149,14 @@ export default function DrawResultsListPage() {
 
       {loading ? (
         <p className="text-sm text-gray-500">Loading…</p>
+      ) : draws.length === 0 ? (
+        <p className="text-sm text-gray-500">No draws found. Create draws on the Draws page.</p>
       ) : selectedDrawId == null ? (
-        <p className="text-sm text-gray-500">Select a draw with imported results.</p>
+        <p className="text-sm text-gray-500">Select a draw.</p>
+      ) : !selectedDraw?.resultImported ? (
+        <p className="text-sm text-gray-500">
+          Results not imported for this draw. Go to Draws and use Import Results.
+        </p>
       ) : grouped.length === 0 ? (
         <p className="text-sm text-gray-500">No results for this draw.</p>
       ) : (

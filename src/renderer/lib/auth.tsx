@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authLogin, userSetActiveCompany } from './api';
+import { authLogin, authLogout, userSetActiveCompany } from './api';
 import type { SessionUser } from '../../shared/types';
 
 interface AuthContextValue {
@@ -65,7 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true, redirectTo: '/open-company' as const };
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    await authLogout();
     setUser(null);
     setActiveCompanyName(null);
     navigate('/');

@@ -419,7 +419,7 @@ function BackupTab({ companyId, userId }: { companyId?: number | null; userId?: 
     if (userId == null) return;
     setRestoring(true);
     try {
-      const result = await backupsRestore(userId);
+      const result = await backupsRestore();
       if (result.success) showToast(result.message, 'success');
       else showToast(result.error ?? 'Restore cancelled', 'error');
     } finally {

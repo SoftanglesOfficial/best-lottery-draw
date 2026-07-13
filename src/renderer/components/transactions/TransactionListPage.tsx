@@ -143,7 +143,7 @@ export default function TransactionListPage({
 
   const handleDelete = async () => {
     if (!deleteTarget || !user) return;
-    const result = await transactionsDelete(deleteTarget.id, user.id, user.role);
+    const result = await transactionsDelete(deleteTarget.id);
     if (result.success) {
       showToast('Transaction deleted.', 'success');
       setDeleteTarget(null);

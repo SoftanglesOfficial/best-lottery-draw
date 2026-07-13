@@ -3,6 +3,7 @@ import path from 'node:path';
 import { app, dialog } from 'electron';
 import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
+import type { SessionContext } from './sessionContext';
 import {
   auditLogs,
   backups,
@@ -234,8 +235,10 @@ function validateBackup(data: unknown): data is Record<string, unknown> {
   return required.every((key) => key in record);
 }
 
-export async function restoreBackup(userId: number, filePath?: string) {
-  void userId;
+export async function restoreBackup(ctx: SessionContext, filePath?: string) {
+  if (ctx.role !== 'admin' && ctx.role !== 'owner') {
+    return { success: false as const, error: 'Only admin or owner can restore backups.' };
+  }
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };

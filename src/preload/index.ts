@@ -51,16 +51,21 @@ import type {
   ReportsDashboardData,
   UserInput,
   UserRecord,
+  LoginResult,
 } from '../shared/types';
+
+let sessionToken: string | null = null;
+
+function invokeWithSession(channel: string, ...args: unknown[]) {
+  return ipcRenderer.invoke(channel, ...args, sessionToken);
+}
 
 export interface Api {
   dbGetConfig: () => Promise<DbConfig>;
   dbConnect: (config: DbConfig) => Promise<{ success: boolean; error?: string }>;
   dbSetup: () => Promise<{ success: boolean; error?: string }>;
-  authLogin: (
-    username: string,
-    password: string,
-  ) => Promise<{ success: true; user: AuthUser } | { success: false; error: string }>;
+  authLogin: (username: string, password: string) => Promise<LoginResult>;
+  authLogout: () => Promise<{ success: true } | { success: false; error: string }>;
   authCreateUser: (
     data: UserInput,
   ) => Promise<{ success: true; user: UserRecord } | { success: false; error: string }>;
@@ -175,7 +180,6 @@ export interface Api {
     | { success: false; error?: string }
   >;
   backupsRestore: (
-    userId: number,
     filePath?: string,
   ) => Promise<
     | { success: true; message: string }
@@ -380,8 +384,6 @@ export interface Api {
   ) => Promise<{ success: true; draw: DrawRecord } | { success: false; error: string }>;
   drawsUnlock: (
     id: number,
-    userId: number,
-    userRole: UserRole,
     clientUpdatedAt?: number | string | null,
   ) => Promise<{ success: true; draw: DrawRecord } | { success: false; error: string }>;
   drawsAuditList: (
@@ -441,8 +443,6 @@ export interface Api {
   ) => Promise<{ success: true; transaction: TransactionRecord } | { success: false; error: string }>;
   transactionsDelete: (
     id: number,
-    userId: number,
-    userRole: UserRole,
   ) => Promise<{ success: true } | { success: false; error: string }>;
   transactionsValidateTicketsSold: (
     drawId: number,
@@ -464,7 +464,21 @@ const api: Api = {
   dbGetConfig: () => ipcRenderer.invoke('db-get-config'),
   dbConnect: (config) => ipcRenderer.invoke('db-connect', config),
   dbSetup: () => ipcRenderer.invoke('db-setup'),
-  authLogin: (username, password) => ipcRenderer.invoke('auth-login', username, password),
+  authLogin: async (username, password) => {
+    const result = await ipcRenderer.invoke('auth-login', username, password);
+    if (result.success && result.sessionToken) {
+      sessionToken = result.sessionToken;
+    }
+    return result;
+  },
+  authLogout: async () => {
+    if (sessionToken) {
+      const result = await ipcRenderer.invoke('auth-logout', sessionToken);
+      sessionToken = null;
+      return result;
+    }
+    return { success: true as const };
+  },
   authCreateUser: (data) => ipcRenderer.invoke('auth-create-user', data),
   authGetUsers: (companyId) => ipcRenderer.invoke('auth-get-users', companyId),
   authGetAllUsers: () => ipcRenderer.invoke('auth-get-all-users'),
@@ -501,7 +515,7 @@ const api: Api = {
     ipcRenderer.invoke('ledger-all-summary', companyId, dateFrom, dateTo),
   auditLogsList: (filters) => ipcRenderer.invoke('audit-logs-list', filters),
   backupsCreate: (companyId, userId) => ipcRenderer.invoke('backups-create', companyId, userId),
-  backupsRestore: (userId, filePath) => ipcRenderer.invoke('backups-restore', userId, filePath),
+  backupsRestore: (filePath) => invokeWithSession('backups-restore', filePath),
   backupsList: () => ipcRenderer.invoke('backups-list'),
   dbGetStatus: () => ipcRenderer.invoke('db-get-status'),
   dbTestConnection: (config) => ipcRenderer.invoke('db-test-connection', config),
@@ -597,8 +611,7 @@ const api: Api = {
   drawsDelete: (id) => ipcRenderer.invoke('draws-delete', id),
   drawsLock: (id, userId, clientUpdatedAt) =>
     ipcRenderer.invoke('draws-lock', id, userId, clientUpdatedAt),
-  drawsUnlock: (id, userId, userRole, clientUpdatedAt) =>
-    ipcRenderer.invoke('draws-unlock', id, userId, userRole, clientUpdatedAt),
+  drawsUnlock: (id, clientUpdatedAt) => invokeWithSession('draws-unlock', id, clientUpdatedAt),
   drawsAuditList: (drawId) => ipcRenderer.invoke('draws-audit-list', drawId),
   drawsExtendTime: (drawId, userId, userRole, newCloseTime, reason) =>
     ipcRenderer.invoke('draws-extend-time', drawId, userId, userRole, newCloseTime, reason),
@@ -618,8 +631,7 @@ const api: Api = {
   transactionsCreate: (data) => ipcRenderer.invoke('transactions-create', data),
   transactionsUpdate: (id, data, userRole) =>
     ipcRenderer.invoke('transactions-update', id, data, userRole),
-  transactionsDelete: (id, userId, userRole) =>
-    ipcRenderer.invoke('transactions-delete', id, userId, userRole),
+  transactionsDelete: (id) => invokeWithSession('transactions-delete', id),
   transactionsValidateTicketsSold: (drawId, ticketNumbers) =>
     ipcRenderer.invoke('transactions-validate-tickets-sold', drawId, ticketNumbers),
   transactionsGetBuyerSaleSummary: (buyerId, drawId) =>

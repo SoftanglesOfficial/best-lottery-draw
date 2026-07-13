@@ -65,7 +65,7 @@ export default function TicketRangeTable({ rows, onChange, onActiveRowChange }: 
                   value={row.from}
                   onChange={(event) => updateRow(index, { from: event.target.value.replace(/\D/g, '').slice(0, 5) })}
                   onFocus={() => onActiveRowChange?.(index)}
-                  className="w-28 rounded border border-gray-300 px-2 py-1 font-mono text-right"
+                  className="w-28 rounded border border-gray-300 px-2 py-1 font-mono text-left"
                   inputMode="numeric"
                 />
               </td>
@@ -87,7 +87,7 @@ export default function TicketRangeTable({ rows, onChange, onActiveRowChange }: 
                       removeRow(index);
                     }
                   }}
-                  className="w-28 rounded border border-gray-300 px-2 py-1 font-mono text-right"
+                  className="w-28 rounded border border-gray-300 px-2 py-1 font-mono text-left"
                   inputMode="numeric"
                 />
               </td>

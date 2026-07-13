@@ -164,7 +164,7 @@ export default function TicketNumberTable({
                         removeRow(index);
                       }
                     }}
-                    className={`w-32 rounded border px-2 py-1 font-mono text-right ${borderClass}`}
+                    className={`w-32 rounded border px-2 py-1 font-mono text-left ${borderClass}`}
                     inputMode="numeric"
                     maxLength={TICKET_NUMBER_LENGTH}
                     aria-invalid={showInvalidError || isDuplicate}

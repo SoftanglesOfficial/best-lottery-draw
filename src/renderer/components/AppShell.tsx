@@ -29,6 +29,8 @@ function isNavItemActive(navPath: string, pathname: string): boolean {
 }
 
 function NavSection({ title, items }: { title: string; items: NavItem[] }) {
+  const location = useLocation();
+
   if (items.length === 0) {
     return null;
   }
@@ -37,20 +39,20 @@ function NavSection({ title, items }: { title: string; items: NavItem[] }) {
     <div className="mb-4">
       <p className="mb-1 px-3 text-xs uppercase tracking-wider text-gray-400">{title}</p>
       <nav className="flex flex-col gap-0.5">
-        {items.map((item) => (
+        {items.map((item) => {
+          const active = isNavItemActive(item.path, location.pathname);
+          return (
           <NavLink
             key={item.path}
             to={item.path}
-            isActive={(_, location) => isNavItemActive(item.path, location.pathname)}
-            className={({ isActive }) =>
-              `rounded px-3 py-2 text-sm transition-colors ${
-                isActive ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-              }`
-            }
+            className={`rounded px-3 py-2 text-sm transition-colors ${
+              active ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+            }`}
           >
             {item.label}
           </NavLink>
-        ))}
+          );
+        })}
       </nav>
     </div>
   );
@@ -180,13 +182,11 @@ export default function AppShell() {
           </div>
           <NavLink
             to="/settings"
-            className={({ isActive }) =>
-              `mb-2 flex w-full items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
-                isActive
-                  ? 'border-indigo-500 bg-indigo-600 text-white'
-                  : 'border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white'
-              }`
-            }
+            className={`mb-2 flex w-full items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+              location.pathname === '/settings'
+                ? 'border-indigo-500 bg-indigo-600 text-white'
+                : 'border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white'
+            }`}
           >
             Settings
           </NavLink>

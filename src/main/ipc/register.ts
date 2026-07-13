@@ -9,6 +9,7 @@ import {
   getUserCompanyIds,
   getUsersByCompany,
   login,
+  logout,
   updateUser,
 } from './auth';
 import {
@@ -115,6 +116,7 @@ import { getPreferences, setAutoBackup, setNetworkMode, type NetworkMode } from 
 import { discoverServer, getBroadcastStatus, startBroadcast, stopBroadcast } from '../lan';
 import { sessionHeartbeat, sessionActiveCount } from './sessions';
 import { getDiagnostics } from './diagnostics';
+import { requireRole, requireSession } from './sessionContext';
 import type {
   BuyerGroupInput,
   BuyerInput,
@@ -143,7 +145,7 @@ const IPC_CHANNELS = [
   'db-reconnect',
   'lan-get-status', 'lan-set-mode', 'lan-start-broadcast', 'lan-stop-broadcast', 'lan-discover-server',
   'sessions-heartbeat', 'sessions-active-count', 'diagnostics-get',
-  'auth-login', 'auth-create-user', 'auth-change-password',
+  'auth-login', 'auth-logout', 'auth-create-user', 'auth-change-password',
   'auth-get-users', 'auth-get-all-users', 'auth-get-owners', 'auth-get-owner-admin-users',
   'auth-get-user-company-ids', 'auth-update-user', 'auth-delete-user',
   'user-get-companies', 'user-set-active-company', 'user-companies-assign',
@@ -210,6 +212,7 @@ export function registerIpcHandlers(): void {
   );
   ipcMain.handle('diagnostics-get', async () => getDiagnostics());
   ipcMain.handle('auth-login', async (_e, u: string, p: string) => login(u, p));
+  ipcMain.handle('auth-logout', async (_e, sessionToken: string) => logout(sessionToken));
   ipcMain.handle('auth-change-password', async (_e, userId: number, current: string, newPass: string) =>
     changePassword(userId, current, newPass),
   );
@@ -251,9 +254,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('backups-create', async (_e, companyId: number, userId: number) =>
     createBackup(companyId, userId),
   );
-  ipcMain.handle('backups-restore', async (_e, userId: number, filePath?: string) =>
-    restoreBackup(userId, filePath),
-  );
+  ipcMain.handle('backups-restore', async (_e, filePath: string | undefined, sessionToken: string) => {
+    const session = requireSession(sessionToken);
+    if (!session.success) return session;
+    const roleCheck = requireRole(session.ctx, 'owner');
+    if (!roleCheck.success) return roleCheck;
+    return restoreBackup(session.ctx, filePath);
+  });
   ipcMain.handle('backups-list', async () => listBackups());
   ipcMain.handle('utilities-change-buyer-rate', async (_e, buyerId: number, newRate: number, userId: number) =>
     changeBuyerRate(buyerId, newRate, userId),
@@ -332,8 +339,13 @@ export function registerIpcHandlers(): void {
   );
   ipcMain.handle(
     'draws-unlock',
-    async (_e, id: number, userId: number, userRole: UserRole, clientUpdatedAt?: number | string | null) =>
-      unlockDraw(id, userId, userRole, clientUpdatedAt),
+    async (_e, id: number, clientUpdatedAt: number | string | null | undefined, sessionToken: string) => {
+      const session = requireSession(sessionToken);
+      if (!session.success) return session;
+      const roleCheck = requireRole(session.ctx, 'owner');
+      if (!roleCheck.success) return roleCheck;
+      return unlockDraw(id, session.ctx, clientUpdatedAt);
+    },
   );
   ipcMain.handle('draws-audit-list', async (_e, drawId: number) => listDrawAuditLogs(drawId));
   ipcMain.handle(
@@ -368,9 +380,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('transactions-update', async (_e, id: number, data: TransactionInput, userRole: UserRole) =>
     updateTransaction(id, data, userRole),
   );
-  ipcMain.handle('transactions-delete', async (_e, id: number, userId: number, userRole: UserRole) =>
-    deleteTransaction(id, userId, userRole),
-  );
+  ipcMain.handle('transactions-delete', async (_e, id: number, sessionToken: string) => {
+    const session = requireSession(sessionToken);
+    if (!session.success) return session;
+    const roleCheck = requireRole(session.ctx, 'supervisor');
+    if (!roleCheck.success) return roleCheck;
+    return deleteTransaction(id, session.ctx);
+  });
   ipcMain.handle('transactions-validate-tickets-sold', async (_e, drawId: number, ticketNumbers: string[]) =>
     validateTicketsSold(drawId, ticketNumbers),
   );

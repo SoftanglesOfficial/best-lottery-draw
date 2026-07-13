@@ -245,12 +245,7 @@ export default function DrawsPage() {
     if (!user) return;
     if (draw.status === 'locked') {
       if (!canUnlock) return;
-      const result = await drawsUnlock(
-        draw.id,
-        user.id,
-        user.role,
-        draw.updatedAt?.getTime() ?? null,
-      );
+      const result = await drawsUnlock(draw.id, draw.updatedAt?.getTime() ?? null);
       if (result.success) {
         showToast('Draw unlocked.', 'success');
         setDraws((prev) =>

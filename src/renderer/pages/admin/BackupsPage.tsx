@@ -79,7 +79,7 @@ export default function BackupsPage() {
     if (user == null) return;
     setRestoring(true);
     try {
-      const result = await backupsRestore(user.id);
+      const result = await backupsRestore();
       if (result.success) {
         showToast(result.message, 'success');
       } else {

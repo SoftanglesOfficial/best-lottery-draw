@@ -1,6 +1,7 @@
-import { and, eq, inArray } from 'drizzle-orm';
-import type { AuthUser, UserInput, UserRecord } from '../../shared/types';
+import { eq, inArray } from 'drizzle-orm';
+import type { AuthUser, LoginResult, UserInput, UserRecord } from '../../shared/types';
 import { ensureConnected, getDb, hashPassword } from '../db';
+import { createSession, revokeSession } from '../sessionStore';
 import { userCompanies, users } from '../schema';
 
 export type { AuthUser };
@@ -27,10 +28,7 @@ function toUserRecord(user: {
   };
 }
 
-export async function login(
-  username: string,
-  password: string,
-): Promise<{ success: true; user: AuthUser } | { success: false; error: string }> {
+export async function login(username: string, password: string): Promise<LoginResult> {
   const connection = await ensureConnected();
   if (!connection.success) {
     return {
@@ -66,25 +64,32 @@ export async function login(
       return { success: false, error: 'Invalid username or password' };
     }
 
-    return {
-      success: true,
-      user: {
-        id: user.id,
-        username: user.username,
-        fullName: user.fullName,
-        role: user.role,
-        companyId: user.companyId,
-        activeCompanyId: user.activeCompanyId,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+    const authUser: AuthUser = {
+      id: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      role: user.role,
+      companyId: user.companyId,
+      activeCompanyId: user.activeCompanyId,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
+    const sessionToken = createSession(user.id, user.role, user.activeCompanyId);
+    return { success: true, user: authUser, sessionToken };
   } catch (error) {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Login failed',
     };
   }
+}
+
+export function logout(sessionToken: string): { success: true } | { success: false; error: string } {
+  if (!sessionToken) {
+    return { success: false, error: 'No active session' };
+  }
+  revokeSession(sessionToken);
+  return { success: true };
 }
 
 async function syncUserCompanies(userId: number, companyIds: number[]): Promise<void> {

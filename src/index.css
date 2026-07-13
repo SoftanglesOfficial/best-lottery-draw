@@ -24,6 +24,10 @@ body {
   display: none;
 }
 
+input[type='number'] {
+  text-align: left;
+}
+
 @media print {
   .no-print {
     display: none !important;

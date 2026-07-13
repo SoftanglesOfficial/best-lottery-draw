@@ -15,6 +15,7 @@ import {
   winningTickets,
 } from '../schema';
 import { getDrawById } from './drawValidation';
+import type { SessionContext } from './sessionContext';
 import type {
   AuditLogRecord,
   DrawInput,
@@ -305,15 +306,14 @@ export async function lockDraw(id: number, userId: number, clientUpdatedAt?: num
 
 export async function unlockDraw(
   id: number,
-  userId: number,
-  userRole: UserRole,
+  ctx: SessionContext,
   clientUpdatedAt?: number | string | null,
 ) {
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
   }
-  if (userRole !== 'admin' && userRole !== 'owner') {
+  if (ctx.role !== 'admin' && ctx.role !== 'owner') {
     return { success: false as const, error: 'Only admin or owner can unlock draws.' };
   }
   try {
@@ -325,7 +325,7 @@ export async function unlockDraw(
     const [requester] = await db
       .select({ username: users.username, fullName: users.fullName })
       .from(users)
-      .where(eq(users.id, userId))
+      .where(eq(users.id, ctx.userId))
       .limit(1);
 
     const username = requester?.fullName ?? requester?.username ?? 'Unknown';
@@ -345,7 +345,7 @@ export async function unlockDraw(
     if (!updated) return { success: false as const, error: 'Draw not found' };
 
     await insertAuditLog(
-      userId,
+      ctx.userId,
       'DRAW_UNLOCKED',
       'draws',
       id,

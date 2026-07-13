@@ -20,6 +20,19 @@ export interface AuthUser {
   updatedAt: Date | null;
 }
 
+export type LoginSuccess = {
+  success: true;
+  user: AuthUser;
+  sessionToken: string;
+};
+
+export type LoginFailure = {
+  success: false;
+  error: string;
+};
+
+export type LoginResult = LoginSuccess | LoginFailure;
+
 export interface SessionUser {
   id: number;
   username: string;

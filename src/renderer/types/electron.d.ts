@@ -24,6 +24,7 @@ import type {
   ItemGroupInput,
   ItemGroupRecord,
   ItemInput,
+  LoginResult,
   ItemRecord,
   ItemSchemeInput,
   ItemSchemeRecord,
@@ -49,10 +50,8 @@ interface Api {
   dbGetConfig: () => Promise<DbConfig>;
   dbConnect: (config: DbConfig) => Promise<{ success: boolean; error?: string }>;
   dbSetup: () => Promise<{ success: boolean; error?: string }>;
-  authLogin: (
-    username: string,
-    password: string,
-  ) => Promise<{ success: true; user: AuthUser } | { success: false; error: string }>;
+  authLogin: (username: string, password: string) => Promise<LoginResult>;
+  authLogout: () => Promise<{ success: true } | { success: false; error: string }>;
   authCreateUser: (
     data: UserInput,
   ) => Promise<{ success: true; user: UserRecord } | { success: false; error: string }>;
@@ -175,7 +174,6 @@ interface Api {
     | { success: false; error?: string }
   >;
   backupsRestore: (
-    userId: number,
     filePath?: string,
   ) => Promise<
     | { success: true; message: string }
@@ -390,8 +388,6 @@ interface Api {
   ) => Promise<{ success: true; draw: DrawRecord } | { success: false; error: string }>;
   drawsUnlock: (
     id: number,
-    userId: number,
-    userRole: UserRole,
     clientUpdatedAt?: number | string | null,
   ) => Promise<{ success: true; draw: DrawRecord } | { success: false; error: string }>;
   drawsAuditList: (
@@ -451,8 +447,6 @@ interface Api {
   ) => Promise<{ success: true; transaction: TransactionRecord } | { success: false; error: string }>;
   transactionsDelete: (
     id: number,
-    userId: number,
-    userRole: UserRole,
   ) => Promise<{ success: true } | { success: false; error: string }>;
   transactionsValidateTicketsSold: (
     drawId: number,

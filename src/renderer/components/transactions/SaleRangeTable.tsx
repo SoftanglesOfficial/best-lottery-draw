@@ -195,7 +195,7 @@ export default function SaleRangeTable({
                       })
                     }
                     onFocus={() => onActiveRowChange?.(index)}
-                    className="w-full rounded border border-gray-300 px-2 py-1 font-mono text-right"
+                    className="w-full rounded border border-gray-300 px-2 py-1 font-mono text-left"
                     inputMode="numeric"
                   />
                 </td>
@@ -211,7 +211,7 @@ export default function SaleRangeTable({
                       })
                     }
                     onFocus={() => onActiveRowChange?.(index)}
-                    className="w-full rounded border border-gray-300 px-2 py-1 font-mono text-right"
+                    className="w-full rounded border border-gray-300 px-2 py-1 font-mono text-left"
                     inputMode="numeric"
                   />
                 </td>
@@ -228,7 +228,7 @@ export default function SaleRangeTable({
                       })
                     }
                     onFocus={() => onActiveRowChange?.(index)}
-                    className="w-full rounded border border-gray-300 px-2 py-1 font-mono text-right"
+                    className="w-full rounded border border-gray-300 px-2 py-1 font-mono text-left"
                     inputMode="decimal"
                   />
                 </td>
@@ -251,7 +251,7 @@ export default function SaleRangeTable({
                         removeRow(index);
                       }
                     }}
-                    className="w-full rounded border border-gray-200 bg-gray-50 px-2 py-1 font-mono text-right"
+                    className="w-full rounded border border-gray-200 bg-gray-50 px-2 py-1 font-mono text-left"
                   />
                 </td>
                 <td className="px-2 py-2">
