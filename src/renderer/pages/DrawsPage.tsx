@@ -171,6 +171,10 @@ export default function DrawsPage() {
 
   const openCreate = () => {
     if (companyId == null) return;
+    if (items.length === 0) {
+      showToast('Add lottery items under Master → Items before creating draws.', 'error');
+      return;
+    }
     setEditing(null);
     setForm(emptyForm(companyId, items[0]?.id ?? 0));
     setModalOpen(true);
@@ -401,10 +405,16 @@ export default function DrawsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Draws</h1>
-        <Button onClick={openCreate} disabled={companyId == null || items.length === 0}>
+        <Button onClick={openCreate} disabled={companyId == null}>
           New Draw
         </Button>
       </div>
+
+      {items.length === 0 && (
+        <div className="mb-4 rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          Create lottery items under Master → Items to enable new draws.
+        </div>
+      )}
 
       {closingSoonCount > 0 && (
         <div className="mb-4 rounded border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900">
