@@ -213,9 +213,9 @@ async function validateTransactionCreate(
     }
   }
 
-  if (data.type === 'sale' || data.type === 'sale_return') {
+  if (data.type === 'sale' || data.type === 'sale_return' || data.type === 'booking') {
     if (data.buyerId == null) {
-      throw new Error('Buyer is required for sale entries.');
+      throw new Error('Buyer is required for sale/booking entries.');
     }
   }
 

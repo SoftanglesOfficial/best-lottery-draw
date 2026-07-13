@@ -5,7 +5,6 @@ import {
   TICKET_NUMBER_LENGTH,
 } from '../../lib/ticketAutoComplete';
 
-// ponytail: unused until individual-ticket booking UI ships
 export type TicketRow = { number: string };
 
 type TicketNumberTableProps = {
