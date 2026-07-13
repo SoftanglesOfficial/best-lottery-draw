@@ -1,9 +1,12 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { ensureConnected, getDb, getPool } from '../db';
-import { auditLogs, buyers, providers, transactions } from '../schema';
+import { buyers, providers, transactions } from '../schema';
 import { validateDrawOpen } from './drawValidation';
 import { insertAuditLog } from './auditLog';
 import type { BuyerRecord, ProviderRecord } from '../../shared/types';
+import type { SessionContext } from './sessionContext';
+
+export async function changeBuyerRate(
   buyerId: number,
   newRate: number,
   userId: number,
