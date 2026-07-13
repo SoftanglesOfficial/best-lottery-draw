@@ -118,7 +118,14 @@ export default function WinningTicketsPage() {
   );
 
   const handleFindWinners = async () => {
-    if (selectedDrawId == null) return;
+    if (selectedDrawId == null) {
+      showToast('Select a draw first.', 'error');
+      return;
+    }
+    if (!selectedDraw?.resultImported) {
+      showToast('Import results for this draw before finding winners.', 'error');
+      return;
+    }
     setFinding(true);
     try {
       const result = await winningTicketsFindWinners(selectedDrawId);
@@ -212,10 +219,7 @@ export default function WinningTicketsPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Winning Tickets</h1>
-        <Button
-          onClick={() => void handleFindWinners()}
-          disabled={selectedDrawId == null || !selectedDraw?.resultImported || finding}
-        >
+        <Button onClick={() => void handleFindWinners()} disabled={finding}>
           {finding ? 'Finding…' : 'Find Winners'}
         </Button>
       </div>
