@@ -10,36 +10,7 @@ import { useAuth } from '../lib/auth';
 import { isAdminOrOwner, isAtLeastRole, ROLE_BADGE_CLASSES, ROLE_LABELS } from '../lib/roles';
 import { validate, validators, parseMemoIds } from '../lib/validation';
 import { useActiveCompany } from '../lib/useActiveCompany';
-import {
-  auditLogsList,
-  authChangePassword,
-  authUpdateUser,
-  backupsCreate,
-  backupsList,
-  backupsRestore,
-  buyerGroupsList,
-  buyersList,
-  dbConnect,
-  dbGetConfig,
-  dbGetStatus,
-  dbSetup,
-  dbTestConnection,
-  drawsList,
-  lanDiscoverServer,
-  lanGetStatus,
-  lanSetMode,
-  lanStartBroadcast,
-  lanStopBroadcast,
-  prefsGet,
-  prefsSetAutoBackup,
-  providersList,
-  utilitiesBulkRateUpdate,
-  utilitiesChangeBuyerRate,
-  utilitiesChangeCommission,
-  utilitiesChangeProviderRate,
-  utilitiesDeleteMemos,
-  utilitiesReindex,
-} from '../lib/api';
+import { api } from '../lib/api';
 import type { AuditLogListRecord, BackupRecord, DbConfig, UserRole } from '../../shared/types';
 
 type TabId = 'database' | 'backup' | 'audit' | 'profile' | 'utilities';
@@ -157,16 +128,21 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
   const [discovering, setDiscovering] = useState(false);
 
   const refreshStatus = useCallback(async () => {
-    const [status, prefs, lan] = await Promise.all([dbGetStatus(), prefsGet(), lanGetStatus()]);
-    setConnected(status.connected);
-    setVersion(status.version ?? null);
-    if (status.config) setConfig((c) => ({ ...c, ...status.config }));
-    setNetworkMode(prefs.networkMode);
-    setBroadcasting(lan.isBroadcasting);
+    try {
+      const [status, prefs, lan] = await Promise.all([api.dbGetStatus(), api.prefsGet(), api.lanGetStatus()]);
+      setConnected(status.connected);
+      setVersion(status.version ?? null);
+      if (status.config) setConfig((c) => ({ ...c, ...status.config }));
+      setNetworkMode(prefs.networkMode);
+      setBroadcasting(lan.isBroadcasting);
+    } catch {
+      // ponytail: keep form usable when IPC is down; status banner shows disconnected
+      setConnected(false);
+    }
   }, []);
 
   useEffect(() => {
-    dbGetConfig().then(setConfig).catch(() => undefined);
+    api.dbGetConfig().then(setConfig).catch(() => undefined);
     void refreshStatus();
   }, [refreshStatus]);
 
@@ -179,7 +155,7 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
     setLoading('test');
     setTestStatus('idle');
     try {
-      const result = await dbTestConnection(config);
+      const result = await api.dbTestConnection(config);
       if (result.success) {
         setTestStatus('ok');
         setTestMessage(result.version.split(',')[0] ?? 'Connected');
@@ -201,7 +177,7 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
     event.preventDefault();
     setLoading('connect');
     try {
-      const result = await dbConnect(config);
+      const result = await api.dbConnect(config);
       if (result.success) {
         showToast('Connected successfully', 'success');
         await refreshStatus();
@@ -216,12 +192,12 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
   const handleSetup = async () => {
     setLoading('setup');
     try {
-      const connectResult = await dbConnect(config);
+      const connectResult = await api.dbConnect(config);
       if (!connectResult.success) {
         showToast(connectResult.error ?? 'Connection failed', 'error');
         return;
       }
-      const setupResult = await dbSetup();
+      const setupResult = await api.dbSetup();
       if (setupResult.success) {
         showToast('Setup complete. Admin: admin / admin123', 'success');
         await refreshStatus();
@@ -236,7 +212,7 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
   const handleDiscover = async () => {
     setDiscovering(true);
     try {
-      const result = await lanDiscoverServer();
+      const result = await api.lanDiscoverServer();
       if (result.success) {
         setConfig((current) => ({
           ...current,
@@ -254,7 +230,7 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
   };
 
   const handleNetworkMode = async (mode: 'server' | 'client') => {
-    const result = await lanSetMode(mode);
+    const result = await api.lanSetMode(mode);
     if (result.success) {
       setNetworkMode(mode);
       setBroadcasting(mode === 'server');
@@ -265,7 +241,7 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
   };
 
   const handleStartBroadcast = async () => {
-    const result = await lanStartBroadcast();
+    const result = await api.lanStartBroadcast();
     if (result.success) {
       setBroadcasting(true);
       showToast('Broadcasting started', 'success');
@@ -275,7 +251,7 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
   };
 
   const handleStopBroadcast = async () => {
-    await lanStopBroadcast();
+    await api.lanStopBroadcast();
     setBroadcasting(false);
     showToast('Broadcasting stopped', 'info');
   };
@@ -384,7 +360,7 @@ function BackupTab({ companyId, userId }: { companyId?: number | null; userId?: 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [backupResult, prefs] = await Promise.all([backupsList(), prefsGet()]);
+      const [backupResult, prefs] = await Promise.all([api.backupsList(), api.prefsGet()]);
       if (backupResult.success) setBackups(backupResult.backups);
       setAutoBackup(prefs.autoBackup);
     } finally {
@@ -403,7 +379,7 @@ function BackupTab({ companyId, userId }: { companyId?: number | null; userId?: 
     }
     setCreating(true);
     try {
-      const result = await backupsCreate(companyId, userId);
+      const result = await api.backupsCreate(companyId, userId);
       if (result.success) {
         showToast(`Backup saved: ${result.filename}`, 'success');
         void load();
@@ -419,7 +395,7 @@ function BackupTab({ companyId, userId }: { companyId?: number | null; userId?: 
     if (userId == null) return;
     setRestoring(true);
     try {
-      const result = await backupsRestore();
+      const result = await api.backupsRestore();
       if (result.success) showToast(result.message, 'success');
       else showToast(result.error ?? 'Restore cancelled', 'error');
     } finally {
@@ -430,7 +406,7 @@ function BackupTab({ companyId, userId }: { companyId?: number | null; userId?: 
 
   const toggleAutoBackup = async () => {
     const next = !autoBackup;
-    await prefsSetAutoBackup(next);
+    await api.prefsSetAutoBackup(next);
     setAutoBackup(next);
     showToast(`Automatic backup ${next ? 'enabled' : 'disabled'}`, 'info');
   };
@@ -506,7 +482,7 @@ function AuditTab({ companyId }: { companyId?: number | null }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await auditLogsList({
+      const result = await api.auditLogsList({
         companyId: companyId ?? undefined,
         entity: entity || undefined,
         dateFrom: dateFrom ? new Date(dateFrom).toISOString() : undefined,
@@ -627,7 +603,7 @@ function ProfileTab({ user }: { user: ReturnType<typeof useAuth>['user'] }) {
   const saveName = async () => {
     setSavingName(true);
     try {
-      const result = await authUpdateUser(user.id, { fullName: fullName.trim() });
+      const result = await api.authUpdateUser(user.id, { fullName: fullName.trim() });
       if (result.success) showToast('Display name updated', 'success');
       else showToast(result.error, 'error');
     } finally {
@@ -647,7 +623,7 @@ function ProfileTab({ user }: { user: ReturnType<typeof useAuth>['user'] }) {
 
     setSavingPassword(true);
     try {
-      const result = await authChangePassword(user.id, currentPassword, newPassword);
+      const result = await api.authChangePassword(user.id, currentPassword, newPassword);
       if (result.success) {
         showToast('Password changed successfully', 'success');
         setCurrentPassword('');
@@ -741,10 +717,10 @@ function UtilitiesTab({
       return;
     }
     Promise.all([
-      buyersList(companyId),
-      providersList(companyId),
-      buyerGroupsList(companyId),
-      drawsList(companyId),
+      api.buyersList(companyId),
+      api.providersList(companyId),
+      api.buyerGroupsList(companyId),
+      api.drawsList(companyId),
     ])
       .then(([b, p, g, d]) => {
         if (b.success) setBuyers(b.buyers.map((x) => ({ id: x.id, name: x.name })));
@@ -763,7 +739,7 @@ function UtilitiesTab({
 
   const applyBuyerRate = async () => {
     if (buyerId === '' || !buyerRate) return;
-    const result = await utilitiesChangeBuyerRate(buyerId, Number(buyerRate), userId);
+    const result = await api.utilitiesChangeBuyerRate(buyerId, Number(buyerRate), userId);
     if (result.success) {
       const name = buyers.find((b) => b.id === buyerId)?.name ?? 'Buyer';
       showToast(`Sale rate for ${name} changed to ₹${buyerRate}`, 'success');
@@ -772,7 +748,7 @@ function UtilitiesTab({
 
   const applyProviderRate = async () => {
     if (providerId === '' || !providerRate) return;
-    const result = await utilitiesChangeProviderRate(providerId, Number(providerRate), userId);
+    const result = await api.utilitiesChangeProviderRate(providerId, Number(providerRate), userId);
     if (result.success) {
       const name = providers.find((p) => p.id === providerId)?.name ?? 'Provider';
       showToast(`Purchase rate for ${name} changed to ₹${providerRate}`, 'success');
@@ -781,14 +757,14 @@ function UtilitiesTab({
 
   const applyCommission = async () => {
     if (partyId === '' || !commissionRate) return;
-    const result = await utilitiesChangeCommission(partyType, partyId, Number(commissionRate), userId);
+    const result = await api.utilitiesChangeCommission(partyType, partyId, Number(commissionRate), userId);
     if (result.success) showToast('Commission rate updated', 'success');
     else showToast(result.error, 'error');
   };
 
   const applyBulk = async () => {
     if (bulkGroupId === '' || !bulkRate) return;
-    const result = await utilitiesBulkRateUpdate(bulkGroupId, Number(bulkRate), userId);
+    const result = await api.utilitiesBulkRateUpdate(bulkGroupId, Number(bulkRate), userId);
     if (result.success) showToast(`Updated ${result.updated} buyer(s)`, 'success');
     else showToast(result.error, 'error');
   };
@@ -799,7 +775,7 @@ function UtilitiesTab({
 
   const deleteMemos = async () => {
     if (memoDrawId === '' || memoPreview.length === 0 || !userRole) return;
-    const result = await utilitiesDeleteMemos(memoDrawId, memoPreview, userRole);
+    const result = await api.utilitiesDeleteMemos(memoDrawId, memoPreview, userRole);
     if (result.success) {
       showToast(`Deleted ${result.deleted} memo(s)`, 'success');
       setConfirmMemos(false);
@@ -811,7 +787,7 @@ function UtilitiesTab({
   const runReindex = async () => {
     setReindexing(true);
     try {
-      const result = await utilitiesReindex();
+      const result = await api.utilitiesReindex();
       if (result.success) showToast('Database reindex completed', 'success');
       else showToast(result.error, 'error');
     } finally {

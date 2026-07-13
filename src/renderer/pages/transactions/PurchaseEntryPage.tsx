@@ -10,7 +10,7 @@ import { Button, Input } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
-import { drawsList, providersList, transactionsCreate, transactionsGetProviderPurchaseSummary, transactionsNextMemoId } from '../../lib/api';
+import { api } from '../../lib/api';
 import type { DrawRecord, ProviderRecord } from '../../../shared/types';
 
 type EntryOptions = {
@@ -53,7 +53,7 @@ export default function PurchaseEntryPage({
 
   const refreshMemo = useCallback(async () => {
     if (companyId == null) return;
-    const result = await transactionsNextMemoId(companyId);
+    const result = await api.transactionsNextMemoId(companyId);
     if (result.success) setMemoId(result.nextMemoId);
   }, [companyId]);
 
@@ -61,8 +61,8 @@ export default function PurchaseEntryPage({
     if (companyId == null) return;
     try {
       const [drawsResult, providersResult] = await Promise.all([
-        drawsList(companyId),
-        providersList(companyId),
+        api.drawsList(companyId),
+        api.providersList(companyId),
       ]);
       if (drawsResult.success) {
         setDraws(drawsResult.draws);
@@ -88,7 +88,7 @@ export default function PurchaseEntryPage({
       setPurchaseSummary(null);
       return;
     }
-    void transactionsGetProviderPurchaseSummary(providerId, drawId).then((result) => {
+    void api.transactionsGetProviderPurchaseSummary(providerId, drawId).then((result) => {
       if (result.success) setPurchaseSummary(result.summary);
     });
   }, [type, drawId, providerId]);
@@ -126,7 +126,7 @@ export default function PurchaseEntryPage({
 
     setSaving(true);
     try {
-      const result = await transactionsCreate({
+      const result = await api.transactionsCreate({
         type,
         companyId,
         userId: user.id,

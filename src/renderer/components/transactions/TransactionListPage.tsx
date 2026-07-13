@@ -8,7 +8,7 @@ import { useAuth } from '../../lib/auth';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { isAtLeastRole } from '../../lib/roles';
-import { drawsList, transactionsDelete, transactionsList } from '../../lib/api';
+import { api } from '../../lib/api';
 import {
   extractTicketNumbers,
   formatAmount,
@@ -65,9 +65,9 @@ export default function TransactionListPage({
     try {
       const returnType = showReturnStats && type === 'sale' ? ('sale_return' as const) : null;
       const [txnResult, returnsResult, drawsResult] = await Promise.all([
-        transactionsList(companyId, undefined, type),
-        returnType ? transactionsList(companyId, undefined, returnType) : Promise.resolve(null),
-        drawsList(companyId),
+        api.transactionsList(companyId, undefined, type),
+        returnType ? api.transactionsList(companyId, undefined, returnType) : Promise.resolve(null),
+        api.drawsList(companyId),
       ]);
       if (txnResult.success) setRows(txnResult.transactions);
       else showToast(txnResult.error, 'error');
@@ -143,7 +143,7 @@ export default function TransactionListPage({
 
   const handleDelete = async () => {
     if (!deleteTarget || !user) return;
-    const result = await transactionsDelete(deleteTarget.id);
+    const result = await api.transactionsDelete(deleteTarget.id);
     if (result.success) {
       showToast('Transaction deleted.', 'success');
       setDeleteTarget(null);

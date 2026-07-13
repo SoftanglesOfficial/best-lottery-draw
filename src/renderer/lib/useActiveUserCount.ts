@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from './auth';
 import { useActiveCompany } from './useActiveCompany';
-import { sessionActiveCount, sessionHeartbeat } from './api';
+import { api } from './api';
 
 export function useActiveUserCount() {
   const { user } = useAuth();
@@ -15,8 +15,8 @@ export function useActiveUserCount() {
     }
 
     const ping = async () => {
-      await sessionHeartbeat(user.id, companyId);
-      const result = await sessionActiveCount(companyId);
+      await api.sessionHeartbeat(user.id, companyId);
+      const result = await api.sessionActiveCount(companyId);
       if (result.success) setCount(result.count);
     };
 

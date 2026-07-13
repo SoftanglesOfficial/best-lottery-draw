@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
-import { diagnosticsGet } from '../../lib/api';
+import { api } from '../../lib/api';
 import { FullPageLoading } from '../../components/LoadingSpinner';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import type { DiagnosticsData } from '../../../shared/types';
 
 export default function DiagnosticsPage() {
   const allowed = useRoleGuard(['admin']);
-  const [data, setData] = useState<Awaited<ReturnType<typeof diagnosticsGet>> | null>(null);
+  const [data, setData] = useState<Awaited<ReturnType<typeof api.diagnosticsGet>> | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!allowed) return;
-    diagnosticsGet()
+    api.diagnosticsGet()
       .then(setData)
       .finally(() => setLoading(false));
   }, [allowed]);

@@ -1,11 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import GroupCrudPage from '../../components/GroupCrudPage';
-import {
-  shiftGroupsCreate,
-  shiftGroupsDelete,
-  shiftGroupsList,
-  shiftGroupsUpdate,
-} from '../../lib/api';
+import { api } from '../../lib/api';
 
 export default function ShiftGroupsPage() {
   const navigate = useNavigate();
@@ -14,10 +9,10 @@ export default function ShiftGroupsPage() {
     <GroupCrudPage
       title="Shift Groups"
       entityName="shift group"
-      listFn={shiftGroupsList}
-      createFn={shiftGroupsCreate}
-      updateFn={shiftGroupsUpdate}
-      deleteFn={shiftGroupsDelete}
+      listFn={api.shiftGroupsList}
+      createFn={api.shiftGroupsCreate}
+      updateFn={api.shiftGroupsUpdate}
+      deleteFn={api.shiftGroupsDelete}
       renderExtraActions={(row) => (
         <button
           type="button"

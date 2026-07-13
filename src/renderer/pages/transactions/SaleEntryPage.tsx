@@ -12,14 +12,7 @@ import { Button, Input } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
-import {
-  buyersList,
-  drawsList,
-  itemsList,
-  transactionsCreate,
-  transactionsGetBuyerSaleSummary,
-  transactionsNextMemoId,
-} from '../../lib/api';
+import { api } from '../../lib/api';
 import { isDrawPastCloseTime, formatCloseTimeLabel } from '../../lib/drawCloseTime';
 import type { BuyerRecord, DrawRecord, ItemRecord } from '../../../shared/types';
 
@@ -80,7 +73,7 @@ export default function SaleEntryPage({
 
   const refreshMemo = useCallback(async () => {
     if (companyId == null) return;
-    const result = await transactionsNextMemoId(companyId);
+    const result = await api.transactionsNextMemoId(companyId);
     if (result.success) setMemoId(result.nextMemoId);
   }, [companyId]);
 
@@ -88,9 +81,9 @@ export default function SaleEntryPage({
     if (companyId == null) return;
     try {
       const [drawsResult, buyersResult, itemsResult] = await Promise.all([
-        drawsList(companyId),
-        buyersList(companyId),
-        itemsList(companyId),
+        api.drawsList(companyId),
+        api.buyersList(companyId),
+        api.itemsList(companyId),
       ]);
       if (drawsResult.success) {
         setDraws(drawsResult.draws);
@@ -117,7 +110,7 @@ export default function SaleEntryPage({
       setBuyerSummary(null);
       return;
     }
-    const result = await transactionsGetBuyerSaleSummary(buyerId, drawId);
+    const result = await api.transactionsGetBuyerSaleSummary(buyerId, drawId);
     if (result.success) setBuyerSummary(result.summary);
     else setBuyerSummary(null);
   }, [type, buyerId, drawId]);
@@ -180,7 +173,7 @@ export default function SaleEntryPage({
 
     setSaving(true);
     try {
-      const result = await transactionsCreate({
+      const result = await api.transactionsCreate({
         type,
         companyId,
         userId: user.id,

@@ -7,13 +7,7 @@ import { useToast } from '../../components/Toast';
 import { Button, Input } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
-import {
-  shiftGroupsList,
-  shiftsCreate,
-  shiftsDelete,
-  shiftsList,
-  shiftsUpdate,
-} from '../../lib/api';
+import { api } from '../../lib/api';
 import type { ShiftGroupRecord, ShiftInput, ShiftRecord } from '../../../shared/types';
 
 const EMPTY_FORM: ShiftInput = {
@@ -41,7 +35,7 @@ export default function ShiftsPage() {
   const loadGroups = useCallback(async () => {
     if (companyId == null) return;
     try {
-      const result = await shiftGroupsList(companyId);
+      const result = await api.shiftGroupsList(companyId);
       if (result.success) {
         setGroups(result.groups);
         const paramId = groupIdParam ? Number(groupIdParam) : null;
@@ -68,7 +62,7 @@ export default function ShiftsPage() {
     }
     setLoading(true);
     try {
-      const result = await shiftsList(selectedGroupId);
+      const result = await api.shiftsList(selectedGroupId);
       if (result.success) setShifts(result.shifts);
       else showToast(result.error, 'error');
     } catch {
@@ -118,8 +112,8 @@ export default function ShiftsPage() {
         shiftGroupId: form.shiftGroupId,
       };
       const result = editing
-        ? await shiftsUpdate(editing.id, payload)
-        : await shiftsCreate(payload);
+        ? await api.shiftsUpdate(editing.id, payload)
+        : await api.shiftsCreate(payload);
       if (result.success) {
         showToast(editing ? 'Shift updated' : 'Shift created');
         setModalOpen(false);
@@ -140,7 +134,7 @@ export default function ShiftsPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const result = await shiftsDelete(deleteTarget.id);
+      const result = await api.shiftsDelete(deleteTarget.id);
       if (result.success) {
         showToast('Shift deleted');
         setDeleteTarget(null);

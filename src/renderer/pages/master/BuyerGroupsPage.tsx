@@ -1,20 +1,15 @@
 import GroupCrudPage from '../../components/GroupCrudPage';
-import {
-  buyerGroupsCreate,
-  buyerGroupsDelete,
-  buyerGroupsList,
-  buyerGroupsUpdate,
-} from '../../lib/api';
+import { api } from '../../lib/api';
 
 export default function BuyerGroupsPage() {
   return (
     <GroupCrudPage
       title="Buyer Groups"
       entityName="buyer group"
-      listFn={buyerGroupsList}
-      createFn={buyerGroupsCreate}
-      updateFn={buyerGroupsUpdate}
-      deleteFn={buyerGroupsDelete}
+      listFn={api.buyerGroupsList}
+      createFn={api.buyerGroupsCreate}
+      updateFn={api.buyerGroupsUpdate}
+      deleteFn={api.buyerGroupsDelete}
     />
   );
 }

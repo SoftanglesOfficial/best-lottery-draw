@@ -7,13 +7,7 @@ import { useToast } from '../../components/Toast';
 import { Button, Input } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
-import {
-  buyerGroupsList,
-  buyersCreate,
-  buyersDelete,
-  buyersList,
-  buyersUpdate,
-} from '../../lib/api';
+import { api } from '../../lib/api';
 import type { BuyerGroupRecord, BuyerInput, BuyerRecord, BuyerType, EntityStatus } from '../../../shared/types';
 
 function emptyForm(companyId: number, groupId: number): BuyerInput {
@@ -68,8 +62,8 @@ export default function BuyersPage() {
     setLoading(true);
     try {
       const [buyersResult, groupsResult] = await Promise.all([
-        buyersList(companyId),
-        buyerGroupsList(companyId),
+        api.buyersList(companyId),
+        api.buyerGroupsList(companyId),
       ]);
       if (buyersResult.success) setBuyers(buyersResult.buyers);
       else showToast(buyersResult.error, 'error');
@@ -134,8 +128,8 @@ export default function BuyersPage() {
         address: form.address?.trim() || null,
       };
       const result = editing
-        ? await buyersUpdate(editing.id, payload)
-        : await buyersCreate(payload);
+        ? await api.buyersUpdate(editing.id, payload)
+        : await api.buyersCreate(payload);
       if (result.success) {
         showToast(editing ? 'Buyer updated' : 'Buyer created');
         setModalOpen(false);
@@ -153,7 +147,7 @@ export default function BuyersPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const result = await buyersDelete(deleteTarget.id);
+      const result = await api.buyersDelete(deleteTarget.id);
       if (result.success) {
         showToast('Buyer deleted');
         setDeleteTarget(null);
@@ -169,7 +163,7 @@ export default function BuyersPage() {
   const handleToggleStatus = async (buyer: BuyerRecord) => {
     const nextStatus: EntityStatus = buyer.status === 'active' ? 'locked' : 'active';
     try {
-      const result = await buyersUpdate(buyer.id, {
+      const result = await api.buyersUpdate(buyer.id, {
         name: buyer.name,
         buyerGroupId: buyer.buyerGroupId,
         companyId: buyer.companyId,

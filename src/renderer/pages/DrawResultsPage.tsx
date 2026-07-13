@@ -4,7 +4,7 @@ import { PRIZE_LABELS, parseResultTxt } from '../../shared/parseDrawResults';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
 import { Button } from '../components/ui';
-import { drawResultsCreate, drawResultsList, drawsList } from '../lib/api';
+import { api } from '../lib/api';
 import { useActiveCompany } from '../lib/useActiveCompany';
 import { useRoleGuard } from '../lib/useRoleGuard';
 import type { DrawRecord, DrawResultInput } from '../../shared/types';
@@ -72,8 +72,8 @@ export default function DrawResultsPage() {
     setLoading(true);
     try {
       const [drawsResult, resultsResult] = await Promise.all([
-        drawsList(companyId),
-        drawResultsList(drawId),
+        api.drawsList(companyId),
+        api.drawResultsList(drawId),
       ]);
       if (drawsResult.success) {
         const found = drawsResult.draws.find((entry) => entry.id === drawId) ?? null;
@@ -133,7 +133,7 @@ export default function DrawResultsPage() {
     if (drawId == null) return;
     setSaving(true);
     try {
-      const result = await drawResultsCreate(drawId, results);
+      const result = await api.drawResultsCreate(drawId, results);
       if (result.success) {
         showToast('Results imported. Draw is now locked.', 'success');
         navigate('/draws');

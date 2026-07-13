@@ -5,15 +5,7 @@ import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
 import { Button, Input } from '../../components/ui';
 import { useRoleGuard } from '../../lib/useRoleGuard';
-import {
-  authGetOwnerAdminUsers,
-  companiesClone,
-  companiesCreate,
-  companiesGetAll,
-  companiesSetBillingLock,
-  companiesSetStatus,
-  companiesUpdate,
-} from '../../lib/api';
+import { api } from '../../lib/api';
 import type { CompanyInput, CompanyRecord, CompanyStatus, UserRecord } from '../../../shared/types';
 
 const EMPTY_FORM: CompanyInput = {
@@ -39,8 +31,8 @@ export default function CompaniesPage() {
     setLoading(true);
     try {
       const [companiesResult, ownersResult] = await Promise.all([
-        companiesGetAll(),
-        authGetOwnerAdminUsers(),
+        api.companiesGetAll(),
+        api.authGetOwnerAdminUsers(),
       ]);
       if (companiesResult.success) setCompanies(companiesResult.companies);
       else showToast(companiesResult.error, 'error');
@@ -90,8 +82,8 @@ export default function CompaniesPage() {
     };
 
     const result = editing
-      ? await companiesUpdate(editing.id, payload)
-      : await companiesCreate(payload);
+      ? await api.companiesUpdate(editing.id, payload)
+      : await api.companiesCreate(payload);
 
     setSaving(false);
     if (result.success) {
@@ -104,7 +96,7 @@ export default function CompaniesPage() {
   };
 
   const handleClone = async (company: CompanyRecord) => {
-    const result = await companiesClone(company.id);
+    const result = await api.companiesClone(company.id);
     if (result.success) {
       showToast('Company cloned');
       void load();
@@ -114,7 +106,7 @@ export default function CompaniesPage() {
   };
 
   const handleStatus = async (company: CompanyRecord, status: CompanyStatus) => {
-    const result = await companiesSetStatus(company.id, status);
+    const result = await api.companiesSetStatus(company.id, status);
     if (result.success) {
       showToast(`Status set to ${status}`);
       void load();
@@ -124,7 +116,7 @@ export default function CompaniesPage() {
   };
 
   const handleBillingLock = async (company: CompanyRecord) => {
-    const result = await companiesSetBillingLock(company.id, !company.billingLocked);
+    const result = await api.companiesSetBillingLock(company.id, !company.billingLocked);
     if (result.success) {
       showToast(company.billingLocked ? 'Billing unlocked' : 'Billing locked');
       void load();

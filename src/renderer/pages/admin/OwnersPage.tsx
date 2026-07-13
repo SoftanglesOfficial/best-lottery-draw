@@ -5,15 +5,7 @@ import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
 import { Button, Input } from '../../components/ui';
 import { useRoleGuard } from '../../lib/useRoleGuard';
-import {
-  authCreateUser,
-  authGetOwners,
-  authGetUserCompanyIds,
-  authUpdateUser,
-  companiesGetAll,
-  userCompaniesAssign,
-  userCompaniesRemove,
-} from '../../lib/api';
+import { api } from '../../lib/api';
 import type { CompanyRecord, UserInput, UserRecord } from '../../../shared/types';
 import { ROLE_LABELS } from '../../lib/roles';
 
@@ -42,8 +34,8 @@ export default function OwnersPage() {
     setLoading(true);
     try {
       const [ownersResult, companiesResult] = await Promise.all([
-        authGetOwners(),
-        companiesGetAll(),
+        api.authGetOwners(),
+        api.companiesGetAll(),
       ]);
       if (ownersResult.success) setOwners(ownersResult.users);
       else showToast(ownersResult.error, 'error');
@@ -71,7 +63,7 @@ export default function OwnersPage() {
 
   const openEdit = async (owner: UserRecord) => {
     setEditing(owner);
-    const idsResult = await authGetUserCompanyIds(owner.id);
+    const idsResult = await api.authGetUserCompanyIds(owner.id);
     setForm({
       fullName: owner.fullName ?? '',
       username: owner.username,
@@ -83,14 +75,14 @@ export default function OwnersPage() {
   };
 
   const openAssign = async (owner: UserRecord) => {
-    const idsResult = await authGetUserCompanyIds(owner.id);
+    const idsResult = await api.authGetUserCompanyIds(owner.id);
     setAssignOwner(owner);
     setAssignedIds(idsResult.success ? idsResult.companyIds : []);
   };
 
   const toggleCompany = async (companyId: number, checked: boolean) => {
     if (!assignOwner) return;
-    const fn = checked ? userCompaniesAssign : userCompaniesRemove;
+    const fn = checked ? api.userCompaniesAssign : api.userCompaniesRemove;
     const result = await fn(assignOwner.id, companyId);
     if (result.success) {
       setAssignedIds((current) =>
@@ -116,8 +108,8 @@ export default function OwnersPage() {
       };
 
       const result = editing
-        ? await authUpdateUser(editing.id, payload)
-        : await authCreateUser({ ...payload, password: form.password! });
+        ? await api.authUpdateUser(editing.id, payload)
+        : await api.authCreateUser({ ...payload, password: form.password! });
 
       if (result.success) {
         showToast(editing ? 'Owner updated' : 'Owner created');

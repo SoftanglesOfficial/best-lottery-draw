@@ -3,7 +3,7 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
 import { Button } from '../../components/ui';
-import { backupsCreate, backupsList, backupsRestore } from '../../lib/api';
+import { api } from '../../lib/api';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useAuth } from '../../lib/auth';
 import { useRoleGuard } from '../../lib/useRoleGuard';
@@ -37,7 +37,7 @@ export default function BackupsPage() {
   const loadBackups = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await backupsList();
+      const result = await api.backupsList();
       if (result.success) {
         setBackups(result.backups);
       } else {
@@ -58,7 +58,7 @@ export default function BackupsPage() {
     if (companyId == null || user == null) return;
     setCreating(true);
     try {
-      const result = await backupsCreate(companyId, user.id);
+      const result = await api.backupsCreate(companyId, user.id);
       if (result.success) {
         showToast(
           `Backup saved: ${result.filename} (${result.recordCount} records)`,
@@ -79,7 +79,7 @@ export default function BackupsPage() {
     if (user == null) return;
     setRestoring(true);
     try {
-      const result = await backupsRestore();
+      const result = await api.backupsRestore();
       if (result.success) {
         showToast(result.message, 'success');
       } else {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FullPageLoading } from '../components/LoadingSpinner';
 import { useAuth } from '../lib/auth';
-import { reportsSummary } from '../lib/api';
+import { api } from '../lib/api';
 import { ROLE_BADGE_CLASSES, ROLE_LABELS } from '../lib/roles';
 import type { ReportsSummary } from '../../shared/types';
 import { Button } from '../components/ui';
@@ -36,7 +36,7 @@ export default function DashboardPage() {
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    reportsSummary(
+    api.reportsSummary(
       user.activeCompanyId,
       todayStart.toISOString(),
       todayEnd.toISOString(),

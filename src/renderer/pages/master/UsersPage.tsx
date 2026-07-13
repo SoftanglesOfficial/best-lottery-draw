@@ -8,14 +8,7 @@ import { Button, Input } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { ROLE_LABELS } from '../../lib/roles';
 import { useRoleGuard } from '../../lib/useRoleGuard';
-import {
-  authCreateUser,
-  authDeleteUser,
-  authGetAllUsers,
-  authGetUserCompanyIds,
-  authUpdateUser,
-  companiesGetAll,
-} from '../../lib/api';
+import { api } from '../../lib/api';
 import type { CompanyRecord, UserInput, UserRecord, UserRole } from '../../../shared/types';
 
 const MANAGER_ROLES: UserRole[] = ['manager', 'supervisor', 'data_entry'];
@@ -45,8 +38,8 @@ export default function UsersPage() {
     setLoading(true);
     try {
       const [usersResult, companiesResult] = await Promise.all([
-        authGetAllUsers(),
-        companiesGetAll(),
+        api.authGetAllUsers(),
+        api.companiesGetAll(),
       ]);
       if (usersResult.success) {
         setUsers(usersResult.users.filter((u: UserRecord) => MANAGER_ROLES.includes(u.role)));
@@ -76,7 +69,7 @@ export default function UsersPage() {
   };
 
   const openEdit = async (record: UserRecord) => {
-    const idsResult = await authGetUserCompanyIds(record.id);
+    const idsResult = await api.authGetUserCompanyIds(record.id);
     setEditing(record);
     setForm({
       fullName: record.fullName ?? '',
@@ -110,8 +103,8 @@ export default function UsersPage() {
     };
 
     const result = editing
-      ? await authUpdateUser(editing.id, payload)
-      : await authCreateUser({ ...payload, password: form.password! });
+      ? await api.authUpdateUser(editing.id, payload)
+      : await api.authCreateUser({ ...payload, password: form.password! });
 
     setSaving(false);
     if (result.success) {
@@ -125,7 +118,7 @@ export default function UsersPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget || !currentUser) return;
-    const result = await authDeleteUser(deleteTarget.id, currentUser.id);
+    const result = await api.authDeleteUser(deleteTarget.id, currentUser.id);
     if (result.success) {
       showToast('User deleted');
       setDeleteTarget(null);

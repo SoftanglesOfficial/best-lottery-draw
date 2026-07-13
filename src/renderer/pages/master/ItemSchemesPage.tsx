@@ -6,11 +6,7 @@ import { useToast } from '../../components/Toast';
 import { Button } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
-import {
-  itemSchemesDelete,
-  itemSchemesList,
-  itemSchemesListByItem,
-} from '../../lib/api';
+import { api } from '../../lib/api';
 import type { ItemSchemeRecord } from '../../../shared/types';
 
 function formatDate(value: Date | string) {
@@ -41,9 +37,9 @@ export default function ItemSchemesPage() {
     setLoading(true);
     try {
       const result = filterItemId
-        ? await itemSchemesListByItem(filterItemId)
+        ? await api.itemSchemesListByItem(filterItemId)
         : companyId != null
-          ? await itemSchemesList(companyId)
+          ? await api.itemSchemesList(companyId)
           : { success: false as const, error: 'No company selected' };
       if (result.success) setSchemes(result.schemes);
       else showToast(result.error, 'error');
@@ -61,7 +57,7 @@ export default function ItemSchemesPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const result = await itemSchemesDelete(deleteTarget.id);
+      const result = await api.itemSchemesDelete(deleteTarget.id);
       if (result.success) {
         showToast('Scheme deleted');
         setDeleteTarget(null);

@@ -12,7 +12,7 @@ import {
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
 import { Button } from '../../components/ui';
-import { reportsDashboard } from '../../lib/api';
+import { api } from '../../lib/api';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import type { ReportsDashboardData, TransactionRecord } from '../../../shared/types';
@@ -46,7 +46,7 @@ export default function ReportsSummaryPage() {
     if (companyId == null) return;
     setLoading(true);
     try {
-      const result = await reportsDashboard(
+      const result = await api.reportsDashboard(
         companyId,
         new Date(dateFrom).toISOString(),
         new Date(`${dateTo}T23:59:59.999`).toISOString(),

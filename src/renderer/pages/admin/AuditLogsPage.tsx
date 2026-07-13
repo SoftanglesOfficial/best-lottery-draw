@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
-import { auditLogsList, authGetUsers } from '../../lib/api';
+import { api } from '../../lib/api';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import type { AuditLogListRecord, UserRecord } from '../../../shared/types';
@@ -33,7 +33,7 @@ export default function AuditLogsPage() {
 
   useEffect(() => {
     if (!allowed || companyId == null) return;
-    authGetUsers(companyId)
+    api.authGetUsers(companyId)
       .then((result) => {
         if (result.success) setUsers(result.users);
       })
@@ -43,7 +43,7 @@ export default function AuditLogsPage() {
   const loadLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await auditLogsList({
+      const result = await api.auditLogsList({
         companyId: companyId ?? undefined,
         entity: entity || undefined,
         dateFrom: dateFrom ? new Date(dateFrom).toISOString() : undefined,

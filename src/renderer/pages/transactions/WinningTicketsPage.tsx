@@ -5,14 +5,7 @@ import { useToast } from '../../components/Toast';
 import { Button, Input } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
-import {
-  buyersList,
-  drawsList,
-  winningTicketsCreate,
-  winningTicketsDelete,
-  winningTicketsFindWinners,
-  winningTicketsList,
-} from '../../lib/api';
+import { api } from '../../lib/api';
 import type { BuyerRecord, DrawRecord, WinningTicketRecord } from '../../../shared/types';
 
 function formatAmount(value: string | null | undefined) {
@@ -53,8 +46,8 @@ export default function WinningTicketsPage() {
     setLoading(true);
     try {
       const [drawResult, buyerResult] = await Promise.all([
-        drawsList(companyId),
-        buyersList(companyId),
+        api.drawsList(companyId),
+        api.buyersList(companyId),
       ]);
       if (drawResult.success) {
         setDraws(drawResult.draws);
@@ -79,7 +72,7 @@ export default function WinningTicketsPage() {
       return;
     }
     try {
-      const result = await winningTicketsList(selectedDrawId);
+      const result = await api.winningTicketsList(selectedDrawId);
       if (result.success) setTickets(result.tickets);
       else showToast(result.error, 'error');
     } catch {
@@ -128,7 +121,7 @@ export default function WinningTicketsPage() {
     }
     setFinding(true);
     try {
-      const result = await winningTicketsFindWinners(selectedDrawId);
+      const result = await api.winningTicketsFindWinners(selectedDrawId);
       if (result.success) {
         showToast(`Found ${result.count} winning ticket(s).`, 'success');
         void loadTickets();
@@ -150,7 +143,7 @@ export default function WinningTicketsPage() {
     }
     setAdding(true);
     try {
-      const result = await winningTicketsCreate(selectedDrawId, [
+      const result = await api.winningTicketsCreate(selectedDrawId, [
         {
           ticketNumber: manualTicket.trim(),
           prizeLevel: Number(manualPrizeLevel) || 1,
@@ -175,7 +168,7 @@ export default function WinningTicketsPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    const result = await winningTicketsDelete(deleteTarget.id);
+    const result = await api.winningTicketsDelete(deleteTarget.id);
     if (result.success) {
       showToast('Winning ticket deleted.', 'success');
       setDeleteTarget(null);

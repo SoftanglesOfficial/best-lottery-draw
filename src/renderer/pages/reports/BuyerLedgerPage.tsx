@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Download, Printer } from 'lucide-react';
 import { useToast } from '../../components/Toast';
 import { Button } from '../../components/ui';
-import { buyersList, ledgerList } from '../../lib/api';
+import { api } from '../../lib/api';
 import { downloadCsv } from '../../lib/exportCsv';
 import { printReport } from '../../lib/exportPdf';
 import { useActiveCompany } from '../../lib/useActiveCompany';
@@ -46,7 +46,7 @@ export default function BuyerLedgerPage() {
 
   useEffect(() => {
     if (!allowed || companyId == null) return;
-    buyersList(companyId)
+    api.buyersList(companyId)
       .then((result) => {
         if (result.success) setBuyers(result.buyers);
       })
@@ -74,7 +74,7 @@ export default function BuyerLedgerPage() {
     try {
       const fromIso = dateFrom ? new Date(dateFrom).toISOString() : undefined;
       const toIso = dateTo ? new Date(`${dateTo}T23:59:59.999`).toISOString() : undefined;
-      const result = await ledgerList(
+      const result = await api.ledgerList(
         companyId,
         fromIso,
         toIso,

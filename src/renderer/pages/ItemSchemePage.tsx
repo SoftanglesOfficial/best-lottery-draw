@@ -4,12 +4,7 @@ import { useToast } from '../components/Toast';
 import { Button, Input } from '../components/ui';
 import { useActiveCompany } from '../lib/useActiveCompany';
 import { useRoleGuard } from '../lib/useRoleGuard';
-import {
-  itemSchemesCreate,
-  itemSchemesGet,
-  itemSchemesUpdate,
-  itemsList,
-} from '../lib/api';
+import { api } from '../lib/api';
 import type { ItemRecord, ItemSchemePrizeInput } from '../../shared/types';
 
 type PrizeRow = ItemSchemePrizeInput;
@@ -84,7 +79,7 @@ export default function ItemSchemePage() {
       return;
     }
     try {
-      const result = await itemsList(companyId);
+      const result = await api.itemsList(companyId);
       if (result.success) setItems(result.items);
       else showToast(result.error, 'error');
     } catch {
@@ -103,7 +98,7 @@ export default function ItemSchemePage() {
     }
     setLoading(true);
     try {
-      const result = await itemSchemesGet(editingId);
+      const result = await api.itemSchemesGet(editingId);
       if (result.success) {
         const scheme = result.scheme;
         if (scheme.companyId !== companyId) {
@@ -185,8 +180,8 @@ export default function ItemSchemePage() {
         prizes,
       };
       const result = editingId
-        ? await itemSchemesUpdate(editingId, payload)
-        : await itemSchemesCreate(payload);
+        ? await api.itemSchemesUpdate(editingId, payload)
+        : await api.itemSchemesCreate(payload);
       if (result.success) {
         showToast(editingId ? 'Scheme updated' : 'Scheme created');
         navigate('/master/item-schemes-list');

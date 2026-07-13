@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
 import { useConnectionStatus } from './useConnectionStatus';
-import { dbReconnect } from './api';
+import { api } from './api';
 
 interface ConnectionContextValue {
   isConnected: boolean;
@@ -16,7 +16,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
   const isConnected = useConnectionStatus();
 
   const reconnect = useCallback(async () => {
-    await dbReconnect();
+    await api.dbReconnect();
   }, []);
 
   const value = useMemo(() => ({ isConnected, reconnect }), [isConnected, reconnect]);

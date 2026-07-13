@@ -11,18 +11,7 @@ import { useAuth } from '../lib/auth';
 import { useActiveCompany } from '../lib/useActiveCompany';
 import { useRoleGuard } from '../lib/useRoleGuard';
 import { isAdminOrOwner, isAtLeastRole } from '../lib/roles';
-import {
-  drawsAuditList,
-  drawsCreate,
-  drawsDelete,
-  drawsExtendTime,
-  drawsList,
-  drawsLock,
-  drawsUnlock,
-  drawsUpdate,
-  itemsList,
-  winningTicketsFindWinners,
-} from '../lib/api';
+import { api } from '../lib/api';
 import { isDrawClosingWithin } from '../lib/drawCloseTime';
 import type { AuditLogRecord, DrawInput, DrawRecord, ItemRecord } from '../../shared/types';
 
@@ -100,7 +89,7 @@ export default function DrawsPage() {
     if (!extendTarget || !user) return;
     setExtending(true);
     try {
-      const result = await drawsExtendTime(
+      const result = await api.drawsExtendTime(
         extendTarget.id,
         user.id,
         user.role,
@@ -130,8 +119,8 @@ export default function DrawsPage() {
     if (!options?.silent) setLoading(true);
     try {
       const [drawsResult, itemsResult] = await Promise.all([
-        drawsList(companyId),
-        itemsList(companyId),
+        api.drawsList(companyId),
+        api.itemsList(companyId),
       ]);
       if (drawsResult.success) setDraws(drawsResult.draws);
       else showToast(drawsResult.error, 'error');
@@ -209,8 +198,8 @@ export default function DrawsPage() {
         name: form.name?.trim() || undefined,
       };
       const result = editing
-        ? await drawsUpdate(editing.id, payload)
-        : await drawsCreate(payload);
+        ? await api.drawsUpdate(editing.id, payload)
+        : await api.drawsCreate(payload);
       if (result.success) {
         showToast(editing ? 'Draw updated.' : 'Draw created.', 'success');
         setModalOpen(false);
@@ -232,7 +221,7 @@ export default function DrawsPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
-    const result = await drawsDelete(deleteTarget.id);
+    const result = await api.drawsDelete(deleteTarget.id);
     if (result.success) {
       showToast('Draw deleted.', 'success');
       setDraws((prev) => prev.filter((draw) => draw.id !== deleteTarget.id));
@@ -246,7 +235,7 @@ export default function DrawsPage() {
     if (!user) return;
     if (draw.status === 'locked') {
       if (!canUnlock) return;
-      const result = await drawsUnlock(draw.id, draw.updatedAt?.getTime() ?? null);
+      const result = await api.drawsUnlock(draw.id, draw.updatedAt?.getTime() ?? null);
       if (result.success) {
         showToast('Draw unlocked.', 'success');
         setDraws((prev) =>
@@ -257,7 +246,7 @@ export default function DrawsPage() {
       }
       return;
     }
-    const result = await drawsLock(draw.id, user.id, draw.updatedAt?.getTime() ?? null);
+    const result = await api.drawsLock(draw.id, user.id, draw.updatedAt?.getTime() ?? null);
     if (result.success) {
       showToast('Draw locked.', 'success');
       setDraws((prev) => prev.map((row) => (row.id === result.draw.id ? result.draw : row)));
@@ -267,7 +256,7 @@ export default function DrawsPage() {
   };
 
   const handleFindWinners = async (draw: DrawRecord) => {
-    const result = await winningTicketsFindWinners(draw.id);
+    const result = await api.winningTicketsFindWinners(draw.id);
     if (result.success) {
       showToast(`Found ${result.count} winning ticket(s).`, 'success');
     } else {
@@ -279,7 +268,7 @@ export default function DrawsPage() {
     setHistoryDraw(draw);
     setHistoryLoading(true);
     try {
-      const result = await drawsAuditList(draw.id);
+      const result = await api.drawsAuditList(draw.id);
       if (result.success) setAuditLogs(result.logs);
       else showToast(result.error, 'error');
     } catch {

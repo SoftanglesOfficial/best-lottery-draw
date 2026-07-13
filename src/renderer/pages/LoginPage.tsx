@@ -36,8 +36,8 @@ export default function LoginPage() {
       } else {
         setError(result.error ?? 'Unable to sign in. Please try again.');
       }
-    } catch {
-      setError('Unable to sign in. Please try again.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.');
     } finally {
       setLoading(false);
     }

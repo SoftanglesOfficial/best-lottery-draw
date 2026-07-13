@@ -7,14 +7,7 @@ import { useToast } from '../../components/Toast';
 import { Button, Input } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
-import {
-  itemGroupsList,
-  itemsCreate,
-  itemsDelete,
-  itemsList,
-  itemsUpdate,
-  shiftGroupsList,
-} from '../../lib/api';
+import { api } from '../../lib/api';
 import type { ItemGroupRecord, ItemInput, ItemRecord, ShiftGroupRecord } from '../../../shared/types';
 
 function emptyForm(companyId: number, groupId: number): ItemInput {
@@ -65,9 +58,9 @@ export default function ItemsPage() {
     setLoading(true);
     try {
       const [itemsResult, groupsResult, shiftsResult] = await Promise.all([
-        itemsList(companyId),
-        itemGroupsList(companyId),
-        shiftGroupsList(companyId),
+        api.itemsList(companyId),
+        api.itemGroupsList(companyId),
+        api.shiftGroupsList(companyId),
       ]);
       if (itemsResult.success) setItems(itemsResult.items);
       else showToast(itemsResult.error, 'error');
@@ -142,8 +135,8 @@ export default function ItemsPage() {
         defaultSeries: form.defaultSeries?.trim() || null,
       };
       const result = editing
-        ? await itemsUpdate(editing.id, payload)
-        : await itemsCreate(payload);
+        ? await api.itemsUpdate(editing.id, payload)
+        : await api.itemsCreate(payload);
       if (result.success) {
         showToast(editing ? 'Item updated' : 'Item created');
         setModalOpen(false);
@@ -161,7 +154,7 @@ export default function ItemsPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const result = await itemsDelete(deleteTarget.id);
+      const result = await api.itemsDelete(deleteTarget.id);
       if (result.success) {
         showToast('Item deleted');
         setDeleteTarget(null);

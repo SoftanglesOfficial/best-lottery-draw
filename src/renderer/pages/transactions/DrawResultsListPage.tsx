@@ -4,11 +4,7 @@ import { useToast } from '../../components/Toast';
 import { Button } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
-import {
-  drawResultsList,
-  drawsList,
-  winningTicketsFindWinners,
-} from '../../lib/api';
+import { api } from '../../lib/api';
 import type { DrawRecord, DrawResultRecord } from '../../../shared/types';
 
 const PRIZE_LABELS: Record<number, string> = {
@@ -43,7 +39,7 @@ export default function DrawResultsListPage() {
     }
     setLoading(true);
     try {
-      const result = await drawsList(companyId);
+      const result = await api.drawsList(companyId);
       if (result.success) {
         setDraws(result.draws);
         setSelectedDrawId((current) => {
@@ -66,7 +62,7 @@ export default function DrawResultsListPage() {
       return;
     }
     try {
-      const result = await drawResultsList(selectedDrawId);
+      const result = await api.drawResultsList(selectedDrawId);
       if (result.success) setResults(result.results);
       else showToast(result.error, 'error');
     } catch {
@@ -105,7 +101,7 @@ export default function DrawResultsListPage() {
     }
     setFinding(true);
     try {
-      const result = await winningTicketsFindWinners(selectedDrawId);
+      const result = await api.winningTicketsFindWinners(selectedDrawId);
       if (result.success) {
         showToast(`Found ${result.count} winning ticket(s).`, 'success');
       } else {

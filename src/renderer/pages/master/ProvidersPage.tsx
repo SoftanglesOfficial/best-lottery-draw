@@ -7,13 +7,7 @@ import { useToast } from '../../components/Toast';
 import { Button, Input } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
-import {
-  providerGroupsList,
-  providersCreate,
-  providersDelete,
-  providersList,
-  providersUpdate,
-} from '../../lib/api';
+import { api } from '../../lib/api';
 import type { EntityStatus, ProviderGroupRecord, ProviderInput, ProviderRecord } from '../../../shared/types';
 
 function emptyForm(companyId: number, groupId: number): ProviderInput {
@@ -56,8 +50,8 @@ export default function ProvidersPage() {
     setLoading(true);
     try {
       const [providersResult, groupsResult] = await Promise.all([
-        providersList(companyId),
-        providerGroupsList(companyId),
+        api.providersList(companyId),
+        api.providerGroupsList(companyId),
       ]);
       if (providersResult.success) setProviders(providersResult.providers);
       else showToast(providersResult.error, 'error');
@@ -120,8 +114,8 @@ export default function ProvidersPage() {
         address: form.address?.trim() || null,
       };
       const result = editing
-        ? await providersUpdate(editing.id, payload)
-        : await providersCreate(payload);
+        ? await api.providersUpdate(editing.id, payload)
+        : await api.providersCreate(payload);
       if (result.success) {
         showToast(editing ? 'Provider updated' : 'Provider created');
         setModalOpen(false);
@@ -139,7 +133,7 @@ export default function ProvidersPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
-      const result = await providersDelete(deleteTarget.id);
+      const result = await api.providersDelete(deleteTarget.id);
       if (result.success) {
         showToast('Provider deleted');
         setDeleteTarget(null);
@@ -155,7 +149,7 @@ export default function ProvidersPage() {
   const handleToggleStatus = async (provider: ProviderRecord) => {
     const nextStatus: EntityStatus = provider.status === 'active' ? 'locked' : 'active';
     try {
-      const result = await providersUpdate(provider.id, {
+      const result = await api.providersUpdate(provider.id, {
         name: provider.name,
         providerGroupId: provider.providerGroupId,
         companyId: provider.companyId,

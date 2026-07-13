@@ -1,7 +1,7 @@
 import { ChevronDown } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../lib/auth';
-import { userGetCompanies, userSetActiveCompany } from '../lib/api';
+import { api } from '../lib/api';
 import { ROLE_BADGE_CLASSES, ROLE_LABELS } from '../lib/roles';
 import type { CompanySummary } from '../../shared/types';
 import { InlineSpinner } from './LoadingSpinner';
@@ -15,7 +15,7 @@ export default function CompanySwitcher() {
 
   useEffect(() => {
     if (!user) return;
-    userGetCompanies(user.id)
+    api.userGetCompanies(user.id)
       .then((result) => {
         if (result.success) setCompanies(result.companies);
       })
@@ -24,7 +24,7 @@ export default function CompanySwitcher() {
 
   useEffect(() => {
     if (!user?.activeCompanyId || activeCompanyName) return;
-    userSetActiveCompany(user.id, user.activeCompanyId)
+    api.userSetActiveCompany(user.id, user.activeCompanyId)
       .then((result) => {
         if (result.success) {
           setActiveCompany(result.user, result.companyName);
@@ -51,7 +51,7 @@ export default function CompanySwitcher() {
       }
       setSwitching(true);
       try {
-        const result = await userSetActiveCompany(user.id, companyId);
+        const result = await api.userSetActiveCompany(user.id, companyId);
         if (result.success) {
           setActiveCompany(result.user, result.companyName);
           window.location.reload();

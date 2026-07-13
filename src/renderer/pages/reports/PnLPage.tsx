@@ -3,7 +3,7 @@ import { ChevronDown, ChevronUp, Printer } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
 import { Button } from '../../components/ui';
-import { reportsPnL } from '../../lib/api';
+import { api } from '../../lib/api';
 import { printReport } from '../../lib/exportPdf';
 import { canViewPnL } from '../../lib/roles';
 import { useActiveCompany } from '../../lib/useActiveCompany';
@@ -85,7 +85,7 @@ export default function PnLPage() {
     }
     setLoading(true);
     try {
-      const result = await reportsPnL(
+      const result = await api.reportsPnL(
         companyId,
         new Date(dateFrom).toISOString(),
         new Date(`${dateTo}T23:59:59.999`).toISOString(),

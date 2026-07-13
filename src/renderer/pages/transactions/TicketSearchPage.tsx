@@ -4,7 +4,7 @@ import { useToast } from '../../components/Toast';
 import { Button, Input } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
-import { transactionsSearchTicket } from '../../lib/api';
+import { api } from '../../lib/api';
 import type { TicketSearchResult } from '../../../shared/types';
 
 function formatDate(value: Date | string | null | undefined) {
@@ -40,7 +40,7 @@ export default function TicketSearchPage() {
     setLoading(true);
     setSearched(true);
     try {
-      const result = await transactionsSearchTicket(companyId, query);
+      const result = await api.transactionsSearchTicket(companyId, query);
       if (result.success) setResults(result.results);
       else showToast(result.error, 'error');
     } catch {
