@@ -17,7 +17,9 @@ export function getDrawCloseDateTime(draw: Pick<DrawRecord, 'drawDate' | 'closeT
 }
 
 export function isDrawPastCloseTime(draw: DrawCloseFields, now: Date = new Date()): boolean {
-  if (!draw.closeTime || draw.status === 'locked') return false;
+  if (draw.status === 'locked') return false;
+  if (draw.status === 'closed') return true;
+  if (!draw.closeTime) return false;
   const closeDateTime = getDrawCloseDateTime(draw);
   if (!closeDateTime) return false;
   return now.getTime() > closeDateTime.getTime();
