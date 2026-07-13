@@ -229,13 +229,14 @@ export default function SaleEntryPage({
         </div>
       ) : null}
 
-      <div className="mb-4 grid grid-cols-1 gap-3 rounded border border-gray-200 bg-white p-4 md:grid-cols-4">
+      <div className="mb-4 rounded border border-gray-200 bg-white p-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
         <label className="flex flex-col gap-1">
           <span className="text-sm font-medium text-gray-700">Draw *</span>
           <select
             value={drawId ?? ''}
             onChange={(event) => setDrawId(Number(event.target.value) || null)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm"
             required
           >
             <option value="">Select draw</option>
@@ -251,7 +252,7 @@ export default function SaleEntryPage({
           <select
             value={buyerId ?? ''}
             onChange={(event) => setBuyerId(Number(event.target.value) || null)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm"
             required
           >
             <option value="">Select buyer</option>
@@ -269,6 +270,7 @@ export default function SaleEntryPage({
           onChange={(event) => setEntryDate(event.target.value)}
         />
         <Input label="Memo ID" value={memoId ?? ''} readOnly />
+        </div>
       </div>
 
       <div className="mb-4 rounded border border-gray-200 bg-white p-4">
