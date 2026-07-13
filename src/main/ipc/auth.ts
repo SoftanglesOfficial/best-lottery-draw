@@ -1,8 +1,8 @@
 import { eq, inArray } from 'drizzle-orm';
 import type { AuthUser, LoginResult, UserInput, UserRecord } from '../../shared/types';
-import { ensureConnected, getDb, hashPassword } from '../db';
-import { createSession, revokeSession } from '../sessionStore';
-import { userCompanies, users } from '../schema';
+import { ensureConnected, getDb, hashPassword, isLegacyPasswordHash, verifyPassword } from '../db';
+import { createSession, getPersistedSessionToken, revokeSession, touchSession, validateSession } from '../sessionStore';
+import { companies, userCompanies, users } from '../schema';
 
 export type { AuthUser };
 
@@ -44,7 +44,6 @@ export async function login(username: string, password: string): Promise<LoginRe
 
   try {
     const db = getDb();
-    const passwordHash = hashPassword(trimmedPassword);
 
     const [user] = await db
       .select()
@@ -52,8 +51,15 @@ export async function login(username: string, password: string): Promise<LoginRe
       .where(eq(users.username, trimmedUsername))
       .limit(1);
 
-    if (!user || user.passwordHash !== passwordHash) {
+    if (!user || !verifyPassword(trimmedPassword, user.passwordHash)) {
       return { success: false, error: 'Invalid username or password' };
+    }
+
+    if (isLegacyPasswordHash(user.passwordHash)) {
+      await db
+        .update(users)
+        .set({ passwordHash: hashPassword(trimmedPassword), updatedAt: new Date() })
+        .where(eq(users.id, user.id));
     }
 
     const authUser: AuthUser = {
@@ -82,6 +88,65 @@ export function logout(sessionToken: string): { success: true } | { success: fal
   }
   revokeSession(sessionToken);
   return { success: true };
+}
+
+export async function restoreSession(): Promise<
+  | { success: true; user: AuthUser; sessionToken: string; companyName: string | null }
+  | { success: false; error: string }
+> {
+  const connection = await ensureConnected();
+  if (!connection.success) {
+    return { success: false, error: connection.error ?? 'Database is not connected' };
+  }
+
+  const token = getPersistedSessionToken();
+  if (!token) {
+    return { success: false, error: 'No stored session' };
+  }
+
+  const session = validateSession(token);
+  if (!session) {
+    return { success: false, error: 'Session expired or invalid' };
+  }
+
+  touchSession(token);
+
+  try {
+    const db = getDb();
+    const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+    if (!user) {
+      revokeSession(token);
+      return { success: false, error: 'User not found' };
+    }
+
+    let companyName: string | null = null;
+    if (user.activeCompanyId != null) {
+      const [company] = await db
+        .select({ name: companies.name })
+        .from(companies)
+        .where(eq(companies.id, user.activeCompanyId))
+        .limit(1);
+      companyName = company?.name ?? null;
+    }
+
+    const authUser: AuthUser = {
+      id: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      role: user.role,
+      companyId: user.companyId,
+      activeCompanyId: user.activeCompanyId,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    return { success: true, user: authUser, sessionToken: token, companyName };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to restore session',
+    };
+  }
 }
 
 async function syncUserCompanies(userId: number, companyIds: number[]): Promise<void> {
@@ -417,7 +482,7 @@ export async function changePassword(
       return { success: false, error: 'User not found' };
     }
 
-    if (user.passwordHash !== hashPassword(currentPassword)) {
+    if (!verifyPassword(currentPassword, user.passwordHash)) {
       return { success: false, error: 'Current password is incorrect' };
     }
 

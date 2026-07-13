@@ -10,6 +10,7 @@ import {
   getUsersByCompany,
   login,
   logout,
+  restoreSession,
   updateUser,
 } from './auth';
 import {
@@ -152,7 +153,7 @@ const IPC_CHANNELS = [
   'db-reconnect',
   'lan-get-status', 'lan-set-mode', 'lan-start-broadcast', 'lan-stop-broadcast', 'lan-discover-server',
   'sessions-heartbeat', 'sessions-active-count', 'diagnostics-get',
-  'auth-login', 'auth-logout', 'auth-create-user', 'auth-change-password',
+  'auth-login', 'auth-logout', 'auth-restore', 'auth-create-user', 'auth-change-password',
   'auth-get-users', 'auth-get-all-users', 'auth-get-owners', 'auth-get-owner-admin-users',
   'auth-get-user-company-ids', 'auth-update-user', 'auth-delete-user',
   'user-get-companies', 'user-set-active-company', 'user-companies-assign',
@@ -224,6 +225,7 @@ export function registerIpcHandlers(): void {
   });
   ipcMain.handle('lan-discover-server', async () => discoverServer());
   ipcMain.handle('auth-login', async (_e, u: string, p: string) => login(u, p));
+  ipcMain.handle('auth-restore', async () => restoreSession());
   ipcMain.handle('auth-logout', async (_e, sessionToken: string) => logout(sessionToken));
 
   ipcMain.handle('sessions-heartbeat', async (_e, ...args) =>

@@ -2,7 +2,8 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 
 export function ProtectedRoute() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isRestoring } = useAuth();
+  if (isRestoring) return null;
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
@@ -18,7 +19,8 @@ export function ActiveCompanyRoute() {
 }
 
 export function PublicRoute() {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isRestoring, user } = useAuth();
+  if (isRestoring) return null;
   if (isAuthenticated) {
     return <Navigate to={user?.activeCompanyId ? '/dashboard' : '/open-company'} replace />;
   }

@@ -2,18 +2,20 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authLogin, authLogout, userSetActiveCompany } from './api';
+import { api } from './api';
 import type { SessionUser } from '../../shared/types';
 
 interface AuthContextValue {
   user: SessionUser | null;
   activeCompanyName: string | null;
   isAuthenticated: boolean;
+  isRestoring: boolean;
   login: (username: string, password: string) => Promise<{
     success: boolean;
     error?: string;
@@ -40,9 +42,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const [user, setUser] = useState<SessionUser | null>(null);
   const [activeCompanyName, setActiveCompanyName] = useState<string | null>(null);
+  const [isRestoring, setIsRestoring] = useState(true);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const result = await api.authRestore();
+        if (result.success) {
+          setUser(toSessionUser(result.user));
+          setActiveCompanyName(result.companyName ?? null);
+        }
+      } finally {
+        setIsRestoring(false);
+      }
+    })();
+  }, []);
 
   const login = useCallback(async (username: string, password: string) => {
-    const result = await authLogin(username, password);
+    const result = await api.authLogin(username, password);
     if (!result.success) {
       return { success: false, error: result.error };
     }
@@ -51,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(sessionUser);
 
     if (sessionUser.activeCompanyId != null) {
-      const active = await userSetActiveCompany(sessionUser.id, sessionUser.activeCompanyId);
+      const active = await api.userSetActiveCompany(sessionUser.id, sessionUser.activeCompanyId);
       if (active.success) {
         setUser(toSessionUser(active.user));
         setActiveCompanyName(active.companyName);
@@ -66,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await authLogout();
+    await api.authLogout();
     setUser(null);
     setActiveCompanyName(null);
     navigate('/');
@@ -82,11 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       activeCompanyName,
       isAuthenticated: user !== null,
+      isRestoring,
       login,
       logout,
       setActiveCompany,
     }),
-    [user, activeCompanyName, login, logout, setActiveCompany],
+    [user, activeCompanyName, isRestoring, login, logout, setActiveCompany],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

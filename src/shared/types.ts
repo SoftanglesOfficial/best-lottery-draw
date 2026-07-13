@@ -24,6 +24,7 @@ export type LoginSuccess = {
   success: true;
   user: AuthUser;
   sessionToken: string;
+  companyName?: string | null;
 };
 
 export type LoginFailure = {

@@ -51,6 +51,7 @@ interface Api {
   dbConnect: (config: DbConfig) => Promise<{ success: boolean; error?: string }>;
   dbSetup: () => Promise<{ success: boolean; error?: string }>;
   authLogin: (username: string, password: string) => Promise<LoginResult>;
+  authRestore: () => Promise<LoginResult>;
   authLogout: () => Promise<{ success: true } | { success: false; error: string }>;
   authCreateUser: (
     data: UserInput,

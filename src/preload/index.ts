@@ -56,6 +56,26 @@ import type {
 
 let sessionToken: string | null = null;
 
+const AUTH_FAIL = /Not authenticated|Session expired or invalid/;
+
+const logoutListeners = new Set<() => void>();
+
+function isAuthFailure(result: unknown): boolean {
+  return (
+    result != null &&
+    typeof result === 'object' &&
+    'success' in result &&
+    (result as { success: boolean }).success === false &&
+    'error' in result &&
+    typeof (result as { error: string }).error === 'string' &&
+    AUTH_FAIL.test((result as { error: string }).error)
+  );
+}
+
+function notifySessionExpired() {
+  logoutListeners.forEach((cb) => cb());
+}
+
 const PUBLIC_CHANNELS = new Set([
   'db-get-config',
   'db-connect',
@@ -63,6 +83,7 @@ const PUBLIC_CHANNELS = new Set([
   'db-get-status',
   'db-test-connection',
   'db-reconnect',
+  'prefs-get',
   'lan-get-status',
   'lan-set-mode',
   'lan-start-broadcast',
@@ -70,13 +91,18 @@ const PUBLIC_CHANNELS = new Set([
   'lan-discover-server',
   'auth-login',
   'auth-logout',
+  'auth-restore',
+  'window-set-title',
 ]);
 
 function invokeIpc(channel: string, ...args: unknown[]) {
-  if (PUBLIC_CHANNELS.has(channel)) {
-    return invokeIpc(channel, ...args);
-  }
-  return invokeIpc(channel, ...args, sessionToken);
+  const run = PUBLIC_CHANNELS.has(channel)
+    ? ipcRenderer.invoke(channel, ...args)
+    : ipcRenderer.invoke(channel, ...args, sessionToken);
+  return run.then((result) => {
+    if (isAuthFailure(result)) notifySessionExpired();
+    return result;
+  });
 }
 
 export interface Api {
@@ -84,6 +110,7 @@ export interface Api {
   dbConnect: (config: DbConfig) => Promise<{ success: boolean; error?: string }>;
   dbSetup: () => Promise<{ success: boolean; error?: string }>;
   authLogin: (username: string, password: string) => Promise<LoginResult>;
+  authRestore: () => Promise<LoginResult>;
   authLogout: () => Promise<{ success: true } | { success: false; error: string }>;
   authCreateUser: (
     data: UserInput,
@@ -490,6 +517,13 @@ const api: Api = {
     }
     return result;
   },
+  authRestore: async () => {
+    const result = await invokeIpc('auth-restore');
+    if (result.success && result.sessionToken) {
+      sessionToken = result.sessionToken;
+    }
+    return result;
+  },
   authLogout: async () => {
     if (sessionToken) {
       const result = await invokeIpc('auth-logout', sessionToken);
@@ -561,9 +595,13 @@ const api: Api = {
     return () => ipcRenderer.removeListener('app:navigate', handler);
   },
   onAppLogout: (callback) => {
-    const handler = () => callback();
-    ipcRenderer.on('app:logout', handler);
-    return () => ipcRenderer.removeListener('app:logout', handler);
+    logoutListeners.add(callback);
+    const ipcHandler = () => notifySessionExpired();
+    ipcRenderer.on('app:logout', ipcHandler);
+    return () => {
+      logoutListeners.delete(callback);
+      ipcRenderer.removeListener('app:logout', ipcHandler);
+    };
   },
   onDbConnectionLost: (callback) => {
     const handler = () => callback();
