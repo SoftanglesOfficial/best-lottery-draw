@@ -52,15 +52,7 @@ export async function login(username: string, password: string): Promise<LoginRe
       .where(eq(users.username, trimmedUsername))
       .limit(1);
 
-    if (!user) {
-      return {
-        success: false,
-        error:
-          'No user found. Go to Settings (Ctrl+,), connect to PostgreSQL, then click "Setup Tables & Admin".',
-      };
-    }
-
-    if (user.passwordHash !== passwordHash) {
+    if (!user || user.passwordHash !== passwordHash) {
       return { success: false, error: 'Invalid username or password' };
     }
 

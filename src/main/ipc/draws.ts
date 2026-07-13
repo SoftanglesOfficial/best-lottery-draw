@@ -16,6 +16,7 @@ import {
 } from '../schema';
 import { getDrawById } from './drawValidation';
 import { requireCompanyId } from './companyScope';
+import { extractTicketNumbers } from '../../shared/ticketData';
 import type { SessionContext } from './sessionContext';
 import type {
   AuditLogRecord,
@@ -587,19 +588,9 @@ export async function findWinners(drawId: number) {
       const winningNum = result.winningNumber;
 
       for (const txn of saleTransactions) {
-        let ticketData: unknown[] = [];
-        try {
-          ticketData = JSON.parse(txn.ticketData || '[]') as unknown[];
-        } catch {
-          ticketData = [];
-        }
+        const ticketNumbers = extractTicketNumbers(txn.ticketData);
 
-        for (const ticket of ticketData) {
-          const ticketNo = String(
-            typeof ticket === 'object' && ticket != null && 'number' in ticket
-              ? (ticket as { number: unknown }).number
-              : ticket,
-          );
+        for (const ticketNo of ticketNumbers) {
           let isWinner = false;
 
           if (result.prizeLevel === 1 || result.prizeLevel === 2) {

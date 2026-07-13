@@ -112,13 +112,34 @@ export default function TicketRangeTable({ rows, onChange, onActiveRowChange }: 
 
 export function rangesToTicketData(rows: RangeRow[]) {
   const ranges = rows
-    .filter((row) => row.from && row.to && rangeCount(row.from, row.to) > 0)
+    .filter((row) => row.from.length === 5 && row.to.length === 5 && rangeCount(row.from, row.to) > 0)
     .map((row) => ({
       from: row.from.padStart(5, '0'),
       to: row.to.padStart(5, '0'),
       count: rangeCount(row.from, row.to),
     }));
   return JSON.stringify({ ranges });
+}
+
+export function validateTicketRangeRows(rows: RangeRow[]): string | null {
+  const validRows = rows.filter((row) => row.from || row.to);
+  if (validRows.length === 0) {
+    return 'Add at least one ticket range.';
+  }
+  for (let index = 0; index < validRows.length; index += 1) {
+    const row = validRows[index];
+    const rowNo = index + 1;
+    if (row.from.length !== 5 || row.to.length !== 5) {
+      return `Row ${rowNo}: From and To must be 5 digits.`;
+    }
+    if (rangeCount(row.from, row.to) <= 0) {
+      return `Row ${rowNo}: To must be greater than or equal to From.`;
+    }
+  }
+  if (totalRangeCount(validRows) <= 0) {
+    return 'Add at least one valid ticket range.';
+  }
+  return null;
 }
 
 export function totalRangeCount(rows: RangeRow[]) {

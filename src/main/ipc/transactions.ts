@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
 import { buyers, companies, draws, providers, transactions, users } from '../schema';
 import { formatDbError } from './ipcUtils';
@@ -109,12 +109,19 @@ async function assertCompanyCanTransact(companyId: number): Promise<void> {
   if (company.status !== 'active') throw new Error('Company is not active.');
 }
 
-async function getSoldTicketNumbers(drawId: number): Promise<Set<string>> {
-  const db = getDb();
+async function getSoldTicketNumbers(
+  drawId: number,
+  excludeTransactionId?: number,
+  db = getDb(),
+): Promise<Set<string>> {
+  const conditions = [eq(transactions.drawId, drawId), eq(transactions.type, 'sale')];
+  if (excludeTransactionId != null) {
+    conditions.push(ne(transactions.id, excludeTransactionId));
+  }
   const rows = await db
     .select({ ticketData: transactions.ticketData })
     .from(transactions)
-    .where(and(eq(transactions.drawId, drawId), eq(transactions.type, 'sale')));
+    .where(and(...conditions));
 
   const sold = new Set<string>();
   for (const row of rows) {
@@ -192,7 +199,12 @@ async function sumTicketCounts(
   return Number(row?.total ?? 0);
 }
 
-async function validateTransactionCreate(data: TransactionInput, drawId: number) {
+async function validateTransactionCreate(
+  data: TransactionInput,
+  drawId: number,
+  excludeTransactionId?: number,
+  db = getDb(),
+) {
   await validateDrawOpen(drawId);
 
   if (data.type === 'purchase' || data.type === 'purchase_return') {
@@ -219,7 +231,7 @@ async function validateTransactionCreate(data: TransactionInput, drawId: number)
     if (newTickets.length === 0) {
       throw new Error('At least one ticket is required for a sale.');
     }
-    const sold = await getSoldTicketNumbers(drawId);
+    const sold = await getSoldTicketNumbers(drawId, excludeTransactionId, db);
     for (const number of newTickets) {
       if (sold.has(number)) {
         throw new Error(`Ticket ${number} already sold in this draw`);
@@ -380,13 +392,14 @@ export async function createTransaction(data: TransactionInput, ctx: SessionCont
   try {
     await assertCompanyCanTransact(data.companyId);
     const drawId = await resolveDrawId(data);
-    await validateTransactionCreate(data, drawId);
-
     const db = getDb();
     const ticketCount =
       data.ticketCount ?? (data.ticketData ? countFromTicketData(data.ticketData) : 0);
 
     const created = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM draws WHERE id = ${drawId} FOR UPDATE`);
+      await validateTransactionCreate(data, drawId, undefined, tx);
+
       await tx.execute(sql`SELECT pg_advisory_xact_lock(${data.companyId})`);
 
       let memoId = data.memoId;
@@ -448,30 +461,34 @@ export async function updateTransaction(
     if (!existing) return { success: false as const, error: 'Transaction not found' };
 
     const drawId = data.drawId ?? existing.drawId;
-    await validateDrawOpen(drawId);
-    await validateTransactionCreate({ ...data, drawId }, drawId);
-
     const ticketCount =
       data.ticketCount ??
       (data.ticketData ? countFromTicketData(data.ticketData) : existing.ticketCount);
 
-    const [updated] = await db
-      .update(transactions)
-      .set({
-        type: data.type,
-        drawId,
-        providerId: data.providerId ?? null,
-        buyerId: data.buyerId ?? null,
-        memoId: data.memoId ?? existing.memoId,
-        amount: data.amount != null ? String(data.amount) : existing.amount,
-        ticketCount,
-        ticketData: data.ticketData ?? existing.ticketData,
-        voucherNo: data.voucherNo ?? existing.voucherNo,
-        enteredAt: data.enteredAt ? new Date(data.enteredAt) : existing.enteredAt,
-        updatedAt: new Date(),
-      })
-      .where(eq(transactions.id, id))
-      .returning();
+    const [updated] = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM draws WHERE id = ${drawId} FOR UPDATE`);
+      await validateDrawOpen(drawId);
+      await validateTransactionCreate({ ...data, drawId }, drawId, id, tx);
+
+      const [row] = await tx
+        .update(transactions)
+        .set({
+          type: data.type,
+          drawId,
+          providerId: data.providerId ?? null,
+          buyerId: data.buyerId ?? null,
+          memoId: data.memoId ?? existing.memoId,
+          amount: data.amount != null ? String(data.amount) : existing.amount,
+          ticketCount,
+          ticketData: data.ticketData ?? existing.ticketData,
+          voucherNo: data.voucherNo ?? existing.voucherNo,
+          enteredAt: data.enteredAt ? new Date(data.enteredAt) : existing.enteredAt,
+          updatedAt: new Date(),
+        })
+        .where(eq(transactions.id, id))
+        .returning();
+      return row ? [row] : [];
+    });
 
     if (!updated) return { success: false as const, error: 'Transaction not found' };
     const record = await fetchTransactionRecord(updated.id);

@@ -76,6 +76,10 @@ export function validateSaleRangeRows(rows: SaleRangeRow[]): string | null {
     if (row.from.length !== 5 || row.to.length !== 5) {
       return `Row ${rowNo}: From and To must be 5 digits.`;
     }
+    const rate = Number(row.rate);
+    if (Number.isNaN(rate) || rate <= 0) {
+      return `Row ${rowNo}: Rate must be greater than zero.`;
+    }
     if (rowQty(row) <= 0) {
       return `Row ${rowNo}: To must be greater than or equal to From.`;
     }

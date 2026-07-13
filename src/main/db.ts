@@ -638,6 +638,10 @@ WHERE NOT EXISTS (SELECT 1 FROM buyer_groups g WHERE g.company_id = c.id);
 INSERT INTO item_groups (name, company_id)
 SELECT 'Default Items', c.id FROM companies c
 WHERE NOT EXISTS (SELECT 1 FROM item_groups g WHERE g.company_id = c.id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS transactions_company_memo_unique
+  ON transactions (company_id, memo_id)
+  WHERE memo_id IS NOT NULL;
 `;
 
 async function ensureSchema(client: Pool): Promise<void> {

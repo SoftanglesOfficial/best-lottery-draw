@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import TicketRangeTable, {
   rangesToTicketData,
   totalRangeCount,
+  validateTicketRangeRows,
   type RangeRow,
 } from '../../components/transactions/TicketRangeTable';
 import { useToast } from '../../components/Toast';
@@ -98,10 +99,26 @@ export default function PurchaseEntryPage({
       showToast('Complete all required fields.', 'error');
       return;
     }
+    const rangeError = validateTicketRangeRows(rows);
+    if (rangeError) {
+      showToast(rangeError, 'error');
+      return;
+    }
     const ticketCount = totalRangeCount(rows);
     if (ticketCount <= 0) {
       showToast('Add at least one valid ticket range.', 'error');
       return;
+    }
+
+    if (type === 'purchase_return') {
+      if (!purchaseSummary || purchaseSummary.net <= 0) {
+        showToast('No purchase found for this provider in this draw', 'error');
+        return;
+      }
+      if (ticketCount > purchaseSummary.net) {
+        showToast(`Cannot return more than available (${purchaseSummary.net})`, 'error');
+        return;
+      }
     }
 
     const rate = selectedProvider?.purchaseRate ? Number(selectedProvider.purchaseRate) : 0;
