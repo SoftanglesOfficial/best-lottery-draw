@@ -319,7 +319,33 @@ export function saveConfig(config: DbConfig): void {
 }
 
 export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `scrypt:${salt}:${hash}`;
+}
+
+function legacyHashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+export function isLegacyPasswordHash(stored: string): boolean {
+  return !stored.startsWith('scrypt:');
+}
+
+export function verifyPassword(password: string, stored: string): boolean {
+  if (isLegacyPasswordHash(stored)) {
+    return legacyHashPassword(password) === stored;
+  }
+  const parts = stored.split(':');
+  if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
+  const salt = parts[1];
+  const expected = parts[2];
+  const derived = crypto.scryptSync(password, salt, 64).toString('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(derived, 'hex'));
+  } catch {
+    return false;
+  }
 }
 
 const MIGRATION_SQL = `
@@ -739,6 +765,22 @@ export async function setupDb(): Promise<{ success: boolean; error?: string }> {
     );
     const companyId = companyResult.rows[0]?.id;
     if (companyId != null) {
+      const adminResult = await pool!.query<{ id: number }>(
+        `SELECT id FROM users WHERE username = $1 LIMIT 1`,
+        ['admin'],
+      );
+      const adminId = adminResult.rows[0]?.id;
+      if (adminId != null) {
+        await pool!.query(
+          `INSERT INTO user_companies (user_id, company_id)
+           SELECT $1, $2
+           WHERE NOT EXISTS (
+             SELECT 1 FROM user_companies WHERE user_id = $1 AND company_id = $2
+           )`,
+          [adminId, companyId],
+        );
+      }
+
       await pool!.query(
         `INSERT INTO shift_groups (name, company_id)
          SELECT $1, $2
