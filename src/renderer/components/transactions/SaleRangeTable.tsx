@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { rangeCount } from '../../lib/transactionDisplay';
+import { isAtLeastRole } from '../../lib/roles';
+import { useAuth } from '../../lib/auth';
 import type { ItemRecord } from '../../../shared/types';
 
 export type SaleRangeRow = {
@@ -100,6 +102,8 @@ export default function SaleRangeTable({
   onActiveRowChange,
 }: SaleRangeTableProps) {
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const { user } = useAuth();
+  const canEditRate = user ? isAtLeastRole(user.role, 'manager') : false;
 
   const updateRow = (index: number, patch: Partial<SaleRangeRow>) => {
     const next = rows.map((row, i) => (i === index ? { ...row, ...patch } : row));
@@ -232,7 +236,8 @@ export default function SaleRangeTable({
                       })
                     }
                     onFocus={() => onActiveRowChange?.(index)}
-                    className="w-full rounded border border-gray-300 px-2 py-1 font-mono text-left"
+                    readOnly={!canEditRate}
+                    className={`w-full rounded border border-gray-300 px-2 py-1 font-mono text-left ${!canEditRate ? 'bg-gray-100' : ''}`}
                     inputMode="decimal"
                   />
                 </td>

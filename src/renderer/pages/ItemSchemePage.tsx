@@ -54,7 +54,10 @@ function formatDateInput(value: Date | string | null | undefined) {
   if (!value) return '';
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export default function ItemSchemePage() {
@@ -103,6 +106,11 @@ export default function ItemSchemePage() {
       const result = await itemSchemesGet(editingId);
       if (result.success) {
         const scheme = result.scheme;
+        if (scheme.companyId !== companyId) {
+          showToast('Scheme not found in active company.', 'error');
+          navigate('/master/item-schemes-list');
+          return;
+        }
         setItemId(scheme.itemId);
         setSchemeDate(formatDateInput(scheme.schemeDate));
         setDrawNo(scheme.drawNo ?? '');
@@ -117,21 +125,15 @@ export default function ItemSchemePage() {
     } finally {
       setLoading(false);
     }
-  }, [editingId, itemIdParam, showToast]);
-
-  useEffect(() => {
-    if (itemIdParam && !schemeId) {
-      navigate(`/master/item-schemes-list?itemId=${itemIdParam}`, { replace: true });
-    }
-  }, [itemIdParam, schemeId, navigate]);
+  }, [editingId, itemIdParam, showToast, companyId, navigate]);
 
   useEffect(() => {
     if (allowed && companyId != null) void loadItems();
   }, [allowed, companyId, loadItems]);
 
   useEffect(() => {
-    if (allowed && !(itemIdParam && !schemeId)) void loadScheme();
-  }, [allowed, loadScheme, itemIdParam, schemeId]);
+    if (allowed) void loadScheme();
+  }, [allowed, loadScheme]);
 
   const updatePrize = (index: number, field: keyof PrizeRow, value: string) => {
     setPrizes((current) =>
@@ -159,6 +161,18 @@ export default function ItemSchemePage() {
     }
     if (!schemeDate) {
       showToast('Scheme date is required.', 'error');
+      return;
+    }
+    const hasPrizeData = prizes.some(
+      (prize) =>
+        prize.prizeAmount != null ||
+        prize.noOfResult != null ||
+        prize.prizeNoLength != null ||
+        prize.checkPrefix ||
+        prize.checkSeries,
+    );
+    if (!hasPrizeData) {
+      showToast('Add at least one prize row with data.', 'error');
       return;
     }
     setSaving(true);

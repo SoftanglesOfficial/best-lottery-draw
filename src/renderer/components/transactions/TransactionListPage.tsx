@@ -52,7 +52,7 @@ export default function TransactionListPage({
   const [deleteTarget, setDeleteTarget] = useState<TransactionRecord | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const canDelete = user ? isAtLeastRole(user.role, 'manager') : false;
+  const canDelete = user ? isAtLeastRole(user.role, 'supervisor') : false;
 
   const load = useCallback(async () => {
     if (companyId == null) {

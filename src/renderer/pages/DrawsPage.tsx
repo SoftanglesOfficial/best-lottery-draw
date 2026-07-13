@@ -10,7 +10,7 @@ import { Button, Input } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useActiveCompany } from '../lib/useActiveCompany';
 import { useRoleGuard } from '../lib/useRoleGuard';
-import { isAdminOrOwner } from '../lib/roles';
+import { isAdminOrOwner, isAtLeastRole } from '../lib/roles';
 import {
   drawsAuditList,
   drawsCreate,
@@ -87,6 +87,7 @@ export default function DrawsPage() {
 
   const isAdmin = user?.role === 'admin';
   const canUnlock = user ? isAdminOrOwner(user.role) : false;
+  const canImportResults = user ? isAtLeastRole(user.role, 'supervisor') : false;
 
   const openExtendTime = (draw: DrawRecord) => {
     setExtendTarget(draw);
@@ -318,7 +319,7 @@ export default function DrawsPage() {
         const isLocked = row.status === 'locked';
         const canEdit = row.status === 'open';
         const canDelete = row.status === 'open' && (row.transactionCount ?? 0) === 0;
-        const canImport = !(isLocked && row.resultImported);
+        const canImport = canImportResults && !(isLocked && row.resultImported);
         const canFindWinners = row.resultImported === true;
         const lockLabel = isLocked ? (canUnlock ? 'Unlock' : 'Locked') : 'Lock';
 

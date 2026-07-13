@@ -1,8 +1,9 @@
 import { FormEvent, useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PRIZE_LABELS, parseResultTxt } from '../../shared/parseDrawResults';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
-import { Button, Input } from '../components/ui';
+import { Button } from '../components/ui';
 import { drawResultsCreate, drawResultsList, drawsList } from '../lib/api';
 import { useActiveCompany } from '../lib/useActiveCompany';
 import { useRoleGuard } from '../lib/useRoleGuard';
@@ -53,13 +54,15 @@ export default function DrawResultsPage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { id } = useParams();
-  const drawId = id ? Number(id) : null;
+  const drawId = id != null && Number.isFinite(Number(id)) ? Number(id) : null;
 
   const [draw, setDraw] = useState<DrawRecord | null>(null);
   const [manualRows, setManualRows] = useState<ManualRow[]>(defaultManualRows());
   const [fileContent, setFileContent] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [confirmReimport, setConfirmReimport] = useState(false);
+  const [pendingResults, setPendingResults] = useState<DrawResultInput[]>([]);
 
   const load = useCallback(async () => {
     if (companyId == null || drawId == null) {
@@ -104,37 +107,30 @@ export default function DrawResultsPage() {
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const text = await file.text();
-    setFileContent(text);
-    const parsed = parseResultTxt(text);
-    if (parsed.length === 0) {
-      showToast('No results found in file.', 'error');
-      return;
+    try {
+      const text = await file.text();
+      setFileContent(text);
+      const parsed = parseResultTxt(text);
+      if (parsed.length === 0) {
+        showToast('No results found in file.', 'error');
+        return;
+      }
+      const grouped = defaultManualRows().map((row) => ({
+        ...row,
+        numbers: parsed
+          .filter((entry) => entry.prizeLevel === row.prizeLevel)
+          .map((entry) => entry.winningNumber)
+          .join('\n'),
+      }));
+      setManualRows(grouped);
+      showToast(`Parsed ${parsed.length} winning number(s) from file.`, 'success');
+    } catch {
+      showToast('Failed to read file.', 'error');
     }
-    const grouped = defaultManualRows().map((row) => ({
-      ...row,
-      numbers: parsed
-        .filter((entry) => entry.prizeLevel === row.prizeLevel)
-        .map((entry) => entry.winningNumber)
-        .join('\n'),
-    }));
-    setManualRows(grouped);
-    showToast(`Parsed ${parsed.length} winning number(s) from file.`, 'success');
   };
 
-  const handleImport = async (event: FormEvent) => {
-    event.preventDefault();
+  const runImport = async (results: DrawResultInput[]) => {
     if (drawId == null) return;
-
-    let results = manualRowsToResults(manualRows);
-    if (results.length === 0 && fileContent) {
-      results = parseResultTxt(fileContent);
-    }
-    if (results.length === 0) {
-      showToast('Enter at least one winning number.', 'error');
-      return;
-    }
-
     setSaving(true);
     try {
       const result = await drawResultsCreate(drawId, results);
@@ -148,7 +144,34 @@ export default function DrawResultsPage() {
       showToast('Failed to import results.', 'error');
     } finally {
       setSaving(false);
+      setConfirmReimport(false);
+      setPendingResults([]);
     }
+  };
+
+  const handleImport = async (event: FormEvent) => {
+    event.preventDefault();
+    if (drawId == null || draw == null) {
+      showToast('Draw not found.', 'error');
+      return;
+    }
+
+    let results = manualRowsToResults(manualRows);
+    if (results.length === 0 && fileContent) {
+      results = parseResultTxt(fileContent);
+    }
+    if (results.length === 0) {
+      showToast('Enter at least one winning number.', 'error');
+      return;
+    }
+
+    if (draw.resultImported) {
+      setPendingResults(results);
+      setConfirmReimport(true);
+      return;
+    }
+
+    await runImport(results);
   };
 
   if (!allowed) return null;
@@ -156,6 +179,22 @@ export default function DrawResultsPage() {
   if (loading) {
     return <p className="text-sm text-gray-500">Loading…</p>;
   }
+
+  if (drawId == null || draw == null) {
+    return (
+      <div>
+        <div className="mb-6">
+          <Button variant="secondary" onClick={() => navigate('/draws')}>
+            ← Back to Draws
+          </Button>
+        </div>
+        <h1 className="mb-2 text-2xl font-bold text-gray-900">Import Draw Results</h1>
+        <p className="text-sm text-gray-600">Draw not found or invalid draw ID.</p>
+      </div>
+    );
+  }
+
+  const formDisabled = saving;
 
   return (
     <div>
@@ -241,10 +280,22 @@ export default function DrawResultsPage() {
           </div>
         </div>
 
-        <Button type="submit" disabled={saving || drawId == null}>
+        <Button type="submit" disabled={formDisabled}>
           {saving ? 'Importing…' : 'Import Results'}
         </Button>
       </form>
+
+      {confirmReimport ? (
+        <ConfirmDialog
+          message="This draw already has imported results. Importing again will replace them and re-lock the draw."
+          confirmLabel="Re-import"
+          onConfirm={() => void runImport(pendingResults)}
+          onCancel={() => {
+            setConfirmReimport(false);
+            setPendingResults([]);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

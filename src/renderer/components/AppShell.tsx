@@ -63,6 +63,7 @@ function buildNavigation(role: UserRole) {
     ? [
         { label: 'Company Owners', path: '/admin/owners' },
         { label: 'Companies', path: '/admin/companies' },
+        { label: 'Backups', path: '/admin/backups' },
         { label: 'Diagnostics', path: '/admin/diagnostics' },
         { label: 'Audit Logs', path: '/admin/audit-logs' },
       ]
@@ -97,7 +98,9 @@ function buildNavigation(role: UserRole) {
     { label: 'Bookings', path: '/transactions/bookings' },
     { label: 'Winning Tickets', path: '/transactions/winning-tickets' },
     { label: 'Ticket Search', path: '/transactions/ticket-search' },
-    { label: 'Draw Results', path: '/transactions/draw-results' },
+    ...(isAtLeastRole(role, 'supervisor')
+      ? [{ label: 'Draw Results', path: '/transactions/draw-results' }]
+      : []),
   ];
 
   const reports: NavItem[] = isAtLeastRole(role, 'manager')

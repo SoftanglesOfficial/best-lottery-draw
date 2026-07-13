@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
 import { draws } from '../schema';
+import { getDrawCloseDateTime } from '../../shared/drawCloseTime';
 
 export async function getDrawById(drawId: number) {
   const connection = await ensureConnected();
@@ -17,17 +18,13 @@ export async function validateDrawOpen(drawId: number) {
   if (!draw) throw new Error('Draw not found');
   if (draw.status === 'locked') throw new Error('Draw is locked. No entries allowed.');
 
-  if (draw.closeTime) {
-    const now = new Date();
-    const [hours, minutes] = draw.closeTime.split(':').map(Number);
-    const closeDateTime = new Date(draw.drawDate);
-    closeDateTime.setHours(hours, minutes, 0, 0);
-
-    if (now > closeDateTime) {
-      throw new Error(
-        `Draw closed at ${draw.closeTime}. No entries or returns allowed after draw closing time.`,
-      );
-    }
+  const closeDateTime = getDrawCloseDateTime({
+    drawDate: draw.drawDate,
+    closeTime: draw.closeTime,
+  });
+  if (closeDateTime && new Date() > closeDateTime) {
+    throw new Error(
+      `Draw closed at ${draw.closeTime}. No entries or returns allowed after draw closing time.`,
+    );
   }
-  return draw;
 }
