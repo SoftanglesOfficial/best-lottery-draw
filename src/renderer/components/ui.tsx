@@ -1,21 +1,39 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from 'react';
+import { useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useDbConnection } from '../lib/ConnectionContext';
 
 type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   label: string;
 };
 
-export function Input({ label, id, className = '', ...props }: InputProps) {
+export function Input({ label, id, className = '', type, ...props }: InputProps) {
   const inputId = id ?? label.toLowerCase().replace(/\s+/g, '-');
+  const [visible, setVisible] = useState(false);
+  const isPassword = type === 'password';
+  const inputType = isPassword && visible ? 'text' : type;
 
   return (
     <label htmlFor={inputId} className="flex flex-col gap-1">
       <span className="text-sm font-medium text-gray-700">{label}</span>
-      <input
-        id={inputId}
-        className={`rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-600 ${className}`}
-        {...props}
-      />
+      <div className={isPassword ? 'relative' : undefined}>
+        <input
+          id={inputId}
+          type={inputType}
+          className={`w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-600 ${isPassword ? 'pr-10' : ''} ${type === 'number' ? 'text-left' : ''} ${className}`}
+          {...props}
+        />
+        {isPassword ? (
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setVisible((current) => !current)}
+            className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+            aria-label={visible ? 'Hide password' : 'Show password'}
+          >
+            {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        ) : null}
+      </div>
     </label>
   );
 }
