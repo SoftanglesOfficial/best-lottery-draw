@@ -1,5 +1,5 @@
 import { LogOut, WifiOff } from 'lucide-react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import CompanySwitcher from './CompanySwitcher';
 import { useDbConnection } from '../lib/ConnectionContext';
 import { useActiveUserCount } from '../lib/useActiveUserCount';
@@ -10,6 +10,22 @@ import type { UserRole } from '../../shared/types';
 interface NavItem {
   label: string;
   path: string;
+}
+
+function isNavItemActive(navPath: string, pathname: string): boolean {
+  const [base] = navPath.split('?');
+
+  if (base === '/draws') {
+    return pathname === '/draws' || pathname.startsWith('/draws/');
+  }
+  if (base === '/master/item-schemes-list') {
+    return pathname === '/master/item-schemes-list' || pathname === '/item-schemes';
+  }
+  if (base === '/transactions/winning-tickets') {
+    return pathname === '/transactions/winning-tickets' || pathname === '/transactions/winning';
+  }
+
+  return pathname === base;
 }
 
 function NavSection({ title, items }: { title: string; items: NavItem[] }) {
@@ -25,6 +41,7 @@ function NavSection({ title, items }: { title: string; items: NavItem[] }) {
           <NavLink
             key={item.path}
             to={item.path}
+            isActive={(_, location) => isNavItemActive(item.path, location.pathname)}
             className={({ isActive }) =>
               `rounded px-3 py-2 text-sm transition-colors ${
                 isActive ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'
@@ -45,7 +62,7 @@ function buildNavigation(role: UserRole) {
         { label: 'Company Owners', path: '/admin/owners' },
         { label: 'Companies', path: '/admin/companies' },
         { label: 'Diagnostics', path: '/admin/diagnostics' },
-        { label: 'Settings', path: '/settings?tab=audit' },
+        { label: 'Audit Logs', path: '/admin/audit-logs' },
       ]
     : [];
 
@@ -96,10 +113,22 @@ function buildNavigation(role: UserRole) {
 export default function AppShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isConnected, reconnect } = useDbConnection();
   const activeUsers = useActiveUserCount();
 
+  const isSettingsRoute = location.pathname === '/settings';
+
   if (!user) {
+    if (isSettingsRoute) {
+      return (
+        <div className="min-h-screen bg-gray-50">
+          <main className="mx-auto max-w-5xl p-6">
+            <Outlet />
+          </main>
+        </div>
+      );
+    }
     return null;
   }
 
@@ -127,7 +156,7 @@ export default function AppShell() {
           <CompanySwitcher />
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="sidebar-nav flex-1 overflow-y-auto p-3">
           <NavSection title="Dashboard" items={[{ label: 'Dashboard', path: '/dashboard' }]} />
           <NavSection title="Admin" items={navigation.admin} />
           <NavSection title="Master" items={navigation.master} />
@@ -149,13 +178,18 @@ export default function AppShell() {
               {ROLE_LABELS[user.role]}
             </span>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate('/settings')}
-            className="mb-2 flex w-full items-center gap-2 rounded border border-gray-700 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-gray-800 hover:text-white"
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              `mb-2 flex w-full items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+                isActive
+                  ? 'border-indigo-500 bg-indigo-600 text-white'
+                  : 'border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white'
+              }`
+            }
           >
             Settings
-          </button>
+          </NavLink>
           <button
             type="button"
             onClick={logout}

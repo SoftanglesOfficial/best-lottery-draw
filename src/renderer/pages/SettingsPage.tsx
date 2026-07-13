@@ -92,19 +92,20 @@ export default function SettingsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-5xl p-6">
+    <div>
+      {!user ? (
         <Button
           type="button"
           variant="secondary"
-          onClick={() => navigate(user ? '/dashboard' : '/')}
+          onClick={() => navigate('/')}
           className="mb-4 inline-flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
           Back
         </Button>
+      ) : null}
 
-        <h1 className="mb-6 text-xl font-semibold text-gray-900">Settings</h1>
+      <h1 className="mb-6 text-2xl font-bold text-gray-900">Settings</h1>
 
         <div className="mb-6 flex flex-wrap gap-1 border-b border-gray-200">
           {visibleTabs.map((tab) => (
@@ -132,7 +133,6 @@ export default function SettingsPage() {
             <UtilitiesTab companyId={companyId} userId={user?.id} userRole={user?.role} />
           ) : null}
         </div>
-      </div>
     </div>
   );
 }

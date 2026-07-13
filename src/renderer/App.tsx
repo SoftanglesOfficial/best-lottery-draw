@@ -63,12 +63,12 @@ export default function App() {
             <Route path="/" element={<LoginPage />} />
           </Route>
 
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route element={<AppShell />}>
+            <Route path="/settings" element={<SettingsPage />} />
 
-          <Route element={<ProtectedRoute />}>
-            <Route path="/open-company" element={<OpenCompanyPage />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/open-company" element={<OpenCompanyPage />} />
 
-            <Route element={<AppShell />}>
               <Route element={<ActiveCompanyRoute />}>
               <Route path="/dashboard" element={<DashboardPage />} />
 
