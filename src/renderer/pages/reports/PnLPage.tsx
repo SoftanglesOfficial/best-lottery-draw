@@ -5,7 +5,7 @@ import { useToast } from '../../components/Toast';
 import { Button } from '../../components/ui';
 import { reportsPnL } from '../../lib/api';
 import { printReport } from '../../lib/exportPdf';
-import { canViewPnL } from '../../lib/permissions';
+import { canViewPnL } from '../../lib/roles';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useAuth } from '../../lib/auth';
 import type { PnLReport } from '../../../shared/types';

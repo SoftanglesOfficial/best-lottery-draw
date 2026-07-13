@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, lte } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
 import { formatDbError } from './ipcUtils';
+import { insertAuditLog } from './auditLog';
 import {
   auditLogs,
   buyers,
@@ -68,23 +69,6 @@ async function fetchDrawRecord(drawId: number): Promise<DrawRecord | null> {
     .where(eq(transactions.drawId, drawId));
 
   return { ...row, transactionCount: Number(txnCount?.count ?? 0) };
-}
-
-async function insertAuditLog(
-  userId: number,
-  action: string,
-  entity: string,
-  entityId: number,
-  details?: string | null,
-) {
-  const db = getDb();
-  await db.insert(auditLogs).values({
-    userId,
-    action,
-    entity,
-    entityId,
-    details: details ?? null,
-  });
 }
 
 export async function listDraws(companyId: number) {

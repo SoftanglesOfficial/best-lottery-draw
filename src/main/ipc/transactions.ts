@@ -4,7 +4,7 @@ import { buyers, companies, draws, providers, transactions, users } from '../sch
 import { formatDbError } from './ipcUtils';
 import { validateDrawOpen } from './drawValidation';
 import { assertCompanyAccess, type SessionContext } from './sessionContext';
-import { countFromTicketData, extractTicketNumbers, parseTicketData } from './transactionUtils';
+import { countFromTicketData, extractTicketNumbers, parseTicketData } from '../../shared/ticketData';
 import type {
   BuyerSaleSummary,
   ProviderPurchaseSummary,

@@ -2,27 +2,8 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { ensureConnected, getDb, getPool } from '../db';
 import { auditLogs, buyers, providers, transactions } from '../schema';
 import { validateDrawOpen } from './drawValidation';
+import { insertAuditLog } from './auditLog';
 import type { BuyerRecord, ProviderRecord } from '../../shared/types';
-import type { SessionContext } from './sessionContext';
-
-async function insertAuditLog(
-  userId: number,
-  action: string,
-  entity: string,
-  entityId: number,
-  details: Record<string, unknown>,
-) {
-  const db = getDb();
-  await db.insert(auditLogs).values({
-    userId,
-    action,
-    entity,
-    entityId,
-    details: JSON.stringify(details),
-  });
-}
-
-export async function changeBuyerRate(
   buyerId: number,
   newRate: number,
   userId: number,

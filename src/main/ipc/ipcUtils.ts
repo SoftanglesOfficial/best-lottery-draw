@@ -13,18 +13,3 @@ export function formatDbError(error: unknown): string {
   }
   return String(error);
 }
-
-export async function wrapIpc<T>(
-  channel: string,
-  handler: () => Promise<T>,
-): Promise<T | { success: false; error: string }> {
-  try {
-    return await handler();
-  } catch (error) {
-    logIpcError(channel, error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
