@@ -1,6 +1,7 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
 import { providerGroups, providers } from '../schema';
+import { requireCompanyId } from './companyScope';
 import type {
   ProviderGroupInput,
   ProviderGroupRecord,
@@ -37,12 +38,18 @@ export async function createProviderGroup(data: ProviderGroupInput) {
   }
 }
 
-export async function updateProviderGroup(id: number, data: ProviderGroupInput) {
+export async function updateProviderGroup(id: number, data: ProviderGroupInput, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
-    const [updated] = await db.update(providerGroups).set(data).where(eq(providerGroups.id, id)).returning();
+    const [updated] = await db
+      .update(providerGroups)
+      .set(data)
+      .where(and(eq(providerGroups.id, id), eq(providerGroups.companyId, scoped.companyId)))
+      .returning();
     if (!updated) return { success: false as const, error: 'Provider group not found' };
     return { success: true as const, group: updated as ProviderGroupRecord };
   } catch (error) {
@@ -50,12 +57,17 @@ export async function updateProviderGroup(id: number, data: ProviderGroupInput) 
   }
 }
 
-export async function deleteProviderGroup(id: number) {
+export async function deleteProviderGroup(id: number, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
-    const [deleted] = await db.delete(providerGroups).where(eq(providerGroups.id, id)).returning({ id: providerGroups.id });
+    const [deleted] = await db
+      .delete(providerGroups)
+      .where(and(eq(providerGroups.id, id), eq(providerGroups.companyId, scoped.companyId)))
+      .returning({ id: providerGroups.id });
     if (!deleted) return { success: false as const, error: 'Provider group not found' };
     return { success: true as const };
   } catch (error) {
@@ -120,7 +132,9 @@ export async function createProvider(data: ProviderInput) {
   }
 }
 
-export async function updateProvider(id: number, data: ProviderInput) {
+export async function updateProvider(id: number, data: ProviderInput, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
@@ -137,7 +151,7 @@ export async function updateProvider(id: number, data: ProviderInput) {
         address: data.address ?? null,
         updatedAt: new Date(),
       })
-      .where(eq(providers.id, id))
+      .where(and(eq(providers.id, id), eq(providers.companyId, scoped.companyId)))
       .returning();
     if (!updated) return { success: false as const, error: 'Provider not found' };
     const list = await listProviders(updated.companyId);
@@ -148,12 +162,17 @@ export async function updateProvider(id: number, data: ProviderInput) {
   }
 }
 
-export async function deleteProvider(id: number) {
+export async function deleteProvider(id: number, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
-    const [deleted] = await db.delete(providers).where(eq(providers.id, id)).returning({ id: providers.id });
+    const [deleted] = await db
+      .delete(providers)
+      .where(and(eq(providers.id, id), eq(providers.companyId, scoped.companyId)))
+      .returning({ id: providers.id });
     if (!deleted) return { success: false as const, error: 'Provider not found' };
     return { success: true as const };
   } catch (error) {

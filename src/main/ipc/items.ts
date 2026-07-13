@@ -1,5 +1,4 @@
-import { asc, desc, eq } from 'drizzle-orm';
-import { sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
 import {
   itemGroups,
@@ -17,6 +16,7 @@ import type {
   ItemSchemeRecord,
   ItemSchemeWithPrizes,
 } from '../../shared/types';
+import { requireCompanyId } from './companyScope';
 
 function mapPrizeValues(prize: ItemSchemePrizeInput) {
   return {
@@ -62,12 +62,18 @@ export async function createItemGroup(data: ItemGroupInput) {
   }
 }
 
-export async function updateItemGroup(id: number, data: ItemGroupInput) {
+export async function updateItemGroup(id: number, data: ItemGroupInput, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
-    const [updated] = await db.update(itemGroups).set(data).where(eq(itemGroups.id, id)).returning();
+    const [updated] = await db
+      .update(itemGroups)
+      .set(data)
+      .where(and(eq(itemGroups.id, id), eq(itemGroups.companyId, scoped.companyId)))
+      .returning();
     if (!updated) return { success: false as const, error: 'Item group not found' };
     return { success: true as const, group: updated as ItemGroupRecord };
   } catch (error) {
@@ -75,12 +81,17 @@ export async function updateItemGroup(id: number, data: ItemGroupInput) {
   }
 }
 
-export async function deleteItemGroup(id: number) {
+export async function deleteItemGroup(id: number, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
-    const [deleted] = await db.delete(itemGroups).where(eq(itemGroups.id, id)).returning({ id: itemGroups.id });
+    const [deleted] = await db
+      .delete(itemGroups)
+      .where(and(eq(itemGroups.id, id), eq(itemGroups.companyId, scoped.companyId)))
+      .returning({ id: itemGroups.id });
     if (!deleted) return { success: false as const, error: 'Item group not found' };
     return { success: true as const };
   } catch (error) {
@@ -156,7 +167,9 @@ export async function createItem(data: ItemInput) {
   }
 }
 
-export async function updateItem(id: number, data: ItemInput) {
+export async function updateItem(id: number, data: ItemInput, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
@@ -164,7 +177,7 @@ export async function updateItem(id: number, data: ItemInput) {
     const [updated] = await db
       .update(items)
       .set({ ...itemValues(data), updatedAt: new Date() })
-      .where(eq(items.id, id))
+      .where(and(eq(items.id, id), eq(items.companyId, scoped.companyId)))
       .returning();
     if (!updated) return { success: false as const, error: 'Item not found' };
     const list = await listItems(updated.companyId);
@@ -175,12 +188,17 @@ export async function updateItem(id: number, data: ItemInput) {
   }
 }
 
-export async function deleteItem(id: number) {
+export async function deleteItem(id: number, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
-    const [deleted] = await db.delete(items).where(eq(items.id, id)).returning({ id: items.id });
+    const [deleted] = await db
+      .delete(items)
+      .where(and(eq(items.id, id), eq(items.companyId, scoped.companyId)))
+      .returning({ id: items.id });
     if (!deleted) return { success: false as const, error: 'Item not found' };
     return { success: true as const };
   } catch (error) {
@@ -328,7 +346,9 @@ export async function createItemScheme(data: ItemSchemeInput) {
   }
 }
 
-export async function updateItemScheme(id: number, data: ItemSchemeInput) {
+export async function updateItemScheme(id: number, data: ItemSchemeInput, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
@@ -342,7 +362,7 @@ export async function updateItemScheme(id: number, data: ItemSchemeInput) {
           drawNo: data.drawNo ?? null,
           updatedAt: new Date(),
         })
-        .where(eq(itemSchemes.id, id))
+        .where(and(eq(itemSchemes.id, id), eq(itemSchemes.companyId, scoped.companyId)))
         .returning();
       if (!updated) throw new Error('Scheme not found');
       await tx.delete(itemSchemePrizes).where(eq(itemSchemePrizes.itemSchemeId, id));
@@ -363,12 +383,17 @@ export async function updateItemScheme(id: number, data: ItemSchemeInput) {
   }
 }
 
-export async function deleteItemScheme(id: number) {
+export async function deleteItemScheme(id: number, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
-    const [deleted] = await db.delete(itemSchemes).where(eq(itemSchemes.id, id)).returning({ id: itemSchemes.id });
+    const [deleted] = await db
+      .delete(itemSchemes)
+      .where(and(eq(itemSchemes.id, id), eq(itemSchemes.companyId, scoped.companyId)))
+      .returning({ id: itemSchemes.id });
     if (!deleted) return { success: false as const, error: 'Scheme not found' };
     return { success: true as const };
   } catch (error) {

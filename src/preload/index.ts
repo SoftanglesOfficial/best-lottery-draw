@@ -56,8 +56,27 @@ import type {
 
 let sessionToken: string | null = null;
 
-function invokeWithSession(channel: string, ...args: unknown[]) {
-  return ipcRenderer.invoke(channel, ...args, sessionToken);
+const PUBLIC_CHANNELS = new Set([
+  'db-get-config',
+  'db-connect',
+  'db-setup',
+  'db-get-status',
+  'db-test-connection',
+  'db-reconnect',
+  'lan-get-status',
+  'lan-set-mode',
+  'lan-start-broadcast',
+  'lan-stop-broadcast',
+  'lan-discover-server',
+  'auth-login',
+  'auth-logout',
+]);
+
+function invokeIpc(channel: string, ...args: unknown[]) {
+  if (PUBLIC_CHANNELS.has(channel)) {
+    return invokeIpc(channel, ...args);
+  }
+  return invokeIpc(channel, ...args, sessionToken);
 }
 
 export interface Api {
@@ -461,11 +480,11 @@ export interface Api {
 }
 
 const api: Api = {
-  dbGetConfig: () => ipcRenderer.invoke('db-get-config'),
-  dbConnect: (config) => ipcRenderer.invoke('db-connect', config),
-  dbSetup: () => ipcRenderer.invoke('db-setup'),
+  dbGetConfig: () => invokeIpc('db-get-config'),
+  dbConnect: (config) => invokeIpc('db-connect', config),
+  dbSetup: () => invokeIpc('db-setup'),
   authLogin: async (username, password) => {
-    const result = await ipcRenderer.invoke('auth-login', username, password);
+    const result = await invokeIpc('auth-login', username, password);
     if (result.success && result.sessionToken) {
       sessionToken = result.sessionToken;
     }
@@ -473,69 +492,69 @@ const api: Api = {
   },
   authLogout: async () => {
     if (sessionToken) {
-      const result = await ipcRenderer.invoke('auth-logout', sessionToken);
+      const result = await invokeIpc('auth-logout', sessionToken);
       sessionToken = null;
       return result;
     }
     return { success: true as const };
   },
-  authCreateUser: (data) => ipcRenderer.invoke('auth-create-user', data),
-  authGetUsers: (companyId) => ipcRenderer.invoke('auth-get-users', companyId),
-  authGetAllUsers: () => ipcRenderer.invoke('auth-get-all-users'),
-  authGetOwners: () => ipcRenderer.invoke('auth-get-owners'),
-  authGetOwnerAdminUsers: () => ipcRenderer.invoke('auth-get-owner-admin-users'),
-  authGetUserCompanyIds: (userId) => ipcRenderer.invoke('auth-get-user-company-ids', userId),
-  authUpdateUser: (id, data) => ipcRenderer.invoke('auth-update-user', id, data),
+  authCreateUser: (data) => invokeIpc('auth-create-user', data),
+  authGetUsers: (companyId) => invokeIpc('auth-get-users', companyId),
+  authGetAllUsers: () => invokeIpc('auth-get-all-users'),
+  authGetOwners: () => invokeIpc('auth-get-owners'),
+  authGetOwnerAdminUsers: () => invokeIpc('auth-get-owner-admin-users'),
+  authGetUserCompanyIds: (userId) => invokeIpc('auth-get-user-company-ids', userId),
+  authUpdateUser: (id, data) => invokeIpc('auth-update-user', id, data),
   authDeleteUser: (id, currentUserId) =>
-    ipcRenderer.invoke('auth-delete-user', id, currentUserId),
-  userGetCompanies: (userId) => ipcRenderer.invoke('user-get-companies', userId),
+    invokeIpc('auth-delete-user', id, currentUserId),
+  userGetCompanies: (userId) => invokeIpc('user-get-companies', userId),
   userSetActiveCompany: (userId, companyId) =>
-    ipcRenderer.invoke('user-set-active-company', userId, companyId),
+    invokeIpc('user-set-active-company', userId, companyId),
   userCompaniesAssign: (userId, companyId) =>
-    ipcRenderer.invoke('user-companies-assign', userId, companyId),
+    invokeIpc('user-companies-assign', userId, companyId),
   userCompaniesRemove: (userId, companyId) =>
-    ipcRenderer.invoke('user-companies-remove', userId, companyId),
-  userCompaniesList: (userId) => ipcRenderer.invoke('user-companies-list', userId),
-  companiesGetAll: () => ipcRenderer.invoke('companies-get-all'),
-  companiesCreate: (data) => ipcRenderer.invoke('companies-create', data),
-  companiesUpdate: (id, data) => ipcRenderer.invoke('companies-update', id, data),
-  companiesClone: (id) => ipcRenderer.invoke('companies-clone', id),
-  companiesSetStatus: (id, status) => ipcRenderer.invoke('companies-set-status', id, status),
+    invokeIpc('user-companies-remove', userId, companyId),
+  userCompaniesList: (userId) => invokeIpc('user-companies-list', userId),
+  companiesGetAll: () => invokeIpc('companies-get-all'),
+  companiesCreate: (data) => invokeIpc('companies-create', data),
+  companiesUpdate: (id, data) => invokeIpc('companies-update', id, data),
+  companiesClone: (id) => invokeIpc('companies-clone', id),
+  companiesSetStatus: (id, status) => invokeIpc('companies-set-status', id, status),
   companiesSetBillingLock: (id, locked) =>
-    ipcRenderer.invoke('companies-set-billing-lock', id, locked),
+    invokeIpc('companies-set-billing-lock', id, locked),
   reportsSummary: (companyId, dateFrom, dateTo) =>
-    ipcRenderer.invoke('reports-summary', companyId, dateFrom, dateTo),
+    invokeIpc('reports-summary', companyId, dateFrom, dateTo),
   reportsDashboard: (companyId, dateFrom, dateTo) =>
-    ipcRenderer.invoke('reports-dashboard', companyId, dateFrom, dateTo),
+    invokeIpc('reports-dashboard', companyId, dateFrom, dateTo),
   reportsPnL: (companyId, dateFrom, dateTo) =>
-    ipcRenderer.invoke('reports-pnl', companyId, dateFrom, dateTo),
+    invokeIpc('reports-pnl', companyId, dateFrom, dateTo),
   ledgerList: (companyId, dateFrom, dateTo, buyerId, providerId) =>
-    ipcRenderer.invoke('ledger-list', companyId, dateFrom, dateTo, buyerId, providerId),
+    invokeIpc('ledger-list', companyId, dateFrom, dateTo, buyerId, providerId),
   ledgerAllSummary: (companyId, dateFrom, dateTo) =>
-    ipcRenderer.invoke('ledger-all-summary', companyId, dateFrom, dateTo),
-  auditLogsList: (filters) => ipcRenderer.invoke('audit-logs-list', filters),
-  backupsCreate: (companyId, userId) => ipcRenderer.invoke('backups-create', companyId, userId),
-  backupsRestore: (filePath) => invokeWithSession('backups-restore', filePath),
-  backupsList: () => ipcRenderer.invoke('backups-list'),
-  dbGetStatus: () => ipcRenderer.invoke('db-get-status'),
-  dbTestConnection: (config) => ipcRenderer.invoke('db-test-connection', config),
-  prefsGet: () => ipcRenderer.invoke('prefs-get'),
-  prefsSetAutoBackup: (enabled) => ipcRenderer.invoke('prefs-set-auto-backup', enabled),
+    invokeIpc('ledger-all-summary', companyId, dateFrom, dateTo),
+  auditLogsList: (filters) => invokeIpc('audit-logs-list', filters),
+  backupsCreate: (companyId, userId) => invokeIpc('backups-create', companyId, userId),
+  backupsRestore: (filePath) => invokeIpc('backups-restore', filePath),
+  backupsList: () => invokeIpc('backups-list'),
+  dbGetStatus: () => invokeIpc('db-get-status'),
+  dbTestConnection: (config) => invokeIpc('db-test-connection', config),
+  prefsGet: () => invokeIpc('prefs-get'),
+  prefsSetAutoBackup: (enabled) => invokeIpc('prefs-set-auto-backup', enabled),
   authChangePassword: (userId, currentPassword, newPassword) =>
-    ipcRenderer.invoke('auth-change-password', userId, currentPassword, newPassword),
+    invokeIpc('auth-change-password', userId, currentPassword, newPassword),
   utilitiesChangeBuyerRate: (buyerId, newRate, userId) =>
-    ipcRenderer.invoke('utilities-change-buyer-rate', buyerId, newRate, userId),
+    invokeIpc('utilities-change-buyer-rate', buyerId, newRate, userId),
   utilitiesChangeProviderRate: (providerId, newRate, userId) =>
-    ipcRenderer.invoke('utilities-change-provider-rate', providerId, newRate, userId),
+    invokeIpc('utilities-change-provider-rate', providerId, newRate, userId),
   utilitiesChangeCommission: (partyType, partyId, newRate, userId) =>
-    ipcRenderer.invoke('utilities-change-commission', partyType, partyId, newRate, userId),
+    invokeIpc('utilities-change-commission', partyType, partyId, newRate, userId),
   utilitiesBulkRateUpdate: (buyerGroupId, newRate, userId) =>
-    ipcRenderer.invoke('utilities-bulk-rate-update', buyerGroupId, newRate, userId),
+    invokeIpc('utilities-bulk-rate-update', buyerGroupId, newRate, userId),
   utilitiesDeleteMemos: (drawId, memoIds, userRole) =>
-    ipcRenderer.invoke('utilities-delete-memos', drawId, memoIds, userRole),
-  utilitiesReindex: () => ipcRenderer.invoke('utilities-reindex'),
-  windowSetTitle: (title) => ipcRenderer.invoke('window-set-title', title),
-  appGetVersion: () => ipcRenderer.invoke('app-get-version'),
+    invokeIpc('utilities-delete-memos', drawId, memoIds, userRole),
+  utilitiesReindex: () => invokeIpc('utilities-reindex'),
+  windowSetTitle: (title) => invokeIpc('window-set-title', title),
+  appGetVersion: () => invokeIpc('app-get-version'),
   onAppNavigate: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, path: string) => callback(path);
     ipcRenderer.on('app:navigate', handler);
@@ -556,88 +575,88 @@ const api: Api = {
     ipcRenderer.on('db-connection-restored', handler);
     return () => ipcRenderer.removeListener('db-connection-restored', handler);
   },
-  dbReconnect: () => ipcRenderer.invoke('db-reconnect'),
-  lanGetStatus: () => ipcRenderer.invoke('lan-get-status'),
-  lanSetMode: (mode) => ipcRenderer.invoke('lan-set-mode', mode),
-  lanStartBroadcast: () => ipcRenderer.invoke('lan-start-broadcast'),
-  lanStopBroadcast: () => ipcRenderer.invoke('lan-stop-broadcast'),
-  lanDiscoverServer: () => ipcRenderer.invoke('lan-discover-server'),
-  prefsSetNetworkMode: (mode) => ipcRenderer.invoke('prefs-set-network-mode', mode),
+  dbReconnect: () => invokeIpc('db-reconnect'),
+  lanGetStatus: () => invokeIpc('lan-get-status'),
+  lanSetMode: (mode) => invokeIpc('lan-set-mode', mode),
+  lanStartBroadcast: () => invokeIpc('lan-start-broadcast'),
+  lanStopBroadcast: () => invokeIpc('lan-stop-broadcast'),
+  lanDiscoverServer: () => invokeIpc('lan-discover-server'),
+  prefsSetNetworkMode: (mode) => invokeIpc('prefs-set-network-mode', mode),
   sessionHeartbeat: (userId, companyId, ipAddress) =>
-    ipcRenderer.invoke('sessions-heartbeat', userId, companyId, ipAddress),
-  sessionActiveCount: (companyId) => ipcRenderer.invoke('sessions-active-count', companyId),
-  diagnosticsGet: () => ipcRenderer.invoke('diagnostics-get'),
-  shiftGroupsList: (companyId) => ipcRenderer.invoke('shift-groups-list', companyId),
-  shiftGroupsCreate: (data) => ipcRenderer.invoke('shift-groups-create', data),
-  shiftGroupsUpdate: (id, data) => ipcRenderer.invoke('shift-groups-update', id, data),
-  shiftGroupsDelete: (id) => ipcRenderer.invoke('shift-groups-delete', id),
-  shiftsList: (shiftGroupId) => ipcRenderer.invoke('shifts-list', shiftGroupId),
-  shiftsCreate: (data) => ipcRenderer.invoke('shifts-create', data),
-  shiftsUpdate: (id, data) => ipcRenderer.invoke('shifts-update', id, data),
-  shiftsDelete: (id) => ipcRenderer.invoke('shifts-delete', id),
-  providerGroupsList: (companyId) => ipcRenderer.invoke('provider-groups-list', companyId),
-  providerGroupsCreate: (data) => ipcRenderer.invoke('provider-groups-create', data),
-  providerGroupsUpdate: (id, data) => ipcRenderer.invoke('provider-groups-update', id, data),
-  providerGroupsDelete: (id) => ipcRenderer.invoke('provider-groups-delete', id),
-  providersList: (companyId) => ipcRenderer.invoke('providers-list', companyId),
-  providersCreate: (data) => ipcRenderer.invoke('providers-create', data),
-  providersUpdate: (id, data) => ipcRenderer.invoke('providers-update', id, data),
-  providersDelete: (id) => ipcRenderer.invoke('providers-delete', id),
-  buyerGroupsList: (companyId) => ipcRenderer.invoke('buyer-groups-list', companyId),
-  buyerGroupsCreate: (data) => ipcRenderer.invoke('buyer-groups-create', data),
-  buyerGroupsUpdate: (id, data) => ipcRenderer.invoke('buyer-groups-update', id, data),
-  buyerGroupsDelete: (id) => ipcRenderer.invoke('buyer-groups-delete', id),
-  buyersList: (companyId) => ipcRenderer.invoke('buyers-list', companyId),
-  buyersCreate: (data) => ipcRenderer.invoke('buyers-create', data),
-  buyersUpdate: (id, data) => ipcRenderer.invoke('buyers-update', id, data),
-  buyersDelete: (id) => ipcRenderer.invoke('buyers-delete', id),
-  itemGroupsList: (companyId) => ipcRenderer.invoke('item-groups-list', companyId),
-  itemGroupsCreate: (data) => ipcRenderer.invoke('item-groups-create', data),
-  itemGroupsUpdate: (id, data) => ipcRenderer.invoke('item-groups-update', id, data),
-  itemGroupsDelete: (id) => ipcRenderer.invoke('item-groups-delete', id),
-  itemsList: (companyId) => ipcRenderer.invoke('items-list', companyId),
-  itemsCreate: (data) => ipcRenderer.invoke('items-create', data),
-  itemsUpdate: (id, data) => ipcRenderer.invoke('items-update', id, data),
-  itemsDelete: (id) => ipcRenderer.invoke('items-delete', id),
-  itemSchemesList: (companyId) => ipcRenderer.invoke('itemSchemes-list', companyId),
-  itemSchemesListByItem: (itemId) => ipcRenderer.invoke('itemSchemes-listByItem', itemId),
-  itemSchemesCreate: (data) => ipcRenderer.invoke('itemSchemes-create', data),
-  itemSchemesGet: (id) => ipcRenderer.invoke('itemSchemes-get', id),
-  itemSchemesUpdate: (id, data) => ipcRenderer.invoke('itemSchemes-update', id, data),
-  itemSchemesDelete: (id) => ipcRenderer.invoke('itemSchemes-delete', id),
-  drawsList: (companyId) => ipcRenderer.invoke('draws-list', companyId),
-  drawsCreate: (data) => ipcRenderer.invoke('draws-create', data),
-  drawsUpdate: (id, data) => ipcRenderer.invoke('draws-update', id, data),
-  drawsDelete: (id) => ipcRenderer.invoke('draws-delete', id),
+    invokeIpc('sessions-heartbeat', userId, companyId, ipAddress),
+  sessionActiveCount: (companyId) => invokeIpc('sessions-active-count', companyId),
+  diagnosticsGet: () => invokeIpc('diagnostics-get'),
+  shiftGroupsList: (companyId) => invokeIpc('shift-groups-list', companyId),
+  shiftGroupsCreate: (data) => invokeIpc('shift-groups-create', data),
+  shiftGroupsUpdate: (id, data) => invokeIpc('shift-groups-update', id, data),
+  shiftGroupsDelete: (id) => invokeIpc('shift-groups-delete', id),
+  shiftsList: (shiftGroupId) => invokeIpc('shifts-list', shiftGroupId),
+  shiftsCreate: (data) => invokeIpc('shifts-create', data),
+  shiftsUpdate: (id, data) => invokeIpc('shifts-update', id, data),
+  shiftsDelete: (id) => invokeIpc('shifts-delete', id),
+  providerGroupsList: (companyId) => invokeIpc('provider-groups-list', companyId),
+  providerGroupsCreate: (data) => invokeIpc('provider-groups-create', data),
+  providerGroupsUpdate: (id, data) => invokeIpc('provider-groups-update', id, data),
+  providerGroupsDelete: (id) => invokeIpc('provider-groups-delete', id),
+  providersList: (companyId) => invokeIpc('providers-list', companyId),
+  providersCreate: (data) => invokeIpc('providers-create', data),
+  providersUpdate: (id, data) => invokeIpc('providers-update', id, data),
+  providersDelete: (id) => invokeIpc('providers-delete', id),
+  buyerGroupsList: (companyId) => invokeIpc('buyer-groups-list', companyId),
+  buyerGroupsCreate: (data) => invokeIpc('buyer-groups-create', data),
+  buyerGroupsUpdate: (id, data) => invokeIpc('buyer-groups-update', id, data),
+  buyerGroupsDelete: (id) => invokeIpc('buyer-groups-delete', id),
+  buyersList: (companyId) => invokeIpc('buyers-list', companyId),
+  buyersCreate: (data) => invokeIpc('buyers-create', data),
+  buyersUpdate: (id, data) => invokeIpc('buyers-update', id, data),
+  buyersDelete: (id) => invokeIpc('buyers-delete', id),
+  itemGroupsList: (companyId) => invokeIpc('item-groups-list', companyId),
+  itemGroupsCreate: (data) => invokeIpc('item-groups-create', data),
+  itemGroupsUpdate: (id, data) => invokeIpc('item-groups-update', id, data),
+  itemGroupsDelete: (id) => invokeIpc('item-groups-delete', id),
+  itemsList: (companyId) => invokeIpc('items-list', companyId),
+  itemsCreate: (data) => invokeIpc('items-create', data),
+  itemsUpdate: (id, data) => invokeIpc('items-update', id, data),
+  itemsDelete: (id) => invokeIpc('items-delete', id),
+  itemSchemesList: (companyId) => invokeIpc('itemSchemes-list', companyId),
+  itemSchemesListByItem: (itemId) => invokeIpc('itemSchemes-listByItem', itemId),
+  itemSchemesCreate: (data) => invokeIpc('itemSchemes-create', data),
+  itemSchemesGet: (id) => invokeIpc('itemSchemes-get', id),
+  itemSchemesUpdate: (id, data) => invokeIpc('itemSchemes-update', id, data),
+  itemSchemesDelete: (id) => invokeIpc('itemSchemes-delete', id),
+  drawsList: (companyId) => invokeIpc('draws-list', companyId),
+  drawsCreate: (data) => invokeIpc('draws-create', data),
+  drawsUpdate: (id, data) => invokeIpc('draws-update', id, data),
+  drawsDelete: (id) => invokeIpc('draws-delete', id),
   drawsLock: (id, userId, clientUpdatedAt) =>
-    ipcRenderer.invoke('draws-lock', id, userId, clientUpdatedAt),
-  drawsUnlock: (id, clientUpdatedAt) => invokeWithSession('draws-unlock', id, clientUpdatedAt),
-  drawsAuditList: (drawId) => ipcRenderer.invoke('draws-audit-list', drawId),
+    invokeIpc('draws-lock', id, userId, clientUpdatedAt),
+  drawsUnlock: (id, clientUpdatedAt) => invokeIpc('draws-unlock', id, clientUpdatedAt),
+  drawsAuditList: (drawId) => invokeIpc('draws-audit-list', drawId),
   drawsExtendTime: (drawId, userId, userRole, newCloseTime, reason) =>
-    ipcRenderer.invoke('draws-extend-time', drawId, userId, userRole, newCloseTime, reason),
-  drawResultsList: (drawId) => ipcRenderer.invoke('draw-results-list', drawId),
-  drawResultsCreate: (drawId, results) => ipcRenderer.invoke('draw-results-create', drawId, results),
-  winningTicketsList: (drawId) => ipcRenderer.invoke('winning-tickets-list', drawId),
+    invokeIpc('draws-extend-time', drawId, userId, userRole, newCloseTime, reason),
+  drawResultsList: (drawId) => invokeIpc('draw-results-list', drawId),
+  drawResultsCreate: (drawId, results) => invokeIpc('draw-results-create', drawId, results),
+  winningTicketsList: (drawId) => invokeIpc('winning-tickets-list', drawId),
   winningTicketsCreate: (drawId, tickets) =>
-    ipcRenderer.invoke('winning-tickets-create', drawId, tickets),
-  winningTicketsDelete: (id) => ipcRenderer.invoke('winning-tickets-delete', id),
+    invokeIpc('winning-tickets-create', drawId, tickets),
+  winningTicketsDelete: (id) => invokeIpc('winning-tickets-delete', id),
   winningTicketsFindWinners: (drawId) =>
-    ipcRenderer.invoke('winning-tickets-find-winners', drawId),
+    invokeIpc('winning-tickets-find-winners', drawId),
   transactionsSearchTicket: (companyId, ticketNumber) =>
-    ipcRenderer.invoke('transactions-search-ticket', companyId, ticketNumber),
+    invokeIpc('transactions-search-ticket', companyId, ticketNumber),
   transactionsList: (companyId, drawId, type) =>
-    ipcRenderer.invoke('transactions-list', companyId, drawId, type),
-  transactionsNextMemoId: (companyId) => ipcRenderer.invoke('transactions-next-memo-id', companyId),
-  transactionsCreate: (data) => ipcRenderer.invoke('transactions-create', data),
+    invokeIpc('transactions-list', companyId, drawId, type),
+  transactionsNextMemoId: (companyId) => invokeIpc('transactions-next-memo-id', companyId),
+  transactionsCreate: (data) => invokeIpc('transactions-create', data),
   transactionsUpdate: (id, data, userRole) =>
-    ipcRenderer.invoke('transactions-update', id, data, userRole),
-  transactionsDelete: (id) => invokeWithSession('transactions-delete', id),
+    invokeIpc('transactions-update', id, data, userRole),
+  transactionsDelete: (id) => invokeIpc('transactions-delete', id),
   transactionsValidateTicketsSold: (drawId, ticketNumbers) =>
-    ipcRenderer.invoke('transactions-validate-tickets-sold', drawId, ticketNumbers),
+    invokeIpc('transactions-validate-tickets-sold', drawId, ticketNumbers),
   transactionsGetBuyerSaleSummary: (buyerId, drawId) =>
-    ipcRenderer.invoke('transactions-get-buyer-sale-summary', buyerId, drawId),
+    invokeIpc('transactions-get-buyer-sale-summary', buyerId, drawId),
   transactionsGetProviderPurchaseSummary: (providerId, drawId) =>
-    ipcRenderer.invoke('transactions-get-provider-purchase-summary', providerId, drawId),
+    invokeIpc('transactions-get-provider-purchase-summary', providerId, drawId),
 };
 
 contextBridge.exposeInMainWorld('api', api);

@@ -1,9 +1,9 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
-import { buyers, draws, providers, transactions, users } from '../schema';
+import { buyers, companies, draws, providers, transactions, users } from '../schema';
 import { formatDbError } from './ipcUtils';
 import { validateDrawOpen } from './drawValidation';
-import type { SessionContext } from './sessionContext';
+import { assertCompanyAccess, type SessionContext } from './sessionContext';
 import { countFromTicketData, extractTicketNumbers, parseTicketData } from './transactionUtils';
 import type {
   BuyerSaleSummary,
@@ -13,7 +13,6 @@ import type {
   TransactionInput,
   TransactionRecord,
   TransactionType,
-  UserRole,
 } from '../../shared/types';
 
 export { validateDrawOpen } from './drawValidation';
@@ -54,12 +53,23 @@ async function fetchTransactionRecord(id: number): Promise<TransactionRecord | n
 }
 
 async function resolveDrawId(data: TransactionInput): Promise<number> {
-  if (data.drawId) return data.drawId;
+  const db = getDb();
+  if (data.drawId) {
+    const [draw] = await db
+      .select({ id: draws.id, companyId: draws.companyId })
+      .from(draws)
+      .where(eq(draws.id, data.drawId))
+      .limit(1);
+    if (!draw) throw new Error('Draw not found.');
+    if (draw.companyId !== data.companyId) {
+      throw new Error('Draw does not belong to this company.');
+    }
+    return data.drawId;
+  }
   if (!data.itemId) {
     throw new Error('Draw or item is required.');
   }
 
-  const db = getDb();
   const entryDate = data.entryDate ?? data.enteredAt ?? new Date().toISOString().slice(0, 10);
   const dayStart = new Date(entryDate);
   dayStart.setHours(0, 0, 0, 0);
@@ -85,6 +95,18 @@ async function resolveDrawId(data: TransactionInput): Promise<number> {
     throw new Error('No open draw found for this item on the selected date.');
   }
   return draw.id;
+}
+
+async function assertCompanyCanTransact(companyId: number): Promise<void> {
+  const db = getDb();
+  const [company] = await db
+    .select({ status: companies.status, billingLocked: companies.billingLocked })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+  if (!company) throw new Error('Company not found.');
+  if (company.billingLocked) throw new Error('Billing is locked for this company.');
+  if (company.status !== 'active') throw new Error('Company is not active.');
 }
 
 async function getSoldTicketNumbers(drawId: number): Promise<Set<string>> {
@@ -348,12 +370,15 @@ export async function nextMemoId(companyId: number) {
   }
 }
 
-export async function createTransaction(data: TransactionInput) {
+export async function createTransaction(data: TransactionInput, ctx: SessionContext) {
+  const denied = assertCompanyAccess(ctx, data.companyId);
+  if (denied) return denied;
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
   }
   try {
+    await assertCompanyCanTransact(data.companyId);
     const drawId = await resolveDrawId(data);
     await validateTransactionCreate(data, drawId);
 
@@ -381,7 +406,7 @@ export async function createTransaction(data: TransactionInput) {
           providerId: data.providerId ?? null,
           buyerId: data.buyerId ?? null,
           companyId: data.companyId,
-          userId: data.userId,
+          userId: ctx.userId,
           memoId,
           amount: data.amount != null ? String(data.amount) : null,
           ticketCount,
@@ -408,13 +433,13 @@ export async function createTransaction(data: TransactionInput) {
 export async function updateTransaction(
   id: number,
   data: TransactionInput,
-  userRole: UserRole,
+  ctx: SessionContext,
 ) {
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
   }
-  if (userRole === 'data_entry') {
+  if (ctx.role === 'data_entry') {
     return { success: false as const, error: 'You do not have permission to update transactions' };
   }
   try {

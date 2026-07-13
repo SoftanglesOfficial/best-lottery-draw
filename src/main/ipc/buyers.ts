@@ -1,6 +1,7 @@
 import { and, asc, eq } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
 import { buyerGroups, buyers } from '../schema';
+import { requireCompanyId } from './companyScope';
 import type { BuyerGroupInput, BuyerGroupRecord, BuyerInput, BuyerRecord } from '../../shared/types';
 
 export async function listBuyerGroups(companyId: number) {
@@ -32,12 +33,18 @@ export async function createBuyerGroup(data: BuyerGroupInput) {
   }
 }
 
-export async function updateBuyerGroup(id: number, data: BuyerGroupInput) {
+export async function updateBuyerGroup(id: number, data: BuyerGroupInput, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
-    const [updated] = await db.update(buyerGroups).set(data).where(eq(buyerGroups.id, id)).returning();
+    const [updated] = await db
+      .update(buyerGroups)
+      .set(data)
+      .where(and(eq(buyerGroups.id, id), eq(buyerGroups.companyId, scoped.companyId)))
+      .returning();
     if (!updated) return { success: false as const, error: 'Buyer group not found' };
     return { success: true as const, group: updated as BuyerGroupRecord };
   } catch (error) {
@@ -45,12 +52,17 @@ export async function updateBuyerGroup(id: number, data: BuyerGroupInput) {
   }
 }
 
-export async function deleteBuyerGroup(id: number) {
+export async function deleteBuyerGroup(id: number, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
-    const [deleted] = await db.delete(buyerGroups).where(eq(buyerGroups.id, id)).returning({ id: buyerGroups.id });
+    const [deleted] = await db
+      .delete(buyerGroups)
+      .where(and(eq(buyerGroups.id, id), eq(buyerGroups.companyId, scoped.companyId)))
+      .returning({ id: buyerGroups.id });
     if (!deleted) return { success: false as const, error: 'Buyer group not found' };
     return { success: true as const };
   } catch (error) {
@@ -126,7 +138,9 @@ export async function createBuyer(data: BuyerInput) {
   }
 }
 
-export async function updateBuyer(id: number, data: BuyerInput) {
+export async function updateBuyer(id: number, data: BuyerInput, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
@@ -144,7 +158,7 @@ export async function updateBuyer(id: number, data: BuyerInput) {
         address: data.address ?? null,
         updatedAt: new Date(),
       })
-      .where(eq(buyers.id, id))
+      .where(and(eq(buyers.id, id), eq(buyers.companyId, scoped.companyId)))
       .returning();
     if (!updated) return { success: false as const, error: 'Buyer not found' };
     const list = await listBuyers(updated.companyId);
@@ -155,12 +169,17 @@ export async function updateBuyer(id: number, data: BuyerInput) {
   }
 }
 
-export async function deleteBuyer(id: number) {
+export async function deleteBuyer(id: number, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
-    const [deleted] = await db.delete(buyers).where(eq(buyers.id, id)).returning({ id: buyers.id });
+    const [deleted] = await db
+      .delete(buyers)
+      .where(and(eq(buyers.id, id), eq(buyers.companyId, scoped.companyId)))
+      .returning({ id: buyers.id });
     if (!deleted) return { success: false as const, error: 'Buyer not found' };
     return { success: true as const };
   } catch (error) {

@@ -1,6 +1,7 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
 import { shiftGroups, shifts } from '../schema';
+import { requireCompanyId } from './companyScope';
 import { formatDbError } from './ipcUtils';
 import type { ShiftGroupInput, ShiftGroupRecord, ShiftInput, ShiftRecord } from '../../shared/types';
 
@@ -33,12 +34,18 @@ export async function createShiftGroup(data: ShiftGroupInput) {
   }
 }
 
-export async function updateShiftGroup(id: number, data: ShiftGroupInput) {
+export async function updateShiftGroup(id: number, data: ShiftGroupInput, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
-    const [updated] = await db.update(shiftGroups).set(data).where(eq(shiftGroups.id, id)).returning();
+    const [updated] = await db
+      .update(shiftGroups)
+      .set(data)
+      .where(and(eq(shiftGroups.id, id), eq(shiftGroups.companyId, scoped.companyId)))
+      .returning();
     if (!updated) return { success: false as const, error: 'Shift group not found' };
     return { success: true as const, group: updated as ShiftGroupRecord };
   } catch (error) {
@@ -46,12 +53,17 @@ export async function updateShiftGroup(id: number, data: ShiftGroupInput) {
   }
 }
 
-export async function deleteShiftGroup(id: number) {
+export async function deleteShiftGroup(id: number, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
-    const [deleted] = await db.delete(shiftGroups).where(eq(shiftGroups.id, id)).returning({ id: shiftGroups.id });
+    const [deleted] = await db
+      .delete(shiftGroups)
+      .where(and(eq(shiftGroups.id, id), eq(shiftGroups.companyId, scoped.companyId)))
+      .returning({ id: shiftGroups.id });
     if (!deleted) return { success: false as const, error: 'Shift group not found' };
     return { success: true as const };
   } catch (error) {
@@ -106,11 +118,21 @@ export async function createShift(data: ShiftInput) {
   }
 }
 
-export async function updateShift(id: number, data: ShiftInput) {
+export async function updateShift(id: number, data: ShiftInput, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
+    const [existing] = await db
+      .select({ id: shifts.id })
+      .from(shifts)
+      .innerJoin(shiftGroups, eq(shifts.shiftGroupId, shiftGroups.id))
+      .where(and(eq(shifts.id, id), eq(shiftGroups.companyId, scoped.companyId)))
+      .limit(1);
+    if (!existing) return { success: false as const, error: 'Shift not found' };
+
     const [updated] = await db.update(shifts).set(data).where(eq(shifts.id, id)).returning();
     if (!updated) return { success: false as const, error: 'Shift not found' };
     return { success: true as const, shift: updated as ShiftRecord };
@@ -119,11 +141,21 @@ export async function updateShift(id: number, data: ShiftInput) {
   }
 }
 
-export async function deleteShift(id: number) {
+export async function deleteShift(id: number, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
+    const [existing] = await db
+      .select({ id: shifts.id })
+      .from(shifts)
+      .innerJoin(shiftGroups, eq(shifts.shiftGroupId, shiftGroups.id))
+      .where(and(eq(shifts.id, id), eq(shiftGroups.companyId, scoped.companyId)))
+      .limit(1);
+    if (!existing) return { success: false as const, error: 'Shift not found' };
+
     const [deleted] = await db.delete(shifts).where(eq(shifts.id, id)).returning({ id: shifts.id });
     if (!deleted) return { success: false as const, error: 'Shift not found' };
     return { success: true as const };

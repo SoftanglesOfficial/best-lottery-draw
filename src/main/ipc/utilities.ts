@@ -1,7 +1,9 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { ensureConnected, getDb, getPool } from '../db';
 import { auditLogs, buyers, providers, transactions } from '../schema';
-import type { BuyerRecord, ProviderRecord, UserRole } from '../../shared/types';
+import { validateDrawOpen } from './drawValidation';
+import type { BuyerRecord, ProviderRecord } from '../../shared/types';
+import type { SessionContext } from './sessionContext';
 
 async function insertAuditLog(
   userId: number,
@@ -160,9 +162,9 @@ export async function bulkRateUpdate(
 export async function deleteMemos(
   drawId: number,
   memoIds: number[],
-  userRole: UserRole,
+  ctx: SessionContext,
 ): Promise<{ success: true; deleted: number } | { success: false; error: string }> {
-  if (userRole !== 'admin') {
+  if (ctx.role !== 'admin') {
     return { success: false, error: 'Only administrators can delete multiple memos' };
   }
   if (memoIds.length === 0) {
@@ -173,6 +175,7 @@ export async function deleteMemos(
     return { success: false, error: connection.error ?? 'Database is not connected' };
   }
   try {
+    await validateDrawOpen(drawId);
     const db = getDb();
     const deleted = await db
       .delete(transactions)

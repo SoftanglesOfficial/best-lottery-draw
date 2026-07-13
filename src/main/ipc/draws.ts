@@ -15,6 +15,7 @@ import {
   winningTickets,
 } from '../schema';
 import { getDrawById } from './drawValidation';
+import { requireCompanyId } from './companyScope';
 import type { SessionContext } from './sessionContext';
 import type {
   AuditLogRecord,
@@ -181,7 +182,9 @@ export async function createDraw(data: DrawInput) {
   }
 }
 
-export async function updateDraw(id: number, data: DrawInput) {
+export async function updateDraw(id: number, data: DrawInput, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
@@ -189,7 +192,9 @@ export async function updateDraw(id: number, data: DrawInput) {
   try {
     const db = getDb();
     const existing = await getDrawById(id);
-    if (!existing) return { success: false as const, error: 'Draw not found' };
+    if (!existing || existing.companyId !== scoped.companyId) {
+      return { success: false as const, error: 'Draw not found' };
+    }
     if (existing.status !== 'open') {
       return { success: false as const, error: 'Only open draws can be edited.' };
     }
@@ -211,7 +216,7 @@ export async function updateDraw(id: number, data: DrawInput) {
         closeTime: data.closeTime ?? null,
         updatedAt: new Date(),
       })
-      .where(eq(draws.id, id))
+      .where(and(eq(draws.id, id), eq(draws.companyId, scoped.companyId)))
       .returning();
 
     if (!updated) return { success: false as const, error: 'Draw not found' };
@@ -225,7 +230,9 @@ export async function updateDraw(id: number, data: DrawInput) {
   }
 }
 
-export async function deleteDraw(id: number) {
+export async function deleteDraw(id: number, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
@@ -233,7 +240,9 @@ export async function deleteDraw(id: number) {
   try {
     const db = getDb();
     const draw = await getDrawById(id);
-    if (!draw) return { success: false as const, error: 'Draw not found' };
+    if (!draw || draw.companyId !== scoped.companyId) {
+      return { success: false as const, error: 'Draw not found' };
+    }
     if (draw.status !== 'open') {
       return { success: false as const, error: 'Only open draws can be deleted.' };
     }
@@ -246,7 +255,10 @@ export async function deleteDraw(id: number) {
       return { success: false as const, error: 'Cannot delete draw with existing transactions.' };
     }
 
-    const [deleted] = await db.delete(draws).where(eq(draws.id, id)).returning({ id: draws.id });
+    const [deleted] = await db
+      .delete(draws)
+      .where(and(eq(draws.id, id), eq(draws.companyId, scoped.companyId)))
+      .returning({ id: draws.id });
     if (!deleted) return { success: false as const, error: 'Draw not found' };
     return { success: true as const };
   } catch (error) {

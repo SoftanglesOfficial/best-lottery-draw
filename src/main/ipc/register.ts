@@ -114,9 +114,17 @@ import {
 import { connectDb, getStoredConfig, setupDb, getDbStatus, testDbConnection, reconnectDb } from '../db';
 import { getPreferences, setAutoBackup, setNetworkMode, type NetworkMode } from '../preferences';
 import { discoverServer, getBroadcastStatus, startBroadcast, stopBroadcast } from '../lan';
+import { updateSessionCompany } from '../sessionStore';
 import { sessionHeartbeat, sessionActiveCount } from './sessions';
 import { getDiagnostics } from './diagnostics';
-import { requireRole, requireSession } from './sessionContext';
+import {
+  assertCompanyAccess,
+  popSessionToken,
+  redactDbConfig,
+  requireRole,
+  requireSession,
+  withSession,
+} from './sessionContext';
 import type {
   BuyerGroupInput,
   BuyerInput,
@@ -135,7 +143,6 @@ import type {
   TransactionInput,
   UserInput,
   AuditLogFilters,
-  UserRole,
   WinningTicketInput,
 } from '../../shared/types';
 
@@ -175,26 +182,38 @@ const IPC_CHANNELS = [
   'transactions-get-buyer-sale-summary', 'transactions-get-provider-purchase-summary',
 ] as const;
 
+function scopedCompany(ctx: import('./sessionContext').SessionContext, companyId: number) {
+  const denied = assertCompanyAccess(ctx, companyId);
+  if (denied) return denied;
+  return null;
+}
+
 export function registerIpcHandlers(): void {
   for (const channel of IPC_CHANNELS) ipcMain.removeHandler(channel);
 
-  ipcMain.handle('db-get-config', () => getStoredConfig());
+  ipcMain.handle('db-get-config', () => redactDbConfig(getStoredConfig()));
   ipcMain.handle('db-connect', async (_e, config: DbConfig) => connectDb(config));
   ipcMain.handle('db-setup', async () => setupDb());
   ipcMain.handle('db-get-status', async () => getDbStatus());
   ipcMain.handle('db-test-connection', async (_e, config: DbConfig) => testDbConnection(config));
   ipcMain.handle('prefs-get', () => getPreferences());
+  ipcMain.handle('prefs-set-auto-backup', async (_e, ...args) =>
+    withSession(args, (_ctx, enabled) => {
+      setAutoBackup(enabled as boolean);
+      return { success: true };
+    }, 'manager'),
+  );
   ipcMain.handle('db-reconnect', async () => reconnectDb());
-  ipcMain.handle('prefs-set-network-mode', (_e, mode: NetworkMode) => {
-    setNetworkMode(mode);
-    return { success: true, mode };
-  });
+  ipcMain.handle('prefs-set-network-mode', async (_e, ...args) =>
+    withSession(args, (_ctx, mode: NetworkMode) => {
+      setNetworkMode(mode);
+      return { success: true, mode };
+    }, 'manager'),
+  );
   ipcMain.handle('lan-get-status', () => getBroadcastStatus());
   ipcMain.handle('lan-set-mode', (_e, mode: NetworkMode) => {
     setNetworkMode(mode);
-    if (mode === 'server') {
-      return startBroadcast();
-    }
+    if (mode === 'server') return startBroadcast();
     stopBroadcast();
     return { success: true };
   });
@@ -204,196 +223,452 @@ export function registerIpcHandlers(): void {
     return { success: true };
   });
   ipcMain.handle('lan-discover-server', async () => discoverServer());
-  ipcMain.handle('sessions-heartbeat', async (_e, userId: number, companyId: number, ip?: string) =>
-    sessionHeartbeat(userId, companyId, ip),
-  );
-  ipcMain.handle('sessions-active-count', async (_e, companyId: number) =>
-    sessionActiveCount(companyId),
-  );
-  ipcMain.handle('diagnostics-get', async () => getDiagnostics());
   ipcMain.handle('auth-login', async (_e, u: string, p: string) => login(u, p));
   ipcMain.handle('auth-logout', async (_e, sessionToken: string) => logout(sessionToken));
-  ipcMain.handle('auth-change-password', async (_e, userId: number, current: string, newPass: string) =>
-    changePassword(userId, current, newPass),
-  );
-  ipcMain.handle('auth-create-user', async (_e, data: UserInput) => createUser(data));
-  ipcMain.handle('auth-get-users', async (_e, companyId: number) => getUsersByCompany(companyId));
-  ipcMain.handle('auth-get-all-users', async () => getAllUsers());
-  ipcMain.handle('auth-get-owners', async () => getOwners());
-  ipcMain.handle('auth-get-owner-admin-users', async () => getOwnerAdminUsers());
-  ipcMain.handle('auth-get-user-company-ids', async (_e, userId: number) => getUserCompanyIds(userId));
-  ipcMain.handle('auth-update-user', async (_e, id: number, data: Partial<UserInput>) => updateUser(id, data));
-  ipcMain.handle('auth-delete-user', async (_e, id: number, currentUserId: number) => deleteUser(id, currentUserId));
-  ipcMain.handle('user-get-companies', async (_e, userId: number) => getUserCompanies(userId));
-  ipcMain.handle('user-set-active-company', async (_e, userId: number, companyId: number) => setActiveCompany(userId, companyId));
-  ipcMain.handle('user-companies-assign', async (_e, userId: number, companyId: number) => assignUserCompany(userId, companyId));
-  ipcMain.handle('user-companies-remove', async (_e, userId: number, companyId: number) => removeUserCompany(userId, companyId));
-  ipcMain.handle('user-companies-list', async (_e, userId: number) => listUserCompanies(userId));
-  ipcMain.handle('companies-get-all', async () => getAllCompanies());
-  ipcMain.handle('companies-create', async (_e, data: CompanyInput) => createCompany(data));
-  ipcMain.handle('companies-update', async (_e, id: number, data: CompanyInput) => updateCompany(id, data));
-  ipcMain.handle('companies-clone', async (_e, id: number) => cloneCompany(id));
-  ipcMain.handle('companies-set-status', async (_e, id: number, status: CompanyStatus) => setCompanyStatus(id, status));
-  ipcMain.handle('companies-set-billing-lock', async (_e, id: number, locked: boolean) => setCompanyBillingLock(id, locked));
-  ipcMain.handle('reports-summary', async (_e, companyId: number, from: string, to: string) => getReportsSummary(companyId, from, to));
-  ipcMain.handle('reports-dashboard', async (_e, companyId: number, from: string, to: string) =>
-    getReportsDashboard(companyId, from, to),
-  );
-  ipcMain.handle('reports-pnl', async (_e, companyId: number, from: string, to: string) =>
-    getPnLReport(companyId, from, to),
-  );
-  ipcMain.handle(
-    'ledger-list',
-    async (_e, companyId: number, dateFrom?: string, dateTo?: string, buyerId?: number, providerId?: number) =>
-      getLedgerList(companyId, dateFrom, dateTo, buyerId, providerId),
-  );
-  ipcMain.handle('ledger-all-summary', async (_e, companyId: number, dateFrom?: string, dateTo?: string) =>
-    getLedgerAllSummary(companyId, dateFrom, dateTo),
-  );
-  ipcMain.handle('audit-logs-list', async (_e, filters: AuditLogFilters) => listAuditLogs(filters));
-  ipcMain.handle('backups-create', async (_e, companyId: number, userId: number) =>
-    createBackup(companyId, userId),
-  );
-  ipcMain.handle('backups-restore', async (_e, filePath: string | undefined, sessionToken: string) => {
-    const session = requireSession(sessionToken);
-    if (!session.success) return session;
-    const roleCheck = requireRole(session.ctx, 'owner');
-    if (!roleCheck.success) return roleCheck;
-    return restoreBackup(session.ctx, filePath);
-  });
-  ipcMain.handle('backups-list', async () => listBackups());
-  ipcMain.handle('utilities-change-buyer-rate', async (_e, buyerId: number, newRate: number, userId: number) =>
-    changeBuyerRate(buyerId, newRate, userId),
-  );
-  ipcMain.handle(
-    'utilities-change-provider-rate',
-    async (_e, providerId: number, newRate: number, userId: number) =>
-      changeProviderRate(providerId, newRate, userId),
-  );
-  ipcMain.handle(
-    'utilities-change-commission',
-    async (_e, partyType: 'buyer' | 'provider', partyId: number, newRate: number, userId: number) =>
-      changeCommission(partyType, partyId, newRate, userId),
-  );
-  ipcMain.handle('utilities-bulk-rate-update', async (_e, buyerGroupId: number, newRate: number, userId: number) =>
-    bulkRateUpdate(buyerGroupId, newRate, userId),
-  );
-  ipcMain.handle(
-    'utilities-delete-memos',
-    async (_e, drawId: number, memoIds: number[], userRole: UserRole) =>
-      deleteMemos(drawId, memoIds, userRole),
-  );
-  ipcMain.handle('utilities-reindex', async () => reindexDatabase());
 
-  ipcMain.handle('shift-groups-list', async (_e, companyId: number) => listShiftGroups(companyId));
-  ipcMain.handle('shift-groups-create', async (_e, data: ShiftGroupInput) => createShiftGroup(data));
-  ipcMain.handle('shift-groups-update', async (_e, id: number, data: ShiftGroupInput) => updateShiftGroup(id, data));
-  ipcMain.handle('shift-groups-delete', async (_e, id: number) => deleteShiftGroup(id));
-  ipcMain.handle('shifts-list', async (_e, shiftGroupId: number) => listShifts(shiftGroupId));
-  ipcMain.handle('shifts-create', async (_e, data: ShiftInput) => createShift(data));
-  ipcMain.handle('shifts-update', async (_e, id: number, data: ShiftInput) => updateShift(id, data));
-  ipcMain.handle('shifts-delete', async (_e, id: number) => deleteShift(id));
-
-  ipcMain.handle('provider-groups-list', async (_e, companyId: number) => listProviderGroups(companyId));
-  ipcMain.handle('provider-groups-create', async (_e, data: ProviderGroupInput) => createProviderGroup(data));
-  ipcMain.handle('provider-groups-update', async (_e, id: number, data: ProviderGroupInput) => updateProviderGroup(id, data));
-  ipcMain.handle('provider-groups-delete', async (_e, id: number) => deleteProviderGroup(id));
-  ipcMain.handle('providers-list', async (_e, companyId: number) => listProviders(companyId));
-  ipcMain.handle('providers-create', async (_e, data: ProviderInput) => createProvider(data));
-  ipcMain.handle('providers-update', async (_e, id: number, data: ProviderInput) => updateProvider(id, data));
-  ipcMain.handle('providers-delete', async (_e, id: number) => deleteProvider(id));
-
-  ipcMain.handle('buyer-groups-list', async (_e, companyId: number) => listBuyerGroups(companyId));
-  ipcMain.handle('buyer-groups-create', async (_e, data: BuyerGroupInput) => createBuyerGroup(data));
-  ipcMain.handle('buyer-groups-update', async (_e, id: number, data: BuyerGroupInput) => updateBuyerGroup(id, data));
-  ipcMain.handle('buyer-groups-delete', async (_e, id: number) => deleteBuyerGroup(id));
-  ipcMain.handle('buyers-list', async (_e, companyId: number) => listBuyers(companyId));
-  ipcMain.handle('buyers-create', async (_e, data: BuyerInput) => createBuyer(data));
-  ipcMain.handle('buyers-update', async (_e, id: number, data: BuyerInput) => updateBuyer(id, data));
-  ipcMain.handle('buyers-delete', async (_e, id: number) => deleteBuyer(id));
-
-  ipcMain.handle('item-groups-list', async (_e, companyId: number) => listItemGroups(companyId));
-  ipcMain.handle('item-groups-create', async (_e, data: ItemGroupInput) => createItemGroup(data));
-  ipcMain.handle('item-groups-update', async (_e, id: number, data: ItemGroupInput) => updateItemGroup(id, data));
-  ipcMain.handle('item-groups-delete', async (_e, id: number) => deleteItemGroup(id));
-  ipcMain.handle('items-list', async (_e, companyId: number) => listItems(companyId));
-  ipcMain.handle('items-create', async (_e, data: ItemInput) => createItem(data));
-  ipcMain.handle('items-update', async (_e, id: number, data: ItemInput) => updateItem(id, data));
-  ipcMain.handle('items-delete', async (_e, id: number) => deleteItem(id));
-  ipcMain.handle('itemSchemes-list', async (_e, companyId: number) => listItemSchemes(companyId));
-  ipcMain.handle('itemSchemes-listByItem', async (_e, itemId: number) => listItemSchemesByItem(itemId));
-  ipcMain.handle('itemSchemes-create', async (_e, data: ItemSchemeInput) => createItemScheme(data));
-  ipcMain.handle('itemSchemes-get', async (_e, id: number) => getItemScheme(id));
-  ipcMain.handle('itemSchemes-getPrizes', async (_e, itemSchemeId: number) => getItemSchemePrizes(itemSchemeId));
-  ipcMain.handle('itemSchemes-update', async (_e, id: number, data: ItemSchemeInput) => updateItemScheme(id, data));
-  ipcMain.handle('itemSchemes-delete', async (_e, id: number) => deleteItemScheme(id));
-
-  ipcMain.handle('draws-list', async (_e, companyId: number) => listDraws(companyId));
-  ipcMain.handle('draws-create', async (_e, data: DrawInput) => createDraw(data));
-  ipcMain.handle('draws-update', async (_e, id: number, data: DrawInput) => updateDraw(id, data));
-  ipcMain.handle('draws-delete', async (_e, id: number) => deleteDraw(id));
-  ipcMain.handle(
-    'draws-lock',
-    async (_e, id: number, userId: number, clientUpdatedAt?: number | string | null) =>
-      lockDraw(id, userId, clientUpdatedAt),
+  ipcMain.handle('sessions-heartbeat', async (_e, ...args) =>
+    withSession(args, (ctx, _userId, companyId, ip) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return sessionHeartbeat(ctx.userId, companyId as number, ip as string | undefined);
+    }),
   );
-  ipcMain.handle(
-    'draws-unlock',
-    async (_e, id: number, clientUpdatedAt: number | string | null | undefined, sessionToken: string) => {
-      const session = requireSession(sessionToken);
-      if (!session.success) return session;
-      const roleCheck = requireRole(session.ctx, 'owner');
+  ipcMain.handle('sessions-active-count', async (_e, ...args) =>
+    withSession(args, (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return sessionActiveCount(companyId as number);
+    }),
+  );
+  ipcMain.handle('diagnostics-get', async (_e, ...args) =>
+    withSession(args, async (ctx) => {
+      const roleCheck = requireRole(ctx, 'admin');
       if (!roleCheck.success) return roleCheck;
-      return unlockDraw(id, session.ctx, clientUpdatedAt);
-    },
+      const result = await getDiagnostics();
+      if (result.success && result.data.dbConfig) {
+        result.data.dbConfig = redactDbConfig(result.data.dbConfig);
+      }
+      return result;
+    }, 'admin'),
   );
-  ipcMain.handle('draws-audit-list', async (_e, drawId: number) => listDrawAuditLogs(drawId));
-  ipcMain.handle(
-    'draws-extend-time',
-    async (
-      _e,
-      drawId: number,
-      userId: number,
-      userRole: UserRole,
-      newCloseTime: string,
-      reason: string,
-    ) => extendDrawTime(drawId, userId, userRole, newCloseTime, reason),
+
+  ipcMain.handle('auth-change-password', async (_e, ...args) =>
+    withSession(args, (ctx, _userId, current, newPass) =>
+      changePassword(ctx.userId, current as string, newPass as string),
+    ),
   );
-  ipcMain.handle('draw-results-list', async (_e, drawId: number) => listDrawResults(drawId));
-  ipcMain.handle('draw-results-create', async (_e, drawId: number, results: DrawResultInput[]) =>
-    createDrawResults(drawId, results),
+  ipcMain.handle('auth-create-user', async (_e, ...args) =>
+    withSession(args, (_ctx, data) => createUser(data as UserInput), 'owner'),
   );
-  ipcMain.handle('winning-tickets-list', async (_e, drawId: number) => listWinningTickets(drawId));
-  ipcMain.handle('winning-tickets-create', async (_e, drawId: number, tickets: WinningTicketInput[]) =>
-    createWinningTickets(drawId, tickets),
+  ipcMain.handle('auth-get-users', async (_e, ...args) =>
+    withSession(args, (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return getUsersByCompany(companyId as number);
+    }),
   );
-  ipcMain.handle('winning-tickets-delete', async (_e, id: number) => deleteWinningTicket(id));
-  ipcMain.handle('winning-tickets-find-winners', async (_e, drawId: number) => findWinners(drawId));
-  ipcMain.handle('transactions-search-ticket', async (_e, companyId: number, ticketNumber: string) =>
-    searchTicket(companyId, ticketNumber),
+  ipcMain.handle('auth-get-all-users', async (_e, ...args) =>
+    withSession(args, () => getAllUsers(), 'admin'),
   );
-  ipcMain.handle('transactions-list', async (_e, companyId: number, drawId?: number, type?: string) =>
-    listTransactions(companyId, drawId, type as import('../../shared/types').TransactionType | undefined),
+  ipcMain.handle('auth-get-owners', async (_e, ...args) =>
+    withSession(args, () => getOwners(), 'admin'),
   );
-  ipcMain.handle('transactions-next-memo-id', async (_e, companyId: number) => nextMemoId(companyId));
-  ipcMain.handle('transactions-create', async (_e, data: TransactionInput) => createTransaction(data));
-  ipcMain.handle('transactions-update', async (_e, id: number, data: TransactionInput, userRole: UserRole) =>
-    updateTransaction(id, data, userRole),
+  ipcMain.handle('auth-get-owner-admin-users', async (_e, ...args) =>
+    withSession(args, () => getOwnerAdminUsers(), 'admin'),
   );
-  ipcMain.handle('transactions-delete', async (_e, id: number, sessionToken: string) => {
-    const session = requireSession(sessionToken);
+  ipcMain.handle('auth-get-user-company-ids', async (_e, ...args) =>
+    withSession(args, (_ctx, userId) => getUserCompanyIds(userId as number), 'manager'),
+  );
+  ipcMain.handle('auth-update-user', async (_e, ...args) =>
+    withSession(args, (_ctx, id, data) => updateUser(id as number, data as Partial<UserInput>), 'owner'),
+  );
+  ipcMain.handle('auth-delete-user', async (_e, ...args) =>
+    withSession(args, (ctx, id) => deleteUser(id as number, ctx.userId), 'owner'),
+  );
+  ipcMain.handle('user-get-companies', async (_e, ...args) =>
+    withSession(args, (ctx, _userId) => getUserCompanies(ctx.userId)),
+  );
+  ipcMain.handle('user-set-active-company', async (_e, ...args) => {
+    const { token, rest } = popSessionToken(args);
+    const session = requireSession(token);
     if (!session.success) return session;
-    const roleCheck = requireRole(session.ctx, 'supervisor');
-    if (!roleCheck.success) return roleCheck;
-    return deleteTransaction(id, session.ctx);
+    const companyId = rest[1] as number;
+    const result = await setActiveCompany(session.ctx.userId, companyId, session.ctx);
+    if (result.success && token) {
+      updateSessionCompany(token, companyId);
+    }
+    return result;
   });
-  ipcMain.handle('transactions-validate-tickets-sold', async (_e, drawId: number, ticketNumbers: string[]) =>
-    validateTicketsSold(drawId, ticketNumbers),
+  ipcMain.handle('user-companies-assign', async (_e, ...args) =>
+    withSession(args, (_ctx, userId, companyId) =>
+      assignUserCompany(userId as number, companyId as number), 'owner'),
   );
-  ipcMain.handle('transactions-get-buyer-sale-summary', async (_e, buyerId: number, drawId: number) =>
-    getBuyerSaleSummary(buyerId, drawId),
+  ipcMain.handle('user-companies-remove', async (_e, ...args) =>
+    withSession(args, (_ctx, userId, companyId) =>
+      removeUserCompany(userId as number, companyId as number), 'owner'),
   );
-  ipcMain.handle('transactions-get-provider-purchase-summary', async (_e, providerId: number, drawId: number) =>
-    getProviderPurchaseSummary(providerId, drawId),
+  ipcMain.handle('user-companies-list', async (_e, ...args) =>
+    withSession(args, (_ctx, userId) => listUserCompanies(userId as number), 'manager'),
+  );
+  ipcMain.handle('companies-get-all', async (_e, ...args) =>
+    withSession(args, () => getAllCompanies()),
+  );
+  ipcMain.handle('companies-create', async (_e, ...args) =>
+    withSession(args, (_ctx, data) => createCompany(data as CompanyInput), 'admin'),
+  );
+  ipcMain.handle('companies-update', async (_e, ...args) =>
+    withSession(args, (_ctx, id, data) => updateCompany(id as number, data as CompanyInput), 'admin'),
+  );
+  ipcMain.handle('companies-clone', async (_e, ...args) =>
+    withSession(args, (_ctx, id) => cloneCompany(id as number), 'admin'),
+  );
+  ipcMain.handle('companies-set-status', async (_e, ...args) =>
+    withSession(args, (_ctx, id, status) => setCompanyStatus(id as number, status as CompanyStatus), 'admin'),
+  );
+  ipcMain.handle('companies-set-billing-lock', async (_e, ...args) =>
+    withSession(args, (_ctx, id, locked) => setCompanyBillingLock(id as number, locked as boolean), 'admin'),
+  );
+  ipcMain.handle('reports-summary', async (_e, ...args) =>
+    withSession(args, (ctx, companyId, from, to) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return getReportsSummary(companyId as number, from as string, to as string);
+    }, 'manager'),
+  );
+  ipcMain.handle('reports-dashboard', async (_e, ...args) =>
+    withSession(args, (ctx, companyId, from, to) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return getReportsDashboard(companyId as number, from as string, to as string);
+    }, 'manager'),
+  );
+  ipcMain.handle('reports-pnl', async (_e, ...args) =>
+    withSession(args, (ctx, companyId, from, to) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return getPnLReport(companyId as number, from as string, to as string);
+    }, 'owner'),
+  );
+  ipcMain.handle('ledger-list', async (_e, ...args) =>
+    withSession(args, (ctx, companyId, dateFrom, dateTo, buyerId, providerId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return getLedgerList(
+        companyId as number,
+        dateFrom as string | undefined,
+        dateTo as string | undefined,
+        buyerId as number | undefined,
+        providerId as number | undefined,
+      );
+    }, 'manager'),
+  );
+  ipcMain.handle('ledger-all-summary', async (_e, ...args) =>
+    withSession(args, (ctx, companyId, dateFrom, dateTo) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return getLedgerAllSummary(companyId as number, dateFrom as string | undefined, dateTo as string | undefined);
+    }, 'manager'),
+  );
+  ipcMain.handle('audit-logs-list', async (_e, ...args) =>
+    withSession(args, (_ctx, filters) => listAuditLogs(filters as AuditLogFilters), 'manager'),
+  );
+  ipcMain.handle('backups-create', async (_e, ...args) =>
+    withSession(args, (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return createBackup(companyId as number, ctx.userId);
+    }, 'owner'),
+  );
+  ipcMain.handle('backups-restore', async (_e, ...args) =>
+    withSession(args, (ctx, filePath) => restoreBackup(ctx, filePath as string | undefined), 'owner'),
+  );
+  ipcMain.handle('backups-list', async (_e, ...args) =>
+    withSession(args, () => listBackups(), 'owner'),
+  );
+  ipcMain.handle('utilities-change-buyer-rate', async (_e, ...args) =>
+    withSession(args, (ctx, buyerId, newRate) =>
+      changeBuyerRate(buyerId as number, newRate as number, ctx.userId), 'manager'),
+  );
+  ipcMain.handle('utilities-change-provider-rate', async (_e, ...args) =>
+    withSession(args, (ctx, providerId, newRate) =>
+      changeProviderRate(providerId as number, newRate as number, ctx.userId), 'manager'),
+  );
+  ipcMain.handle('utilities-change-commission', async (_e, ...args) =>
+    withSession(args, (ctx, partyType, partyId, newRate) =>
+      changeCommission(
+        partyType as 'buyer' | 'provider',
+        partyId as number,
+        newRate as number,
+        ctx.userId,
+      ), 'manager'),
+  );
+  ipcMain.handle('utilities-bulk-rate-update', async (_e, ...args) =>
+    withSession(args, (ctx, buyerGroupId, newRate) =>
+      bulkRateUpdate(buyerGroupId as number, newRate as number, ctx.userId), 'manager'),
+  );
+  ipcMain.handle('utilities-delete-memos', async (_e, ...args) =>
+    withSession(args, (ctx, drawId, memoIds) =>
+      deleteMemos(drawId as number, memoIds as number[], ctx), 'admin'),
+  );
+  ipcMain.handle('utilities-reindex', async (_e, ...args) =>
+    withSession(args, () => reindexDatabase(), 'admin'),
+  );
+
+  ipcMain.handle('shift-groups-list', async (_e, ...args) =>
+    withSession(args, (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return listShiftGroups(companyId as number);
+    }),
+  );
+  ipcMain.handle('shift-groups-create', async (_e, ...args) =>
+    withSession(args, (_ctx, data) => createShiftGroup(data as ShiftGroupInput), 'manager'),
+  );
+  ipcMain.handle('shift-groups-update', async (_e, ...args) =>
+    withSession(args, (ctx, id, data) => updateShiftGroup(id as number, data as ShiftGroupInput, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('shift-groups-delete', async (_e, ...args) =>
+    withSession(args, (ctx, id) => deleteShiftGroup(id as number, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('shifts-list', async (_e, ...args) =>
+    withSession(args, (_ctx, shiftGroupId) => listShifts(shiftGroupId as number)),
+  );
+  ipcMain.handle('shifts-create', async (_e, ...args) =>
+    withSession(args, (_ctx, data) => createShift(data as ShiftInput), 'manager'),
+  );
+  ipcMain.handle('shifts-update', async (_e, ...args) =>
+    withSession(args, (ctx, id, data) => updateShift(id as number, data as ShiftInput, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('shifts-delete', async (_e, ...args) =>
+    withSession(args, (ctx, id) => deleteShift(id as number, ctx.activeCompanyId), 'manager'),
+  );
+
+  ipcMain.handle('provider-groups-list', async (_e, ...args) =>
+    withSession(args, (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return listProviderGroups(companyId as number);
+    }),
+  );
+  ipcMain.handle('provider-groups-create', async (_e, ...args) =>
+    withSession(args, (_ctx, data) => createProviderGroup(data as ProviderGroupInput), 'manager'),
+  );
+  ipcMain.handle('provider-groups-update', async (_e, ...args) =>
+    withSession(args, (ctx, id, data) => updateProviderGroup(id as number, data as ProviderGroupInput, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('provider-groups-delete', async (_e, ...args) =>
+    withSession(args, (ctx, id) => deleteProviderGroup(id as number, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('providers-list', async (_e, ...args) =>
+    withSession(args, (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return listProviders(companyId as number);
+    }),
+  );
+  ipcMain.handle('providers-create', async (_e, ...args) =>
+    withSession(args, (_ctx, data) => createProvider(data as ProviderInput), 'manager'),
+  );
+  ipcMain.handle('providers-update', async (_e, ...args) =>
+    withSession(args, (ctx, id, data) => updateProvider(id as number, data as ProviderInput, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('providers-delete', async (_e, ...args) =>
+    withSession(args, (ctx, id) => deleteProvider(id as number, ctx.activeCompanyId), 'manager'),
+  );
+
+  ipcMain.handle('buyer-groups-list', async (_e, ...args) =>
+    withSession(args, (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return listBuyerGroups(companyId as number);
+    }),
+  );
+  ipcMain.handle('buyer-groups-create', async (_e, ...args) =>
+    withSession(args, (_ctx, data) => createBuyerGroup(data as BuyerGroupInput), 'manager'),
+  );
+  ipcMain.handle('buyer-groups-update', async (_e, ...args) =>
+    withSession(args, (ctx, id, data) => updateBuyerGroup(id as number, data as BuyerGroupInput, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('buyer-groups-delete', async (_e, ...args) =>
+    withSession(args, (ctx, id) => deleteBuyerGroup(id as number, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('buyers-list', async (_e, ...args) =>
+    withSession(args, (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return listBuyers(companyId as number);
+    }),
+  );
+  ipcMain.handle('buyers-create', async (_e, ...args) =>
+    withSession(args, (_ctx, data) => createBuyer(data as BuyerInput), 'manager'),
+  );
+  ipcMain.handle('buyers-update', async (_e, ...args) =>
+    withSession(args, (ctx, id, data) => updateBuyer(id as number, data as BuyerInput, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('buyers-delete', async (_e, ...args) =>
+    withSession(args, (ctx, id) => deleteBuyer(id as number, ctx.activeCompanyId), 'manager'),
+  );
+
+  ipcMain.handle('item-groups-list', async (_e, ...args) =>
+    withSession(args, (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return listItemGroups(companyId as number);
+    }),
+  );
+  ipcMain.handle('item-groups-create', async (_e, ...args) =>
+    withSession(args, (_ctx, data) => createItemGroup(data as ItemGroupInput), 'manager'),
+  );
+  ipcMain.handle('item-groups-update', async (_e, ...args) =>
+    withSession(args, (ctx, id, data) => updateItemGroup(id as number, data as ItemGroupInput, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('item-groups-delete', async (_e, ...args) =>
+    withSession(args, (ctx, id) => deleteItemGroup(id as number, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('items-list', async (_e, ...args) =>
+    withSession(args, (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return listItems(companyId as number);
+    }),
+  );
+  ipcMain.handle('items-create', async (_e, ...args) =>
+    withSession(args, (_ctx, data) => createItem(data as ItemInput), 'manager'),
+  );
+  ipcMain.handle('items-update', async (_e, ...args) =>
+    withSession(args, (ctx, id, data) => updateItem(id as number, data as ItemInput, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('items-delete', async (_e, ...args) =>
+    withSession(args, (ctx, id) => deleteItem(id as number, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('itemSchemes-list', async (_e, ...args) =>
+    withSession(args, (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return listItemSchemes(companyId as number);
+    }),
+  );
+  ipcMain.handle('itemSchemes-listByItem', async (_e, ...args) =>
+    withSession(args, (_ctx, itemId) => listItemSchemesByItem(itemId as number)),
+  );
+  ipcMain.handle('itemSchemes-create', async (_e, ...args) =>
+    withSession(args, (_ctx, data) => createItemScheme(data as ItemSchemeInput), 'manager'),
+  );
+  ipcMain.handle('itemSchemes-get', async (_e, ...args) =>
+    withSession(args, (_ctx, id) => getItemScheme(id as number)),
+  );
+  ipcMain.handle('itemSchemes-getPrizes', async (_e, ...args) =>
+    withSession(args, (_ctx, itemSchemeId) => getItemSchemePrizes(itemSchemeId as number)),
+  );
+  ipcMain.handle('itemSchemes-update', async (_e, ...args) =>
+    withSession(args, (ctx, id, data) => updateItemScheme(id as number, data as ItemSchemeInput, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('itemSchemes-delete', async (_e, ...args) =>
+    withSession(args, (ctx, id) => deleteItemScheme(id as number, ctx.activeCompanyId), 'manager'),
+  );
+
+  ipcMain.handle('draws-list', async (_e, ...args) =>
+    withSession(args, (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return listDraws(companyId as number);
+    }),
+  );
+  ipcMain.handle('draws-create', async (_e, ...args) =>
+    withSession(args, (_ctx, data) => createDraw(data as DrawInput), 'manager'),
+  );
+  ipcMain.handle('draws-update', async (_e, ...args) =>
+    withSession(args, (ctx, id, data) => updateDraw(id as number, data as DrawInput, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('draws-delete', async (_e, ...args) =>
+    withSession(args, (ctx, id) => deleteDraw(id as number, ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('draws-lock', async (_e, ...args) =>
+    withSession(args, (ctx, id, clientUpdatedAt) =>
+      lockDraw(id as number, ctx.userId, clientUpdatedAt as number | string | null | undefined), 'supervisor'),
+  );
+  ipcMain.handle('draws-unlock', async (_e, ...args) =>
+    withSession(args, (ctx, id, clientUpdatedAt) =>
+      unlockDraw(id as number, ctx, clientUpdatedAt as number | string | null | undefined), 'owner'),
+  );
+  ipcMain.handle('draws-audit-list', async (_e, ...args) =>
+    withSession(args, (_ctx, drawId) => listDrawAuditLogs(drawId as number)),
+  );
+  ipcMain.handle('draws-extend-time', async (_e, ...args) =>
+    withSession(args, (ctx, drawId, _userId, _userRole, newCloseTime, reason) =>
+      extendDrawTime(
+        drawId as number,
+        ctx.userId,
+        ctx.role,
+        newCloseTime as string,
+        reason as string,
+      ), 'manager'),
+  );
+  ipcMain.handle('draw-results-list', async (_e, ...args) =>
+    withSession(args, (_ctx, drawId) => listDrawResults(drawId as number)),
+  );
+  ipcMain.handle('draw-results-create', async (_e, ...args) =>
+    withSession(args, (_ctx, drawId, results) =>
+      createDrawResults(drawId as number, results as DrawResultInput[]), 'supervisor'),
+  );
+  ipcMain.handle('winning-tickets-list', async (_e, ...args) =>
+    withSession(args, (_ctx, drawId) => listWinningTickets(drawId as number)),
+  );
+  ipcMain.handle('winning-tickets-create', async (_e, ...args) =>
+    withSession(args, (_ctx, drawId, tickets) =>
+      createWinningTickets(drawId as number, tickets as WinningTicketInput[]), 'manager'),
+  );
+  ipcMain.handle('winning-tickets-delete', async (_e, ...args) =>
+    withSession(args, (_ctx, id) => deleteWinningTicket(id as number), 'manager'),
+  );
+  ipcMain.handle('winning-tickets-find-winners', async (_e, ...args) =>
+    withSession(args, (_ctx, drawId) => findWinners(drawId as number)),
+  );
+  ipcMain.handle('transactions-search-ticket', async (_e, ...args) =>
+    withSession(args, (ctx, companyId, ticketNumber) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return searchTicket(companyId as number, ticketNumber as string);
+    }),
+  );
+  ipcMain.handle('transactions-list', async (_e, ...args) =>
+    withSession(args, (ctx, companyId, drawId, type) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return listTransactions(
+        companyId as number,
+        drawId as number | undefined,
+        type as import('../../shared/types').TransactionType | undefined,
+      );
+    }),
+  );
+  ipcMain.handle('transactions-next-memo-id', async (_e, ...args) =>
+    withSession(args, (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return nextMemoId(companyId as number);
+    }),
+  );
+  ipcMain.handle('transactions-create', async (_e, ...args) =>
+    withSession(args, (ctx, data) => createTransaction(data as TransactionInput, ctx)),
+  );
+  ipcMain.handle('transactions-update', async (_e, ...args) =>
+    withSession(args, (ctx, id, data, _userRole) =>
+      updateTransaction(id as number, data as TransactionInput, ctx), 'supervisor'),
+  );
+  ipcMain.handle('transactions-delete', async (_e, ...args) =>
+    withSession(args, (ctx, id) => deleteTransaction(id as number, ctx), 'supervisor'),
+  );
+  ipcMain.handle('transactions-validate-tickets-sold', async (_e, ...args) =>
+    withSession(args, (_ctx, drawId, ticketNumbers) =>
+      validateTicketsSold(drawId as number, ticketNumbers as string[])),
+  );
+  ipcMain.handle('transactions-get-buyer-sale-summary', async (_e, ...args) =>
+    withSession(args, (_ctx, buyerId, drawId) =>
+      getBuyerSaleSummary(buyerId as number, drawId as number)),
+  );
+  ipcMain.handle('transactions-get-provider-purchase-summary', async (_e, ...args) =>
+    withSession(args, (_ctx, providerId, drawId) =>
+      getProviderPurchaseSummary(providerId as number, drawId as number)),
   );
 }

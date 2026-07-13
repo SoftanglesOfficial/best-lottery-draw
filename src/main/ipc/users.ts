@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
 import { companies, userCompanies, users } from '../schema';
 import type { CompanySummary, SessionUser } from '../../shared/types';
+import type { SessionContext } from './sessionContext';
 export async function getUserCompanies(
   userId: number,
 ): Promise<{ success: true; companies: CompanySummary[] } | { success: false; error: string }> {
@@ -71,6 +72,7 @@ export async function getUserCompanies(
 export async function setActiveCompany(
   userId: number,
   companyId: number,
+  ctx: SessionContext,
 ): Promise<{ success: true; user: SessionUser; companyName: string } | { success: false; error: string }> {
   const connection = await ensureConnected();
   if (!connection.success) {
@@ -79,6 +81,17 @@ export async function setActiveCompany(
 
   try {
     const db = getDb();
+
+    if (ctx.role !== 'admin') {
+      const [membership] = await db
+        .select({ id: userCompanies.id })
+        .from(userCompanies)
+        .where(and(eq(userCompanies.userId, userId), eq(userCompanies.companyId, companyId)))
+        .limit(1);
+      if (!membership) {
+        return { success: false, error: 'You do not have access to this company.' };
+      }
+    }
 
     const [company] = await db
       .select({ id: companies.id, name: companies.name })
