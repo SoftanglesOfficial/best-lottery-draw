@@ -626,6 +626,18 @@ SELECT setval(
   pg_get_serial_sequence('transactions', 'id'),
   GREATEST(COALESCE((SELECT MAX(id) FROM transactions), 0), 1)
 ) WHERE pg_get_serial_sequence('transactions', 'id') IS NOT NULL;
+
+INSERT INTO provider_groups (name, company_id)
+SELECT 'Default Providers', c.id FROM companies c
+WHERE NOT EXISTS (SELECT 1 FROM provider_groups g WHERE g.company_id = c.id);
+
+INSERT INTO buyer_groups (name, company_id)
+SELECT 'Default Buyers', c.id FROM companies c
+WHERE NOT EXISTS (SELECT 1 FROM buyer_groups g WHERE g.company_id = c.id);
+
+INSERT INTO item_groups (name, company_id)
+SELECT 'Default Items', c.id FROM companies c
+WHERE NOT EXISTS (SELECT 1 FROM item_groups g WHERE g.company_id = c.id);
 `;
 
 async function ensureSchema(client: Pool): Promise<void> {
@@ -748,6 +760,21 @@ export async function setupDb(): Promise<{ success: boolean; error?: string }> {
             [shiftName, shiftGroupId],
           );
         }
+      }
+
+      for (const [groupName, table] of [
+        ['Default Providers', 'provider_groups'],
+        ['Default Buyers', 'buyer_groups'],
+        ['Default Items', 'item_groups'],
+      ] as const) {
+        await pool!.query(
+          `INSERT INTO ${table} (name, company_id)
+           SELECT $1, $2
+           WHERE NOT EXISTS (
+             SELECT 1 FROM ${table} WHERE company_id = $2 AND name = $1
+           )`,
+          [groupName, companyId],
+        );
       }
 
       const defaultDraws = [
