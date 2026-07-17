@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowUpRight, CalendarDays, Landmark, ReceiptIndianRupee, ShoppingCart } from 'lucide-react';
+import { Link, Navigate } from 'react-router-dom';
+import { ArrowUpRight, CalendarDays, Landmark, ReceiptIndianRupee, Shield, ShoppingCart } from 'lucide-react';
 import Badge, { roleBadgeColor } from '../components/Badge';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
@@ -38,12 +38,12 @@ function StatCard({
 }
 
 export default function DashboardPage() {
-  const { user, activeCompanyName } = useAuth();
+  const { user, activeCompanyName, activeShift } = useAuth();
   const [summary, setSummary] = useState<ReportsSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.activeCompanyId) {
+    if (!user?.activeCompanyId || !activeShift) {
       setLoading(false);
       return;
     }
@@ -64,10 +64,30 @@ export default function DashboardPage() {
         }
       })
       .finally(() => setLoading(false));
-  }, [user?.activeCompanyId]);
+  }, [user?.activeCompanyId, activeShift]);
 
   if (!user) {
     return null;
+  }
+
+  if (!user.activeCompanyId) {
+    return (
+      <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center text-center">
+        <div className="max-w-xl">
+          <Shield className="mx-auto mb-4 h-10 w-10 text-content-subtle" aria-hidden="true" />
+          <h1 className="font-display text-2xl font-bold text-content">
+            Welcome, {user.fullName ?? user.username}
+          </h1>
+          <p className="mt-2 text-sm text-content-muted">
+            Select Open Company from the sidebar to get started.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeShift) {
+    return <Navigate to="/open-shift" replace />;
   }
 
   return (

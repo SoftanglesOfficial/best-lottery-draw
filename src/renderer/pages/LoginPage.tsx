@@ -32,7 +32,7 @@ export default function LoginPage() {
     try {
       const result = await login(username.trim(), password);
       if (result.success) {
-        navigate(result.redirectTo ?? '/open-company');
+        navigate(result.redirectTo ?? '/dashboard');
       } else {
         setError(result.error ?? 'Unable to sign in. Please try again.');
       }

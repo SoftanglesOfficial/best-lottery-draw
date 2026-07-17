@@ -113,7 +113,7 @@ export default function PnLPage() {
         <h1 className="font-display text-2xl font-bold text-content">Profit & Loss</h1>
         <button
           type="button"
-          className="flex items-center gap-2 rounded-cyber border border-line-strong bg-surface-raised px-3 py-2 text-sm font-semibold text-content-muted transition-colors hover:border-cyber hover:text-cyber focus:outline-none focus:ring-2 focus:ring-cyber/30 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex items-center gap-2 rounded-cyber border border-line-strong bg-surface-raised px-3 py-2 text-sm font-semibold text-content-muted transition-colors hover:border-cyber hover:text-cyber-hover focus:outline-none focus:ring-2 focus:ring-cyber/30 disabled:cursor-not-allowed disabled:opacity-50"
           onClick={() => printReport('Profit & Loss Report')}
           disabled={!report}
         >

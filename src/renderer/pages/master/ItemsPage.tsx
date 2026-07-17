@@ -61,7 +61,7 @@ export default function ItemsPage() {
       const [itemsResult, groupsResult, shiftsResult] = await Promise.all([
         api.itemsList(companyId),
         api.itemGroupsList(companyId),
-        api.shiftGroupsList(companyId),
+        api.shiftGroupsList(),
       ]);
       if (itemsResult.success) setItems(itemsResult.items);
       else showToast(itemsResult.error, 'error');

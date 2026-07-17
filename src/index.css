@@ -211,6 +211,22 @@ input[type='number'] {
 @media print {
   :root {
     color-scheme: light;
+    --mc-text: #000;
+    --mc-text-muted: #222;
+    --mc-text-subtle: #444;
+    --mc-primary: #321878;
+    --mc-primary-rgb: 50 24 120;
+    --mc-primary-hover: #24105d;
+    --mc-primary-hover-rgb: 36 16 93;
+    --mc-primary-soft-rgb: 43 36 72;
+    --mc-success: #075f49;
+    --mc-success-rgb: 7 95 73;
+    --mc-warning: #6b4500;
+    --mc-warning-rgb: 107 69 0;
+    --mc-error: #8b1111;
+    --mc-error-rgb: 139 17 17;
+    --mc-info: #174a73;
+    --mc-info-rgb: 23 74 115;
   }
   .no-print {
     display: none !important;

@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from './auth';
-import { useActiveCompany } from './useActiveCompany';
 import { api } from './api';
 
 export function useActiveUserCount() {
   const { user } = useAuth();
-  const { companyId } = useActiveCompany();
+  const companyId = user?.activeCompanyId ?? null;
   const [count, setCount] = useState(0);
 
   useEffect(() => {

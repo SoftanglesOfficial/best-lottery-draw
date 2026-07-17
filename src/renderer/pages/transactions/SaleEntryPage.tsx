@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SaleRangeTable, {
   emptySaleRangeRow,
   saleRangesToTicketData,
@@ -37,6 +38,7 @@ export default function SaleEntryPage({
   const { user } = useAuth();
   const { companyId } = useActiveCompany();
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   const [draws, setDraws] = useState<DrawRecord[]>([]);
   const [buyers, setBuyers] = useState<BuyerRecord[]>([]);
@@ -201,6 +203,174 @@ export default function SaleEntryPage({
   };
 
   if (!allowed) return null;
+
+  if (type === 'sale') {
+    const totalQty = totalSaleRangeQty(rows);
+    const totalAmount = totalSaleRangeAmount(rows);
+
+    return (
+      <form
+        onSubmit={handleSubmit}
+        className="flex h-full min-h-[720px] flex-col overflow-hidden bg-[#06154d] font-sans text-white"
+      >
+        <header className="flex h-16 shrink-0 items-center justify-between border-b-2 border-[#78a5f2] bg-gradient-to-b from-[#2462d4] to-[#0e3d9e] px-5 shadow-[inset_0_-1px_0_#082969]">
+          <div className="flex items-center gap-4">
+            <div className="border-r border-[#75a2ef] pr-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#c8dcff]">
+                Best-12 Morning Booking
+              </p>
+              <h1 className="text-xl font-extrabold uppercase tracking-[0.04em] text-white">
+                Sales Entry
+              </h1>
+            </div>
+            <p className="hidden text-xs font-semibold text-[#d9e7ff] xl:block">
+              Range Sales Worksheet
+            </p>
+          </div>
+          <nav className="flex items-center gap-2" aria-label="Sales entry navigation">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="border border-[#9bbcf5] bg-[#123b92] px-4 py-1.5 text-xs font-bold uppercase text-white shadow-sm hover:bg-[#1a4aaa] focus:ring-2 focus:ring-[#ffd447]"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/menu')}
+              className="border border-[#9bbcf5] bg-[#123b92] px-4 py-1.5 text-xs font-bold uppercase text-white shadow-sm hover:bg-[#1a4aaa] focus:ring-2 focus:ring-[#ffd447]"
+            >
+              Menu
+            </button>
+          </nav>
+        </header>
+
+        <section
+          className="shrink-0 border-b border-[#5e8ddd] bg-[#0b2e83] px-4 py-2"
+          aria-label="Sale details"
+        >
+          <div className="grid grid-cols-[minmax(220px,1.5fr)_minmax(240px,1.7fr)_180px_140px] gap-3">
+            <label className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
+                Draw *
+              </span>
+              <select
+                value={drawId ?? ''}
+                onChange={(event) => setDrawId(Number(event.target.value) || null)}
+                className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
+                required
+              >
+                <option value="">Select draw</option>
+                {todayOpenDraws.map((draw) => (
+                  <option key={draw.id} value={draw.id}>
+                    {draw.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
+                Sale To *
+              </span>
+              <select
+                value={buyerId ?? ''}
+                onChange={(event) => setBuyerId(Number(event.target.value) || null)}
+                className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
+                required
+              >
+                <option value="">Select buyer</option>
+                {buyers.map((buyer) => (
+                  <option key={buyer.id} value={buyer.id}>
+                    {buyer.name} ({buyer.type === 'stockist' ? 'Stocker' : 'Seller'})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
+                Date
+              </span>
+              <input
+                type="date"
+                value={entryDate}
+                onChange={(event) => setEntryDate(event.target.value)}
+                className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
+              />
+            </label>
+            <label className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
+                Memo ID
+              </span>
+              <input
+                value={memoId ?? ''}
+                readOnly
+                className="h-8 min-w-0 flex-1 border border-[#6f96d7] bg-[#bcd1f1] px-2 font-mono text-xs font-bold text-[#15366f]"
+              />
+            </label>
+          </div>
+        </section>
+
+        {drawPastClose && selectedDraw ? (
+          <div
+            className="shrink-0 border-b border-[#ffcf45] bg-[#806000] px-4 py-2 text-xs font-semibold text-white"
+            role="alert"
+          >
+            Warning: This draw closed at {formatCloseTimeLabel(selectedDraw.closeTime)} on{' '}
+            {new Date(selectedDraw.drawDate).toLocaleDateString('en-GB')}. You are entering sales
+            after the close time.
+          </div>
+        ) : null}
+
+        <section
+          className="flex min-h-0 flex-1 flex-col bg-[#06154d] p-3"
+          aria-label="Sale ticket ranges"
+        >
+          <div className="flex shrink-0 items-center justify-between border border-b-0 border-[#4f78c4] bg-[#0d327f] px-3 py-1.5">
+            <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-white">
+              Sale Range Spreadsheet
+            </h2>
+            <span className="font-mono text-[10px] uppercase text-[#bad3ff]">
+              Active memo {memoId ?? '—'}
+            </span>
+          </div>
+          <SaleRangeTable
+            rows={rows}
+            onChange={setRows}
+            items={items}
+            defaultRate={defaultRate}
+            variant="blueSpreadsheet"
+          />
+        </section>
+
+        <div className="shrink-0 border-t border-[#6d98e4] bg-[#08266f]">
+          <div className="grid h-9 grid-cols-[1fr_220px_220px] items-center border-b border-[#416db9] px-4 text-xs">
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#bcd5ff]">
+              Ready · Enter on Amount adds row · F5 deletes current row
+            </p>
+            <p className="border-l border-[#416db9] px-4 text-right font-bold uppercase">
+              Total Qty <span className="ml-3 font-mono text-[#ffe16a]">{totalQty}</span>
+            </p>
+            <p className="border-l border-[#416db9] px-4 text-right font-bold uppercase">
+              Net Amount{' '}
+              <span className="ml-3 font-mono text-[#ffe16a]">{totalAmount.toFixed(2)}</span>
+            </p>
+          </div>
+          <div className="flex h-12 items-center justify-between bg-[#0e3b99] px-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#bed5ff]">
+              {rows.length} worksheet row{rows.length === 1 ? '' : 's'}
+            </p>
+            <button
+              type="submit"
+              disabled={saving || companyId == null}
+              className="min-w-36 border-2 border-[#ffdf63] bg-[#f1b900] px-6 py-2 text-xs font-extrabold uppercase tracking-wide text-[#10275e] shadow-[0_2px_0_#745600] hover:bg-[#ffd447] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? 'Saving…' : saveLabel}
+            </button>
+          </div>
+        </div>
+      </form>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">

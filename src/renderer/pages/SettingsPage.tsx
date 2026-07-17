@@ -2,12 +2,13 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Download } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Badge, { roleBadgeColor } from '../components/Badge';
 import { FullPageLoading, InlineSpinner } from '../components/LoadingSpinner';
 import { useToast } from '../components/Toast';
 import { Button, Input } from '../components/ui';
 import { downloadCsv } from '../lib/exportCsv';
 import { useAuth } from '../lib/auth';
-import { isAdminOrOwner, isAtLeastRole, ROLE_BADGE_CLASSES, ROLE_LABELS } from '../lib/roles';
+import { isAdminOrOwner, isAtLeastRole, ROLE_LABELS } from '../lib/roles';
 import { validate, validators, parseMemoIds } from '../lib/validation';
 import { useActiveCompany } from '../lib/useActiveCompany';
 import { api } from '../lib/api';
@@ -556,7 +557,7 @@ function AuditTab({ companyId }: { companyId?: number | null }) {
         <Input label="Date From" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
         <Input label="Date To" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
         <Button variant="secondary" onClick={() => void load()}>Apply</Button>
-        <button type="button" className="flex items-center gap-2 rounded-cyber border border-line-strong bg-surface-raised px-3 py-2 text-sm font-semibold text-content-muted transition-colors hover:border-cyber hover:text-cyber focus:outline-none focus:ring-2 focus:ring-cyber/30" onClick={exportCsv}>
+        <button type="button" className="flex items-center gap-2 rounded-cyber border border-line-strong bg-surface-raised px-3 py-2 text-sm font-semibold text-content-muted transition-colors hover:border-cyber hover:text-cyber-hover focus:outline-none focus:ring-2 focus:ring-cyber/30" onClick={exportCsv}>
           <Download className="h-4 w-4" /> Export CSV
         </button>
         <label className="flex items-center gap-2 text-sm text-content-muted">
@@ -667,9 +668,7 @@ function ProfileTab({ user }: { user: ReturnType<typeof useAuth>['user'] }) {
         <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Account Info</p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <p className="text-sm font-medium text-content">{user.fullName ?? user.username}</p>
-          <span className={`rounded px-2 py-0.5 text-xs font-medium ${ROLE_BADGE_CLASSES[user.role]}`}>
-            {ROLE_LABELS[user.role]}
-          </span>
+          <Badge label={ROLE_LABELS[user.role]} color={roleBadgeColor(user.role)} />
           <p className="font-mono text-sm text-content-subtle">@{user.username}</p>
         </div>
       </div>

@@ -113,13 +113,16 @@ export interface ShiftGroupRecord {
 
 export interface ShiftGroupInput {
   name: string;
-  companyId: number;
 }
 
 export interface ShiftRecord {
   id: number;
   name: string;
   shiftGroupId: number;
+}
+
+export interface ActiveShift extends ShiftRecord {
+  shiftGroupName: string;
 }
 
 export interface ShiftInput {

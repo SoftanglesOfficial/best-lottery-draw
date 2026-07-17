@@ -36,7 +36,7 @@ export default function ShiftsPage() {
   const loadGroups = useCallback(async () => {
     if (companyId == null) return;
     try {
-      const result = await api.shiftGroupsList(companyId);
+      const result = await api.shiftGroupsList();
       if (result.success) {
         setGroups(result.groups);
         const paramId = groupIdParam ? Number(groupIdParam) : null;

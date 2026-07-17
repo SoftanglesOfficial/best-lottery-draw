@@ -100,6 +100,7 @@ import {
   createShiftGroup,
   deleteShift,
   deleteShiftGroup,
+  getShiftForCompany,
   listShiftGroups,
   listShifts,
   updateShift,
@@ -115,7 +116,11 @@ import {
 import { connectDb, getStoredConfig, setupDb, getDbStatus, testDbConnection, reconnectDb } from '../db';
 import { getPreferences, setAutoBackup, setNetworkMode, type NetworkMode } from '../preferences';
 import { discoverServer, getBroadcastStatus, startBroadcast, stopBroadcast } from '../lan';
-import { updateSessionCompany } from '../sessionStore';
+import {
+  isSessionSelectionCurrent,
+  updateSessionCompany,
+  updateSessionShift,
+} from '../sessionStore';
 import { sessionHeartbeat, sessionActiveCount } from './sessions';
 import { getDiagnostics } from './diagnostics';
 import {
@@ -165,7 +170,8 @@ const IPC_CHANNELS = [
   'utilities-change-buyer-rate', 'utilities-change-provider-rate', 'utilities-change-commission',
   'utilities-bulk-rate-update', 'utilities-delete-memos', 'utilities-reindex',
   'shift-groups-list', 'shift-groups-create', 'shift-groups-update', 'shift-groups-delete',
-  'shifts-list', 'shifts-create', 'shifts-update', 'shifts-delete',
+  'shifts-list', 'shifts-create', 'shifts-update', 'shifts-delete', 'shifts-select',
+  'shifts-get-active',
   'provider-groups-list', 'provider-groups-create', 'provider-groups-update', 'provider-groups-delete',
   'providers-list', 'providers-create', 'providers-update', 'providers-delete',
   'buyer-groups-list', 'buyer-groups-create', 'buyer-groups-update', 'buyer-groups-delete',
@@ -296,8 +302,8 @@ export function registerIpcHandlers(): void {
     if (!session.success) return session;
     const companyId = rest[1] as number;
     const result = await setActiveCompany(session.ctx.userId, companyId, session.ctx);
-    if (result.success && token) {
-      updateSessionCompany(token, companyId);
+    if (result.success && token && !updateSessionCompany(token, companyId)) {
+      return { success: false, error: 'Failed to securely save the active company.' };
     }
     return result;
   });
@@ -417,14 +423,11 @@ export function registerIpcHandlers(): void {
   );
 
   ipcMain.handle('shift-groups-list', async (_e, ...args) =>
-    withSession(args, (ctx, companyId) => {
-      const denied = scopedCompany(ctx, companyId as number);
-      if (denied) return denied;
-      return listShiftGroups(companyId as number);
-    }),
+    withSession(args, (ctx) => listShiftGroups(ctx.activeCompanyId)),
   );
   ipcMain.handle('shift-groups-create', async (_e, ...args) =>
-    withSession(args, (_ctx, data) => createShiftGroup(data as ShiftGroupInput), 'manager'),
+    withSession(args, (ctx, data) =>
+      createShiftGroup(data as ShiftGroupInput, ctx.activeCompanyId), 'manager'),
   );
   ipcMain.handle('shift-groups-update', async (_e, ...args) =>
     withSession(args, (ctx, id, data) => updateShiftGroup(id as number, data as ShiftGroupInput, ctx.activeCompanyId), 'manager'),
@@ -433,10 +436,12 @@ export function registerIpcHandlers(): void {
     withSession(args, (ctx, id) => deleteShiftGroup(id as number, ctx.activeCompanyId), 'manager'),
   );
   ipcMain.handle('shifts-list', async (_e, ...args) =>
-    withSession(args, (_ctx, shiftGroupId) => listShifts(shiftGroupId as number)),
+    withSession(args, (ctx, shiftGroupId) =>
+      listShifts(shiftGroupId as number, ctx.activeCompanyId)),
   );
   ipcMain.handle('shifts-create', async (_e, ...args) =>
-    withSession(args, (_ctx, data) => createShift(data as ShiftInput), 'manager'),
+    withSession(args, (ctx, data) =>
+      createShift(data as ShiftInput, ctx.activeCompanyId), 'manager'),
   );
   ipcMain.handle('shifts-update', async (_e, ...args) =>
     withSession(args, (ctx, id, data) => updateShift(id as number, data as ShiftInput, ctx.activeCompanyId), 'manager'),
@@ -444,6 +449,43 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('shifts-delete', async (_e, ...args) =>
     withSession(args, (ctx, id) => deleteShift(id as number, ctx.activeCompanyId), 'manager'),
   );
+  ipcMain.handle('shifts-select', async (_e, ...args) => {
+    const { token, rest } = popSessionToken(args);
+    const session = requireSession(token);
+    if (!session.success) return session;
+    const companyId = session.ctx.activeCompanyId;
+    const result = await getShiftForCompany(rest[0] as number, companyId);
+    if (!result.success) return result;
+    if (!result.shift) return { success: false, error: 'Shift not found for the active company.' };
+    if (token && !updateSessionShift(token, result.shift.id, companyId)) {
+      return { success: false, error: 'The active company changed. Select the shift again.' };
+    }
+    return result;
+  });
+  ipcMain.handle('shifts-get-active', async (_e, ...args) => {
+    const { token } = popSessionToken(args);
+    const session = requireSession(token);
+    if (!session.success) return session;
+    if (session.ctx.activeShiftId == null) return { success: true, shift: null };
+    const companyId = session.ctx.activeCompanyId;
+    const shiftId = session.ctx.activeShiftId;
+    const result = await getShiftForCompany(
+      shiftId,
+      companyId,
+    );
+    if (token && !isSessionSelectionCurrent(token, companyId, shiftId)) {
+      return { success: false, error: 'The active company or shift changed. Retry.' };
+    }
+    if (
+      result.success
+      && !result.shift
+      && token
+      && !updateSessionShift(token, null, companyId)
+    ) {
+      return { success: false, error: 'Failed to securely clear the active shift.' };
+    }
+    return result;
+  });
 
   ipcMain.handle('provider-groups-list', async (_e, ...args) =>
     withSession(args, (ctx, companyId) => {

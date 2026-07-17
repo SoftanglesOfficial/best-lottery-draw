@@ -1,5 +1,6 @@
 import { Building2, Check, ChevronDown } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 import type { CompanySummary } from '../../shared/types';
@@ -7,6 +8,7 @@ import { InlineSpinner } from './LoadingSpinner';
 
 export default function CompanySwitcher() {
   const { user, activeCompanyName, setActiveCompany } = useAuth();
+  const navigate = useNavigate();
   const [companies, setCompanies] = useState<CompanySummary[]>([]);
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -69,14 +71,14 @@ export default function CompanySwitcher() {
         const result = await api.userSetActiveCompany(user.id, companyId);
         if (result.success) {
           setActiveCompany(result.user, result.companyName);
-          window.location.reload();
+          navigate('/open-shift', { replace: true });
         }
       } finally {
         setSwitching(false);
         setOpen(false);
       }
     },
-    [user, setActiveCompany],
+    [user, setActiveCompany, navigate],
   );
 
   if (!user) return null;

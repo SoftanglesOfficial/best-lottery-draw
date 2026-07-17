@@ -18,11 +18,20 @@ export function ActiveCompanyRoute() {
   return <Outlet />;
 }
 
+export function ActiveShiftRoute() {
+  const { activeShift } = useAuth();
+  if (!activeShift) {
+    return <Navigate to="/open-shift" replace />;
+  }
+  return <Outlet />;
+}
+
 export function PublicRoute() {
-  const { isAuthenticated, isRestoring, user } = useAuth();
+  const { isAuthenticated, isRestoring, user, activeShift } = useAuth();
   if (isRestoring) return null;
   if (isAuthenticated) {
-    return <Navigate to={user?.activeCompanyId ? '/dashboard' : '/open-company'} replace />;
+    if (!user?.activeCompanyId) return <Navigate to="/dashboard" replace />;
+    return <Navigate to={activeShift ? '/menu' : '/open-shift'} replace />;
   }
   return <Outlet />;
 }

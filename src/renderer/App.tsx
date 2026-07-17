@@ -1,10 +1,12 @@
 import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import AppShell from './components/AppShell';
-import { ProtectedRoute, ActiveCompanyRoute, PublicRoute } from './components/ProtectedRoute';
+import { ProtectedRoute, ActiveCompanyRoute, ActiveShiftRoute, PublicRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './lib/auth';
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
 import OpenCompanyPage from './pages/OpenCompanyPage';
+import OpenShiftPage from './pages/OpenShiftPage';
+import MenuPage from './pages/MenuPage';
 import OwnersPage from './pages/admin/OwnersPage';
 import CompaniesPage from './pages/admin/CompaniesPage';
 import UsersPage from './pages/master/UsersPage';
@@ -68,12 +70,16 @@ export default function App() {
 
             <Route element={<ProtectedRoute />}>
               <Route path="/open-company" element={<OpenCompanyPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
 
               <Route element={<ActiveCompanyRoute />}>
-              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/open-shift" element={<OpenShiftPage />} />
 
               <Route path="/admin/owners" element={<OwnersPage />} />
               <Route path="/admin/companies" element={<CompaniesPage />} />
+              <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
+              <Route path="/admin/backups" element={<BackupsPage />} />
+              <Route path="/admin/diagnostics" element={<DiagnosticsPage />} />
 
               <Route path="/master/users" element={<UsersPage />} />
               <Route path="/master/shift-groups" element={<ShiftGroupsPage />} />
@@ -86,6 +92,9 @@ export default function App() {
               <Route path="/master/items" element={<ItemsPage />} />
               <Route path="/master/item-schemes-list" element={<ItemSchemesPage />} />
               <Route path="/item-schemes" element={<ItemSchemePage />} />
+
+              <Route element={<ActiveShiftRoute />}>
+              <Route path="/menu" element={<MenuPage />} />
 
               <Route path="/draws" element={<DrawsPage />} />
               <Route path="/draws/:id/results" element={<DrawResultsPage />} />
@@ -104,14 +113,11 @@ export default function App() {
               <Route path="/transactions/ticket-search" element={<TicketSearchPage />} />
               <Route path="/transactions/draw-results" element={<DrawResultsListPage />} />
 
-              <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
-              <Route path="/admin/backups" element={<BackupsPage />} />
-              <Route path="/admin/diagnostics" element={<DiagnosticsPage />} />
-
               <Route path="/reports" element={<ReportsSummaryPage />} />
               <Route path="/reports/pnl" element={<PnLPage />} />
               <Route path="/reports/buyer-ledger" element={<BuyerLedgerPage />} />
               <Route path="/reports/provider-ledger" element={<ProviderLedgerPage />} />
+              </Route>
               </Route>
             </Route>
           </Route>

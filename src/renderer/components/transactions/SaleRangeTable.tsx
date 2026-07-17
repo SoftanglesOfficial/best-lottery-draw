@@ -18,6 +18,7 @@ type SaleRangeTableProps = {
   items: ItemRecord[];
   defaultRate: string;
   onActiveRowChange?: (index: number) => void;
+  variant?: 'default' | 'blueSpreadsheet';
 };
 
 function rowQty(row: SaleRangeRow) {
@@ -100,10 +101,14 @@ export default function SaleRangeTable({
   items,
   defaultRate,
   onActiveRowChange,
+  variant = 'default',
 }: SaleRangeTableProps) {
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const { user } = useAuth();
   const canEditRate = user ? isAtLeastRole(user.role, 'manager') : false;
+  const blueSpreadsheet = variant === 'blueSpreadsheet';
+  const blueField =
+    'h-7 w-full border border-[#315aa8] bg-[#f7fbff] px-2 font-mono text-xs text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]';
 
   const updateRow = (index: number, patch: Partial<SaleRangeRow>) => {
     const next = rows.map((row, i) => (i === index ? { ...row, ...patch } : row));
@@ -144,20 +149,20 @@ export default function SaleRangeTable({
   }, [rows.length, onChange, defaultRate]);
 
   return (
-    <div>
-      <div className="max-w-full overflow-x-auto rounded-cyber border border-line">
-      <table className="min-w-[980px] w-full text-sm">
-        <thead className="bg-surface-high">
-          <tr className="border-b border-line text-left">
-            <th className="w-12 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Sr No</th>
-            <th className="min-w-[140px] px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Lottery Type</th>
-            <th className="w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Code</th>
-            <th className="w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">From</th>
-            <th className="w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">To</th>
-            <th className="w-16 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Qty</th>
-            <th className="w-20 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Rate</th>
-            <th className="w-24 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Amount</th>
-            <th className="w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Actions</th>
+    <div className={blueSpreadsheet ? 'flex h-full min-h-0 flex-col' : undefined}>
+      <div className={blueSpreadsheet ? 'min-h-0 flex-1 overflow-auto border border-[#3f68ba] bg-[#071b5d]' : 'max-w-full overflow-x-auto rounded-cyber border border-line'}>
+      <table className={blueSpreadsheet ? 'w-full min-w-[980px] border-collapse text-xs' : 'min-w-[980px] w-full text-sm'}>
+        <thead className={blueSpreadsheet ? 'sticky top-0 z-10 bg-[#1748ad]' : 'bg-surface-high'}>
+          <tr className={blueSpreadsheet ? 'border-b border-[#78a4ec] text-left text-white' : 'border-b border-line text-left'}>
+            <th className={blueSpreadsheet ? 'w-12 border-r border-[#4f78c4] px-2 py-1.5 text-center font-semibold uppercase' : 'w-12 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Sr No</th>
+            <th className={blueSpreadsheet ? 'min-w-[180px] border-r border-[#4f78c4] px-2 py-1.5 font-semibold uppercase' : 'min-w-[140px] px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Lottery Type</th>
+            <th className={blueSpreadsheet ? 'w-24 border-r border-[#4f78c4] px-2 py-1.5 font-semibold uppercase' : 'w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Code</th>
+            <th className={blueSpreadsheet ? 'w-28 border-r border-[#4f78c4] px-2 py-1.5 font-semibold uppercase' : 'w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>From</th>
+            <th className={blueSpreadsheet ? 'w-28 border-r border-[#4f78c4] px-2 py-1.5 font-semibold uppercase' : 'w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>To</th>
+            <th className={blueSpreadsheet ? 'w-20 border-r border-[#4f78c4] px-2 py-1.5 text-right font-semibold uppercase' : 'w-16 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Qty</th>
+            <th className={blueSpreadsheet ? 'w-24 border-r border-[#4f78c4] px-2 py-1.5 text-right font-semibold uppercase' : 'w-20 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Rate</th>
+            <th className={blueSpreadsheet ? 'w-28 border-r border-[#4f78c4] px-2 py-1.5 text-right font-semibold uppercase' : 'w-24 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Amount</th>
+            <th className={blueSpreadsheet ? 'w-20 px-2 py-1.5 text-center font-semibold uppercase' : 'w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -165,16 +170,16 @@ export default function SaleRangeTable({
             const qty = rowQty(row);
             const amount = rowAmount(row);
             return (
-              <tr key={index} className="bg-surface-raised hover:bg-surface-high">
-                <td className="px-2 py-2 font-mono text-content-subtle">{index + 1}</td>
-                <td className="px-2 py-2">
+              <tr key={index} className={blueSpreadsheet ? `${index % 2 === 0 ? 'bg-[#dceaff]' : 'bg-[#c9dcfb]'} border-b border-[#83a5da] text-[#071b4d]` : 'bg-surface-raised hover:bg-surface-high'}>
+                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-2 py-1 text-center font-mono font-bold' : 'px-2 py-2 font-mono text-content-subtle'}>{index + 1}</td>
+                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-2 py-2'}>
                   <select
                     value={row.itemId ?? ''}
                     onChange={(event) =>
                       handleItemChange(index, Number(event.target.value) || null)
                     }
                     onFocus={() => onActiveRowChange?.(index)}
-                    className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
+                    className={blueSpreadsheet ? blueField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
                     aria-label={`Row ${index + 1} lottery type`}
                   >
                     <option value="">Select item</option>
@@ -185,16 +190,16 @@ export default function SaleRangeTable({
                     ))}
                   </select>
                 </td>
-                <td className="px-2 py-2">
+                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-2 py-2'}>
                   <input
                     value={row.code}
                     onChange={(event) => updateRow(index, { code: event.target.value })}
                     onFocus={() => onActiveRowChange?.(index)}
-                    className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
+                    className={blueSpreadsheet ? blueField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
                     aria-label={`Row ${index + 1} item code`}
                   />
                 </td>
-                <td className="px-2 py-2">
+                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-2 py-2'}>
                   <input
                     ref={(el) => {
                       inputRefs.current[index * 4] = el;
@@ -206,12 +211,12 @@ export default function SaleRangeTable({
                       })
                     }
                     onFocus={() => onActiveRowChange?.(index)}
-                    className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
+                    className={blueSpreadsheet ? blueField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
                     inputMode="numeric"
                     aria-label={`Row ${index + 1} from ticket`}
                   />
                 </td>
-                <td className="px-2 py-2">
+                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-2 py-2'}>
                   <input
                     ref={(el) => {
                       inputRefs.current[index * 4 + 1] = el;
@@ -223,13 +228,13 @@ export default function SaleRangeTable({
                       })
                     }
                     onFocus={() => onActiveRowChange?.(index)}
-                    className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
+                    className={blueSpreadsheet ? blueField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
                     inputMode="numeric"
                     aria-label={`Row ${index + 1} to ticket`}
                   />
                 </td>
-                <td className="px-2 py-2 text-right font-mono tabular-nums text-content">{qty || '—'}</td>
-                <td className="px-2 py-2">
+                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-2 py-1 text-right font-mono font-bold tabular-nums' : 'px-2 py-2 text-right font-mono tabular-nums text-content'}>{qty || '—'}</td>
+                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-2 py-2'}>
                   <input
                     ref={(el) => {
                       inputRefs.current[index * 4 + 2] = el;
@@ -242,12 +247,12 @@ export default function SaleRangeTable({
                     }
                     onFocus={() => onActiveRowChange?.(index)}
                     readOnly={!canEditRate}
-                    className={`w-full rounded-cyber border border-line-control px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20 ${!canEditRate ? 'bg-surface-high text-content-subtle' : 'bg-canvas'}`}
+                    className={blueSpreadsheet ? `${blueField} ${!canEditRate ? 'bg-[#b8cbed] text-[#33517f]' : ''}` : `w-full rounded-cyber border border-line-control px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20 ${!canEditRate ? 'bg-surface-high text-content-subtle' : 'bg-canvas'}`}
                     inputMode="decimal"
                     aria-label={`Row ${index + 1} rate`}
                   />
                 </td>
-                <td className="px-2 py-2">
+                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-2 py-2'}>
                   <input
                     ref={(el) => {
                       inputRefs.current[index * 4 + 3] = el;
@@ -266,14 +271,14 @@ export default function SaleRangeTable({
                         removeRow(index);
                       }
                     }}
-                    className="w-full rounded-cyber border border-line bg-surface-high px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
+                    className={blueSpreadsheet ? `${blueField} bg-[#aec7ef] font-bold` : 'w-full rounded-cyber border border-line bg-surface-high px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
                     aria-label={`Row ${index + 1} amount`}
                   />
                 </td>
-                <td className="px-2 py-2">
+                <td className={blueSpreadsheet ? 'px-1.5 py-1 text-center' : 'px-2 py-2'}>
                   <button
                     type="button"
-                    className="rounded-cyber px-1.5 py-1 text-cyber-error hover:bg-cyber-error/10 focus:outline-none focus:ring-2 focus:ring-cyber-error/30"
+                    className={blueSpreadsheet ? 'border border-[#9e1d32] bg-[#c93149] px-2 py-1 text-[10px] font-bold uppercase text-white hover:bg-[#a91f35] focus:outline-none focus:ring-2 focus:ring-[#ffd447]' : 'rounded-cyber px-1.5 py-1 text-cyber-error hover:bg-cyber-error/10 focus:outline-none focus:ring-2 focus:ring-cyber-error/30'}
                     onClick={() => removeRow(index)}
                   >
                     Delete
@@ -284,13 +289,13 @@ export default function SaleRangeTable({
           })}
         </tbody>
         <tfoot>
-          <tr className="border-t border-line bg-surface-high font-medium">
-            <td colSpan={5} className="px-2 py-2 text-right font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted">
+          <tr className={blueSpreadsheet ? 'border-t-2 border-[#8db3f2] bg-[#123d99] font-bold text-white' : 'border-t border-line bg-surface-high font-medium'}>
+            <td colSpan={5} className={blueSpreadsheet ? 'px-2 py-2 text-right text-xs uppercase tracking-wide' : 'px-2 py-2 text-right font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted'}>
               Totals
             </td>
-            <td className="px-2 py-2 text-right font-mono tabular-nums text-cyber-hover">{totalQty}</td>
+            <td className={blueSpreadsheet ? 'px-2 py-2 text-right font-mono tabular-nums text-[#ffe16a]' : 'px-2 py-2 text-right font-mono tabular-nums text-cyber-hover'}>{totalQty}</td>
             <td className="px-2 py-2" />
-            <td className="px-2 py-2 text-right font-mono tabular-nums text-cyber-hover">
+            <td className={blueSpreadsheet ? 'px-2 py-2 text-right font-mono tabular-nums text-[#ffe16a]' : 'px-2 py-2 text-right font-mono tabular-nums text-cyber-hover'}>
               {totalAmount > 0 ? totalAmount.toFixed(2) : '—'}
             </td>
             <td className="px-2 py-2" />
@@ -298,7 +303,7 @@ export default function SaleRangeTable({
         </tfoot>
       </table>
       </div>
-      <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.05em] text-content-subtle">Enter on Amount adds a new row · F5 deletes the current row</p>
+      <p className={blueSpreadsheet ? 'bg-[#0b2d7d] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-[#bcd5ff]' : 'mt-2 font-mono text-[10px] uppercase tracking-[0.05em] text-content-subtle'}>Enter on Amount adds a new row · F5 deletes the current row</p>
     </div>
   );
 }

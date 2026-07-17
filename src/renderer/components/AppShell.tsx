@@ -1,6 +1,7 @@
 import {
   Building2,
   Circle,
+  Clock3,
   LayoutDashboard,
   LogOut,
   Settings,
@@ -13,13 +14,8 @@ import CompanySwitcher from './CompanySwitcher';
 import { useDbConnection } from '../lib/ConnectionContext';
 import { useActiveUserCount } from '../lib/useActiveUserCount';
 import { useAuth } from '../lib/auth';
-import { isAdminOrOwner, isAtLeastRole, ROLE_LABELS } from '../lib/roles';
-import type { UserRole } from '../../shared/types';
-
-interface NavItem {
-  label: string;
-  path: string;
-}
+import { buildNavigation, isNavItemActive, type NavItem } from '../lib/navigation';
+import { ROLE_LABELS } from '../lib/roles';
 
 function LiveClock() {
   const [now, setNow] = useState(() => new Date());
@@ -37,22 +33,6 @@ function LiveClock() {
       </span>
     </time>
   );
-}
-
-function isNavItemActive(navPath: string, pathname: string): boolean {
-  const [base] = navPath.split('?');
-
-  if (base === '/draws') {
-    return pathname === '/draws' || pathname.startsWith('/draws/');
-  }
-  if (base === '/master/item-schemes-list') {
-    return pathname === '/master/item-schemes-list' || pathname === '/item-schemes';
-  }
-  if (base === '/transactions/winning-tickets') {
-    return pathname === '/transactions/winning-tickets' || pathname === '/transactions/winning';
-  }
-
-  return pathname === base;
 }
 
 function NavSection({ title, items }: { title: string; items: NavItem[] }) {
@@ -94,70 +74,17 @@ function NavSection({ title, items }: { title: string; items: NavItem[] }) {
   );
 }
 
-function buildNavigation(role: UserRole) {
-  const admin: NavItem[] = isAdminOrOwner(role)
-    ? [
-        { label: 'Company Owners', path: '/admin/owners' },
-        { label: 'Companies', path: '/admin/companies' },
-        { label: 'Backups', path: '/admin/backups' },
-        { label: 'Diagnostics', path: '/admin/diagnostics' },
-        { label: 'Audit Logs', path: '/admin/audit-logs' },
-      ]
-    : [];
-
-  const master: NavItem[] = isAtLeastRole(role, 'manager')
-    ? [
-        { label: 'Users', path: '/master/users' },
-        { label: 'Shift Groups', path: '/master/shift-groups' },
-        { label: 'Shifts', path: '/master/shifts' },
-        { label: 'Provider Groups', path: '/master/provider-groups' },
-        { label: 'Providers', path: '/master/providers' },
-        { label: 'Buyer Groups', path: '/master/buyer-groups' },
-        { label: 'Buyers', path: '/master/buyers' },
-        { label: 'Item Groups', path: '/master/item-groups' },
-        { label: 'Items', path: '/master/items' },
-        { label: 'Item Schemes', path: '/master/item-schemes-list' },
-      ]
-    : [];
-
-  const transactions: NavItem[] = [
-    { label: 'Draws', path: '/draws' },
-    { label: 'Purchase Entry', path: '/transactions/purchase-entry' },
-    { label: 'Purchase List', path: '/transactions/purchase' },
-    { label: 'Purchase Return', path: '/transactions/purchase-return' },
-    { label: 'Purchase Returns', path: '/transactions/purchase-returns' },
-    { label: 'Sale Entry', path: '/transactions/sale-entry' },
-    { label: 'Sale List', path: '/transactions/sale' },
-    { label: 'Sale Return', path: '/transactions/sale-return' },
-    { label: 'Sale Returns', path: '/transactions/sale-returns' },
-    { label: 'Booking Entry', path: '/transactions/booking-entry' },
-    { label: 'Bookings', path: '/transactions/bookings' },
-    { label: 'Winning Tickets', path: '/transactions/winning-tickets' },
-    { label: 'Ticket Search', path: '/transactions/ticket-search' },
-    ...(isAtLeastRole(role, 'supervisor')
-      ? [{ label: 'Draw Results', path: '/transactions/draw-results' }]
-      : []),
-  ];
-
-  const reports: NavItem[] = isAtLeastRole(role, 'manager')
-    ? [
-        { label: 'Summary', path: '/reports' },
-        ...(isAdminOrOwner(role) ? [{ label: 'P&L', path: '/reports/pnl' }] : []),
-        { label: 'Buyer Ledger', path: '/reports/buyer-ledger' },
-        { label: 'Provider Ledger', path: '/reports/provider-ledger' },
-      ]
-    : [];
-
-  return { admin, master, transactions, reports };
-}
-
 export default function AppShell() {
-  const { user, activeCompanyName, logout } = useAuth();
+  const { user, activeCompanyName, activeShift, logout } = useAuth();
   const location = useLocation();
   const { isConnected, reconnect } = useDbConnection();
   const activeUsers = useActiveUserCount();
 
   const isSettingsRoute = location.pathname === '/settings';
+  const isMenuRoute = location.pathname === '/menu';
+  const isSaleEntryRoute = location.pathname === '/transactions/sale-entry';
+  const isSelectionRoute =
+    location.pathname === '/open-company' || location.pathname === '/open-shift';
 
   if (!user) {
     if (isSettingsRoute) {
@@ -170,6 +97,24 @@ export default function AppShell() {
       );
     }
     return null;
+  }
+
+  if (isSelectionRoute) {
+    return (
+      <main>
+        <Outlet />
+      </main>
+    );
+  }
+
+  if (isSaleEntryRoute) {
+    return (
+      <div className="h-screen min-w-[1024px] overflow-hidden">
+        <main className="h-full overflow-hidden">
+          <Outlet />
+        </main>
+      </div>
+    );
   }
 
   const navigation = buildNavigation(user.role);
@@ -187,9 +132,23 @@ export default function AppShell() {
           </span>
         </div>
 
-        <div className="flex min-w-0 flex-1 items-center justify-center gap-2 px-4 text-sm text-content-muted">
-          <Building2 className="h-4 w-4 shrink-0 text-cyber" aria-hidden="true" />
-          <span className="truncate">{activeCompanyName ?? 'No company selected'}</span>
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-4 px-4 text-sm text-content-muted">
+          {isMenuRoute ? (
+            <div className="w-full max-w-56">
+              <CompanySwitcher />
+            </div>
+          ) : (
+            <span className="flex min-w-0 items-center gap-2">
+              <Building2 className="h-4 w-4 shrink-0 text-cyber" aria-hidden="true" />
+              <span className="truncate">{activeCompanyName ?? 'No company selected'}</span>
+            </span>
+          )}
+          {isMenuRoute && activeShift ? (
+            <span className="flex min-w-0 items-center gap-2 border-l border-line pl-4">
+              <Clock3 className="h-4 w-4 shrink-0 text-cyber" aria-hidden="true" />
+              <span className="truncate">{activeShift.name}</span>
+            </span>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -207,18 +166,33 @@ export default function AppShell() {
             {isConnected ? 'Connected' : 'Offline'}
           </span>
           <NavLink
-            to="/dashboard"
+            to="/open-company"
             className={({ isActive }) =>
               `flex items-center gap-1.5 rounded-cyber border px-2.5 py-1.5 text-xs font-medium ${
-                isActive
+                isActive || !user.activeCompanyId
                   ? 'border-cyber/50 bg-cyber-soft text-content'
                   : 'border-transparent text-content-muted hover:border-line hover:bg-surface-high hover:text-content'
               }`
             }
           >
-            <LayoutDashboard className="h-3.5 w-3.5" aria-hidden="true" />
-            Dashboard
+            <Building2 className="h-3.5 w-3.5" aria-hidden="true" />
+            Open Company
           </NavLink>
+          {!isMenuRoute ? (
+            <NavLink
+              to="/dashboard"
+              className={({ isActive }) =>
+                `flex items-center gap-1.5 rounded-cyber border px-2.5 py-1.5 text-xs font-medium ${
+                  isActive
+                    ? 'border-cyber/50 bg-cyber-soft text-content'
+                    : 'border-transparent text-content-muted hover:border-line hover:bg-surface-high hover:text-content'
+                }`
+              }
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" aria-hidden="true" />
+              Dashboard
+            </NavLink>
+          ) : null}
           <NavLink
             to="/settings"
             className={({ isActive }) =>
@@ -257,27 +231,42 @@ export default function AppShell() {
         </div>
       ) : null}
       <div className="flex min-h-0 flex-1">
-        <aside className="sidebar no-print flex w-[220px] shrink-0 flex-col border-r border-line bg-surface lg:w-[232px] 2xl:w-64">
-          <div className="border-b border-line p-4">
-            <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.12em] text-content-subtle">
-              Active company
-            </p>
-            <div className="rounded-cyber border border-line bg-surface-low px-3 py-2">
-              <CompanySwitcher />
+        {!isMenuRoute ? (
+          <aside className="sidebar no-print flex w-[220px] shrink-0 flex-col border-r border-line bg-surface lg:w-[232px] 2xl:w-64">
+            <div className="border-b border-line p-4">
+              <p className="mb-2 font-mono text-[10px] uppercase tracking-[0.12em] text-content-subtle">
+                Active company
+              </p>
+              <div className="rounded-cyber border border-line bg-surface-low px-3 py-2">
+                <CompanySwitcher />
+              </div>
+              <NavLink
+                to="/open-company"
+                className={({ isActive }) =>
+                  `mt-3 flex items-center gap-2 rounded-cyber border px-3 py-2 text-[13px] font-medium ${
+                    isActive || !user.activeCompanyId
+                      ? 'border-cyber/50 bg-cyber-soft text-content'
+                      : 'border-transparent text-content-muted hover:border-line hover:bg-surface-high hover:text-content'
+                  }`
+                }
+              >
+                <Building2 className="h-4 w-4 text-cyber" aria-hidden="true" />
+                Open Company
+              </NavLink>
             </div>
-          </div>
 
-          <div className="sidebar-nav flex-1 overflow-y-auto p-3">
-            <NavSection title="Dashboard" items={[{ label: 'Dashboard', path: '/dashboard' }]} />
-            <NavSection title="Admin" items={navigation.admin} />
-            <NavSection title="Master" items={navigation.master} />
-            <NavSection title="Transactions" items={navigation.transactions} />
-            <NavSection title="Reports" items={navigation.reports} />
-          </div>
-        </aside>
+            <div className="sidebar-nav flex-1 overflow-y-auto p-3">
+              <NavSection title="Dashboard" items={[{ label: 'Dashboard', path: '/dashboard' }]} />
+              <NavSection title="Admin" items={navigation.admin} />
+              <NavSection title="Master" items={navigation.master} />
+              <NavSection title="Transactions" items={navigation.transactions} />
+              <NavSection title="Reports" items={navigation.reports} />
+            </div>
+          </aside>
+        ) : null}
 
         <main className="print-full-width min-w-0 flex-1 overflow-y-auto bg-canvas p-4 lg:p-6">
-          <div className="mc-legacy-content mx-auto w-full max-w-content">
+          <div className={isMenuRoute ? 'w-full' : 'mc-legacy-content mx-auto w-full max-w-content'}>
             <Outlet />
           </div>
         </main>

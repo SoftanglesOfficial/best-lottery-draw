@@ -9,10 +9,11 @@ import { InlineSpinner } from '../components/LoadingSpinner';
 
 export default function OpenCompanyPage() {
   const navigate = useNavigate();
-  const { user, activeCompanyName, setActiveCompany } = useAuth();
+  const { user, setActiveCompany } = useAuth();
   const [companies, setCompanies] = useState<CompanySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState(false);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -28,27 +29,6 @@ export default function OpenCompanyPage() {
       setError('');
 
       try {
-        if (currentUser.activeCompanyId) {
-          if (activeCompanyName) {
-            navigate('/dashboard', { replace: true });
-            return;
-          }
-          const selected = await api.userSetActiveCompany(
-            currentUser.id,
-            currentUser.activeCompanyId,
-          );
-          if (cancelled) {
-            return;
-          }
-          if (selected.success) {
-            setActiveCompany(selected.user, selected.companyName);
-            navigate('/dashboard', { replace: true });
-            return;
-          }
-          setError(selected.error ?? 'Failed to open company.');
-          return;
-        }
-
         const result = await api.userGetCompanies(currentUser.id);
         if (cancelled) {
           return;
@@ -61,22 +41,6 @@ export default function OpenCompanyPage() {
 
         setCompanies(result.companies);
 
-        if (result.companies.length === 1) {
-          setSelecting(true);
-          const selected = await api.userSetActiveCompany(currentUser.id, result.companies[0].id);
-          if (cancelled) {
-            return;
-          }
-
-          if (selected.success) {
-            setActiveCompany(selected.user, selected.companyName);
-            navigate('/dashboard', { replace: true });
-            return;
-          }
-
-          setError(selected.error);
-          setSelecting(false);
-        }
       } catch {
         if (!cancelled) {
           setError('Failed to load companies. Restart the app and try again.');
@@ -93,7 +57,7 @@ export default function OpenCompanyPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, activeCompanyName, navigate, setActiveCompany]);
+  }, [user]);
 
   const handleCompanySelect = async (companyId: number) => {
     if (!user || selecting) {
@@ -101,13 +65,14 @@ export default function OpenCompanyPage() {
     }
 
     setSelecting(true);
+    setSelectedCompanyId(companyId);
     setError('');
 
     try {
       const result = await api.userSetActiveCompany(user.id, companyId);
       if (result.success) {
         setActiveCompany(result.user, result.companyName);
-        navigate('/dashboard', { replace: true });
+        navigate('/open-shift', { replace: true });
         return;
       }
       setError(result.error);
@@ -115,6 +80,7 @@ export default function OpenCompanyPage() {
       setError('Failed to open company. Please try again.');
     } finally {
       setSelecting(false);
+      setSelectedCompanyId(null);
     }
   };
 
@@ -181,14 +147,15 @@ export default function OpenCompanyPage() {
             </div>
           ) : null}
 
-          {!loading && !selecting && companies.length > 1 ? (
+          {!loading && !selecting && companies.length > 0 ? (
             <div className="flex flex-col gap-3">
               {companies.map((company) => (
                 <button
                   key={company.id}
                   type="button"
+                  aria-pressed={selectedCompanyId === company.id}
                   onClick={() => handleCompanySelect(company.id)}
-                  className="group flex min-h-16 w-full items-center gap-4 rounded-cyber-lg border border-line-strong bg-surface-high px-5 py-4 text-left transition-colors hover:border-cyber hover:bg-cyber-soft focus-visible:border-cyber"
+                  className="group flex min-h-16 w-full items-center gap-4 rounded-cyber-lg border border-line-strong bg-surface-high px-5 py-4 text-left transition-colors hover:border-cyber hover:bg-cyber-soft focus-visible:border-cyber focus-visible:ring-2 focus-visible:ring-cyber/40"
                 >
                   <Building2
                     className="h-5 w-5 shrink-0 text-cyber group-hover:text-cyber-hover"

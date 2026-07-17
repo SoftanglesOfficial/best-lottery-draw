@@ -5,6 +5,7 @@ export type SessionContext = {
   userId: number;
   role: UserRole;
   activeCompanyId: number | null;
+  activeShiftId: number | null;
 };
 
 const ROLE_RANK: Record<UserRole, number> = {
@@ -54,13 +55,16 @@ export function requireSession(
   if (!session) {
     return { success: false, error: 'Session expired or invalid. Please log in again.' };
   }
-  touchSession(token);
+  if (!touchSession(token)) {
+    return { success: false, error: 'Failed to securely refresh the session.' };
+  }
   return {
     success: true,
     ctx: {
       userId: session.userId,
       role: session.role,
       activeCompanyId: session.activeCompanyId,
+      activeShiftId: session.activeShiftId,
     },
   };
 }

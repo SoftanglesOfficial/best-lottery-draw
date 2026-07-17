@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type {
+  ActiveShift,
   AuthUser,
   BuyerGroupInput,
   BuyerGroupRecord,
@@ -307,9 +308,9 @@ export interface Api {
     | { success: true; data: import('../shared/types').DiagnosticsData }
     | { success: false; error: string }
   >;
-  shiftGroupsList: (
-    companyId: number,
-  ) => Promise<{ success: true; groups: ShiftGroupRecord[] } | { success: false; error: string }>;
+  shiftGroupsList: () => Promise<
+    { success: true; groups: ShiftGroupRecord[] } | { success: false; error: string }
+  >;
   shiftGroupsCreate: (
     data: ShiftGroupInput,
   ) => Promise<{ success: true; group: ShiftGroupRecord } | { success: false; error: string }>;
@@ -329,6 +330,12 @@ export interface Api {
     data: ShiftInput,
   ) => Promise<{ success: true; shift: ShiftRecord } | { success: false; error: string }>;
   shiftsDelete: (id: number) => Promise<{ success: true } | { success: false; error: string }>;
+  shiftsSelect: (
+    id: number,
+  ) => Promise<{ success: true; shift: ActiveShift } | { success: false; error: string }>;
+  shiftsGetActive: () => Promise<
+    { success: true; shift: ActiveShift | null } | { success: false; error: string }
+  >;
   providerGroupsList: (
     companyId: number,
   ) => Promise<{ success: true; groups: ProviderGroupRecord[] } | { success: false; error: string }>;
@@ -624,7 +631,7 @@ const api: Api = {
     invokeIpc('sessions-heartbeat', userId, companyId, ipAddress),
   sessionActiveCount: (companyId) => invokeIpc('sessions-active-count', companyId),
   diagnosticsGet: () => invokeIpc('diagnostics-get'),
-  shiftGroupsList: (companyId) => invokeIpc('shift-groups-list', companyId),
+  shiftGroupsList: () => invokeIpc('shift-groups-list'),
   shiftGroupsCreate: (data) => invokeIpc('shift-groups-create', data),
   shiftGroupsUpdate: (id, data) => invokeIpc('shift-groups-update', id, data),
   shiftGroupsDelete: (id) => invokeIpc('shift-groups-delete', id),
@@ -632,6 +639,8 @@ const api: Api = {
   shiftsCreate: (data) => invokeIpc('shifts-create', data),
   shiftsUpdate: (id, data) => invokeIpc('shifts-update', id, data),
   shiftsDelete: (id) => invokeIpc('shifts-delete', id),
+  shiftsSelect: (id) => invokeIpc('shifts-select', id),
+  shiftsGetActive: () => invokeIpc('shifts-get-active'),
   providerGroupsList: (companyId) => invokeIpc('provider-groups-list', companyId),
   providerGroupsCreate: (data) => invokeIpc('provider-groups-create', data),
   providerGroupsUpdate: (id, data) => invokeIpc('provider-groups-update', id, data),

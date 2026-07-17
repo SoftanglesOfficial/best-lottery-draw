@@ -1,4 +1,5 @@
 import type {
+  ActiveShift,
   AuthUser,
   BuyerGroupInput,
   BuyerGroupRecord,
@@ -266,9 +267,9 @@ interface Api {
     | { success: true; data: import('../../shared/types').DiagnosticsData }
     | { success: false; error: string }
   >;
-  shiftGroupsList: (
-    companyId: number,
-  ) => Promise<{ success: true; groups: ShiftGroupRecord[] } | { success: false; error: string }>;
+  shiftGroupsList: () => Promise<
+    { success: true; groups: ShiftGroupRecord[] } | { success: false; error: string }
+  >;
   shiftGroupsCreate: (
     data: ShiftGroupInput,
   ) => Promise<{ success: true; group: ShiftGroupRecord } | { success: false; error: string }>;
@@ -288,6 +289,12 @@ interface Api {
     data: ShiftInput,
   ) => Promise<{ success: true; shift: ShiftRecord } | { success: false; error: string }>;
   shiftsDelete: (id: number) => Promise<{ success: true } | { success: false; error: string }>;
+  shiftsSelect: (
+    id: number,
+  ) => Promise<{ success: true; shift: ActiveShift } | { success: false; error: string }>;
+  shiftsGetActive: () => Promise<
+    { success: true; shift: ActiveShift | null } | { success: false; error: string }
+  >;
   providerGroupsList: (
     companyId: number,
   ) => Promise<{ success: true; groups: ProviderGroupRecord[] } | { success: false; error: string }>;

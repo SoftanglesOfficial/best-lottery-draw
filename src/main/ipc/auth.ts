@@ -1,7 +1,13 @@
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { AuthUser, LoginResult, UserInput, UserRecord } from '../../shared/types';
 import { ensureConnected, getDb, hashPassword, isLegacyPasswordHash, verifyPassword } from '../db';
-import { createSession, getPersistedSessionToken, revokeSession, touchSession, validateSession } from '../sessionStore';
+import {
+  createSession,
+  getPersistedSessionToken,
+  refreshSessionAuthorization,
+  revokeSession,
+  validateSession,
+} from '../sessionStore';
 import { companies, userCompanies, users } from '../schema';
 
 export type { AuthUser };
@@ -68,11 +74,11 @@ export async function login(username: string, password: string): Promise<LoginRe
       fullName: user.fullName,
       role: user.role,
       companyId: user.companyId,
-      activeCompanyId: user.activeCompanyId,
+      activeCompanyId: null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
-    const sessionToken = createSession(user.id, user.role, user.activeCompanyId);
+    const sessionToken = createSession(user.id, user.role);
     return { success: true, user: authUser, sessionToken };
   } catch (error) {
     return {
@@ -86,7 +92,9 @@ export function logout(sessionToken: string): { success: true } | { success: fal
   if (!sessionToken) {
     return { success: false, error: 'No active session' };
   }
-  revokeSession(sessionToken);
+  if (!revokeSession(sessionToken)) {
+    return { success: false, error: 'Failed to clear the stored session' };
+  }
   return { success: true };
 }
 
@@ -109,8 +117,6 @@ export async function restoreSession(): Promise<
     return { success: false, error: 'Session expired or invalid' };
   }
 
-  touchSession(token);
-
   try {
     const db = getDb();
     const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
@@ -120,13 +126,36 @@ export async function restoreSession(): Promise<
     }
 
     let companyName: string | null = null;
-    if (user.activeCompanyId != null) {
-      const [company] = await db
-        .select({ name: companies.name })
-        .from(companies)
-        .where(eq(companies.id, user.activeCompanyId))
-        .limit(1);
-      companyName = company?.name ?? null;
+    if (session.activeCompanyId != null) {
+      let authorized = user.role === 'admin';
+      if (!authorized) {
+        const [membership] = await db
+          .select({ id: userCompanies.id })
+          .from(userCompanies)
+          .where(and(
+            eq(userCompanies.userId, user.id),
+            eq(userCompanies.companyId, session.activeCompanyId),
+          ))
+          .limit(1);
+        authorized = Boolean(membership);
+      }
+      if (authorized) {
+        const [company] = await db
+          .select({ name: companies.name })
+          .from(companies)
+          .where(eq(companies.id, session.activeCompanyId))
+          .limit(1);
+        companyName = company?.name ?? null;
+      }
+    }
+    const activeCompanyId = companyName == null ? null : session.activeCompanyId;
+    if (!refreshSessionAuthorization(
+      token,
+      user.role,
+      activeCompanyId,
+      session.activeCompanyId,
+    )) {
+      return { success: false, error: 'Failed to securely refresh the session' };
     }
 
     const authUser: AuthUser = {
@@ -135,7 +164,7 @@ export async function restoreSession(): Promise<
       fullName: user.fullName,
       role: user.role,
       companyId: user.companyId,
-      activeCompanyId: user.activeCompanyId,
+      activeCompanyId,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
