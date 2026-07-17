@@ -4,6 +4,7 @@ import { buyers, companies, draws, providers, transactions, users } from '../sch
 import { formatDbError } from './ipcUtils';
 import { validateDrawOpen } from './drawValidation';
 import { assertCompanyAccess, type SessionContext } from './sessionContext';
+import { requireActiveShiftForCompany } from './shifts';
 import { countFromTicketData, extractTicketNumbers, parseTicketData } from '../../shared/ticketData';
 import type {
   BuyerSaleSummary,
@@ -385,6 +386,11 @@ export async function nextMemoId(companyId: number) {
 export async function createTransaction(data: TransactionInput, ctx: SessionContext) {
   const denied = assertCompanyAccess(ctx, data.companyId);
   if (denied) return denied;
+  if (ctx.activeCompanyId !== data.companyId) {
+    return { success: false as const, error: 'Select the transaction company before creating entries.' };
+  }
+  const shiftCheck = await requireActiveShiftForCompany(ctx.activeShiftId, ctx.activeCompanyId);
+  if (!shiftCheck.success) return shiftCheck;
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };

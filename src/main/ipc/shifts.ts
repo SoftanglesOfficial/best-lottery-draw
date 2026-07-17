@@ -242,3 +242,21 @@ export async function getShiftForCompany(
     return { success: false, error: formatDbError(error) };
   }
 }
+
+export async function requireActiveShiftForCompany(
+  shiftId: number | null,
+  companyId: number | null,
+): Promise<{ success: true } | { success: false; error: string }> {
+  if (shiftId == null) {
+    return { success: false, error: 'Select an active shift before creating transactions.' };
+  }
+  const result = await getShiftForCompany(shiftId, companyId);
+  if (!result.success) return result;
+  if (!result.shift) {
+    return {
+      success: false,
+      error: 'The selected shift is no longer valid for the active company.',
+    };
+  }
+  return { success: true };
+}

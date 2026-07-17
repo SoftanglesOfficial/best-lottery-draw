@@ -256,6 +256,14 @@ const rejectedShift = await shiftsModule.exports.getShiftForCompany(99, 7);
 assert.deepEqual(rejectedShift, { success: true, shift: null });
 assert.ok(predicates.some(([field, value]) => field === 'shifts.id' && value === 99));
 assert.ok(predicates.some(([field, value]) => field === 'shift_groups.company_id' && value === 7));
+assert.deepEqual(
+  await shiftsModule.exports.requireActiveShiftForCompany(null, 7),
+  { success: false, error: 'Select an active shift before creating transactions.' },
+);
+assert.deepEqual(
+  await shiftsModule.exports.requireActiveShiftForCompany(99, 7),
+  { success: false, error: 'The selected shift is no longer valid for the active company.' },
+);
 assert.equal((await shiftsModule.exports.createShiftGroup({ name: '   ' }, 7)).success, false);
 assert.equal((await shiftsModule.exports.updateShiftGroup(1, { name: '   ' }, 7)).success, false);
 assert.equal(
@@ -263,3 +271,10 @@ assert.equal(
   false,
 );
 console.log('OK shift lookup binds ID to active company');
+
+const transactionsSource = fs.readFileSync(new URL('../src/main/ipc/transactions.ts', import.meta.url), 'utf8');
+assert.match(
+  transactionsSource,
+  /requireActiveShiftForCompany\(ctx\.activeShiftId,\s*ctx\.activeCompanyId\)/,
+  'transaction creation must validate the session shift against the active company',
+);
