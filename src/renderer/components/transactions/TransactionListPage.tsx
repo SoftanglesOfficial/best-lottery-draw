@@ -3,7 +3,6 @@ import ConfirmDialog from '../ConfirmDialog';
 import EmptyState from '../EmptyState';
 import { FullPageLoading } from '../LoadingSpinner';
 import { useToast } from '../Toast';
-import { Button } from '../ui';
 import { useAuth } from '../../lib/auth';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
@@ -156,16 +155,20 @@ export default function TransactionListPage({
   if (!allowed) return null;
 
   return (
-    <div>
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">{title}</h1>
+    <div className="space-y-4">
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Transaction register</p>
+        <h1 className="font-display text-2xl font-bold text-content">{title}</h1>
+        <p className="mt-1 text-sm text-content-subtle">Filter, inspect, and manage transaction records.</p>
+      </div>
 
-      <div className="mb-4 flex flex-wrap gap-3 rounded border border-gray-200 bg-white p-4">
+      <section className="flex flex-wrap gap-3 rounded-cyber-lg border border-line bg-surface-raised p-4" aria-label="Transaction filters">
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-700">Draw</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Draw</span>
           <select
             value={drawFilter}
             onChange={(event) => setDrawFilter(event.target.value)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            className="min-w-[160px] rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
           >
             <option value="">All draws</option>
             {draws.map((draw) => (
@@ -177,13 +180,13 @@ export default function TransactionListPage({
         </label>
         {(showProvider || showBuyer) && (
           <label className="flex flex-col gap-1">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">
               {showProvider ? 'Provider' : 'Buyer'}
             </span>
             <select
               value={partyFilter}
               onChange={(event) => setPartyFilter(event.target.value)}
-              className="rounded border border-gray-300 px-3 py-2 text-sm"
+              className="min-w-[160px] rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
             >
               <option value="">All</option>
               {partyOptions.map((option) => (
@@ -195,54 +198,54 @@ export default function TransactionListPage({
           </label>
         )}
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-700">From</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">From</span>
           <input
             type="date"
             value={dateFrom}
             onChange={(event) => setDateFrom(event.target.value)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-700">To</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">To</span>
           <input
             type="date"
             value={dateTo}
             onChange={(event) => setDateTo(event.target.value)}
-            className="rounded border border-gray-300 px-3 py-2 text-sm"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
           />
         </label>
-      </div>
+      </section>
 
       {loading ? (
         <FullPageLoading message="Loading transactions…" />
       ) : filtered.length === 0 ? (
         <EmptyState entity="transaction" />
       ) : (
-        <div className="overflow-hidden rounded border border-gray-200 bg-white">
-          <table className="min-w-full text-sm">
-            <thead className="border-b bg-gray-50 text-left text-xs uppercase text-gray-500">
+        <div className="max-w-full overflow-x-auto rounded-cyber-lg border border-line bg-surface-raised">
+          <table className="min-w-[900px] w-full text-sm">
+            <thead className="border-b border-line bg-surface-high text-left">
               <tr>
-                <th className="px-4 py-3">Memo ID</th>
-                {showVoucher ? <th className="px-4 py-3">Voucher No</th> : null}
-                {showProvider ? <th className="px-4 py-3">Provider</th> : null}
-                {showBuyer ? <th className="px-4 py-3">Buyer</th> : null}
-                <th className="px-4 py-3">Draw</th>
-                <th className="px-4 py-3">Date</th>
+                <th className="whitespace-nowrap px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Memo ID</th>
+                {showVoucher ? <th className="whitespace-nowrap px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Voucher No</th> : null}
+                {showProvider ? <th className="whitespace-nowrap px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Provider</th> : null}
+                {showBuyer ? <th className="whitespace-nowrap px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Buyer</th> : null}
+                <th className="whitespace-nowrap px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Draw</th>
+                <th className="whitespace-nowrap px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Date</th>
                 {showReturnStats ? (
                   <>
-                    <th className="px-4 py-3 text-right">Sold</th>
-                    <th className="px-4 py-3 text-right">Returned</th>
-                    <th className="px-4 py-3 text-right">Net</th>
+                    <th className="px-4 py-3 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Sold</th>
+                    <th className="px-4 py-3 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Returned</th>
+                    <th className="px-4 py-3 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Net</th>
                   </>
                 ) : (
-                  <th className="px-4 py-3">Tickets</th>
+                  <th className="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Tickets</th>
                 )}
-                <th className="px-4 py-3">Amount</th>
-                <th className="px-4 py-3">Actions</th>
+                <th className="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Amount</th>
+                <th className="px-4 py-3 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-line">
               {filtered.map((row) => {
                 const statsKey =
                   row.buyerId != null && row.drawId != null
@@ -256,8 +259,8 @@ export default function TransactionListPage({
 
                 return (
                 <Fragment key={row.id}>
-                  <tr className="border-b hover:bg-gray-50">
-                    <td className="px-4 py-3">{row.memoId ?? '—'}</td>
+                  <tr className="bg-surface-raised text-content-muted hover:bg-surface-high">
+                    <td className="px-4 py-3 font-mono text-content">{row.memoId ?? '—'}</td>
                     {showVoucher ? <td className="px-4 py-3">{row.voucherNo ?? '—'}</td> : null}
                     {showProvider ? <td className="px-4 py-3">{row.providerName ?? '—'}</td> : null}
                     {showBuyer ? <td className="px-4 py-3">{row.buyerName ?? '—'}</td> : null}
@@ -268,7 +271,7 @@ export default function TransactionListPage({
                         <td className="px-4 py-3 text-right">{row.ticketCount ?? '—'}</td>
                         <td
                           className={`px-4 py-3 text-right ${
-                            returnedTotal > 0 ? 'font-medium text-red-600' : ''
+                            returnedTotal > 0 ? 'font-medium text-cyber-error' : ''
                           }`}
                         >
                           {returnedTotal}
@@ -283,7 +286,7 @@ export default function TransactionListPage({
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          className="text-indigo-600 hover:underline"
+                          className="rounded-cyber px-1.5 py-1 text-cyber-hover hover:bg-cyber/10 focus:outline-none focus:ring-2 focus:ring-cyber/30"
                           onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}
                         >
                           View
@@ -291,7 +294,7 @@ export default function TransactionListPage({
                         {canDelete ? (
                           <button
                             type="button"
-                            className="text-red-600 hover:underline"
+                            className="rounded-cyber px-1.5 py-1 text-cyber-error hover:bg-cyber-error/10 focus:outline-none focus:ring-2 focus:ring-cyber-error/30"
                             onClick={() => setDeleteTarget(row)}
                           >
                             Delete
@@ -301,16 +304,16 @@ export default function TransactionListPage({
                     </td>
                   </tr>
                   {expandedId === row.id ? (
-                    <tr className="bg-gray-50">
+                    <tr className="bg-surface-low">
                       <td colSpan={tableColumnCount} className="px-4 py-3">
                         {ticketView === 'ranges' ? (
-                          <p className="text-sm text-gray-700">{formatRanges(row.ticketData)}</p>
+                          <p className="font-mono text-sm text-content-muted">{formatRanges(row.ticketData)}</p>
                         ) : (
                           <div className="flex flex-wrap gap-2">
                             {extractTicketNumbers(row.ticketData).map((number) => (
                               <span
                                 key={number}
-                                className="rounded bg-white px-2 py-1 font-mono text-xs ring-1 ring-gray-200"
+                                className="rounded-cyber bg-canvas px-2 py-1 font-mono text-xs text-cyber-hover ring-1 ring-line"
                               >
                                 {number}
                               </span>
@@ -326,7 +329,7 @@ export default function TransactionListPage({
             </tbody>
           </table>
           {filtered.length === 0 ? (
-            <p className="py-8 text-center text-sm text-gray-500">No records found.</p>
+            <p className="py-8 text-center font-mono text-xs uppercase tracking-[0.05em] text-content-subtle">No records found.</p>
           ) : null}
         </div>
       )}

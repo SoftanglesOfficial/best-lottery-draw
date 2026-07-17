@@ -16,8 +16,8 @@ export default function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <Modal title="Confirm" onClose={onCancel}>
-      <p className="mb-6 text-sm text-gray-600">{message}</p>
-      <div className="flex justify-end gap-3">
+      <p className="mb-6 text-sm leading-6 text-content-muted">{message}</p>
+      <div className="flex justify-end gap-2 border-t border-line pt-4">
         <Button type="button" variant="secondary" onClick={onCancel}>
           Cancel
         </Button>

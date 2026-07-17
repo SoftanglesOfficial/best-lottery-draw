@@ -14,20 +14,21 @@ export function Input({ label, id, className = '', type, ...props }: InputProps)
 
   return (
     <label htmlFor={inputId} className="flex flex-col gap-1">
-      <span className="text-sm font-medium text-gray-700">{label}</span>
+      <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">
+        {label}
+      </span>
       <div className={isPassword ? 'relative' : undefined}>
         <input
           id={inputId}
           type={inputType}
-          className={`w-full rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-600 ${isPassword ? 'pr-10' : ''} ${type === 'number' ? 'text-left' : ''} ${className}`}
+          className={`w-full rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content shadow-inner outline-none placeholder:text-content-subtle disabled:cursor-not-allowed disabled:opacity-50 focus:border-cyber focus:ring-2 focus:ring-cyber/20 ${isPassword ? 'pr-10' : ''} ${type === 'number' ? 'text-left' : ''} ${className}`}
           {...props}
         />
         {isPassword ? (
           <button
             type="button"
-            tabIndex={-1}
             onClick={() => setVisible((current) => !current)}
-            className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+            className="absolute inset-y-0 right-0 flex items-center px-3 text-content-subtle hover:text-content"
             aria-label={visible ? 'Hide password' : 'Show password'}
           >
             {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -53,11 +54,11 @@ export function Button({
 }: ButtonProps) {
   const { isConnected } = useDbConnection();
   const base =
-    'cursor-pointer rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+    'cursor-pointer rounded-cyber border px-4 py-2 text-sm font-semibold shadow-sm transition-colors disabled:cursor-not-allowed disabled:border-line disabled:bg-surface-high disabled:text-content-subtle disabled:opacity-60';
   const variants = {
-    primary: 'bg-indigo-600 text-white hover:bg-indigo-700',
-    secondary: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
-    danger: 'bg-red-600 text-white hover:bg-red-700',
+    primary: 'border-cyber bg-cyber text-cyber-foreground hover:border-cyber-hover hover:bg-cyber-hover',
+    secondary: 'border-line-strong bg-surface-raised text-content-muted hover:border-content-subtle hover:bg-surface-high hover:text-content',
+    danger: 'border-cyber-error bg-cyber-error text-surface hover:border-red-300 hover:bg-red-300',
   };
 
   return (
@@ -79,8 +80,8 @@ type CardProps = {
 
 export function Card({ title, children, className = '' }: CardProps) {
   return (
-    <div className={`rounded border border-gray-300 bg-white p-4 ${className}`}>
-      {title ? <h2 className="mb-4 text-lg font-semibold text-gray-900">{title}</h2> : null}
+    <div className={`rounded-cyber-lg border border-line bg-surface-raised p-4 ${className}`}>
+      {title ? <h2 className="mb-4 font-display text-lg font-bold text-content">{title}</h2> : null}
       {children}
     </div>
   );
@@ -94,10 +95,10 @@ type ToastProps = {
 export function Toast({ message, type = 'success' }: ToastProps) {
   const colors =
     type === 'success'
-      ? 'border-green-300 bg-green-50 text-green-800'
-      : 'border-red-300 bg-red-50 text-red-800';
+      ? 'border-cyber-success/50 bg-cyber-success/10 text-cyber-success'
+      : 'border-cyber-error/50 bg-cyber-error/10 text-cyber-error';
 
   return (
-    <div className={`rounded border px-4 py-3 text-sm ${colors}`}>{message}</div>
+    <div className={`rounded-cyber border px-4 py-3 text-sm ${colors}`}>{message}</div>
   );
 }

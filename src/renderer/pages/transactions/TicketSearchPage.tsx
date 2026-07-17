@@ -62,10 +62,18 @@ export default function TicketSearchPage() {
   if (!allowed) return null;
 
   return (
-    <div>
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">Ticket Search</h1>
+    <div className="space-y-4">
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Transaction lookup</p>
+        <h1 className="font-display text-2xl font-bold text-content">Ticket Search</h1>
+        <p className="mt-1 text-sm text-content-subtle">Locate a ticket across sales and bookings.</p>
+      </div>
 
-      <form onSubmit={handleSearch} className="mb-6 flex max-w-lg flex-wrap items-end gap-3">
+      <form
+        onSubmit={handleSearch}
+        className="flex max-w-2xl flex-wrap items-end gap-3 rounded-cyber-lg border border-line bg-surface-raised p-4"
+        aria-label="Ticket search"
+      >
         <Input
           label="Ticket Number"
           value={ticketNumber}
@@ -79,11 +87,13 @@ export default function TicketSearchPage() {
       </form>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Searching…</p>
+        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low py-10 text-center font-mono text-xs uppercase tracking-[0.05em] text-content-subtle" role="status">Searching…</div>
       ) : searched ? (
         <Table columns={columns} data={results} rowKey={(row) => `${row.id}-${row.ticketNumber}`} />
       ) : (
-        <p className="text-sm text-gray-500">Search for a ticket number.</p>
+        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low py-10 text-center font-mono text-xs uppercase tracking-[0.05em] text-content-subtle">
+          Search for a ticket number.
+        </div>
       )}
     </div>
   );

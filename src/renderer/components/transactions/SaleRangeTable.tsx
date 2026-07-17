@@ -145,27 +145,28 @@ export default function SaleRangeTable({
 
   return (
     <div>
-      <table className="min-w-full text-sm">
-        <thead>
-          <tr className="border-b bg-gray-50 text-left text-xs uppercase text-gray-500">
-            <th className="w-12 px-2 py-2">Sr No</th>
-            <th className="min-w-[140px] px-2 py-2">Lottery Type</th>
-            <th className="w-20 px-2 py-2">Code</th>
-            <th className="w-24 px-2 py-2">From</th>
-            <th className="w-24 px-2 py-2">To</th>
-            <th className="w-16 px-2 py-2 text-right">Qty</th>
-            <th className="w-20 px-2 py-2 text-right">Rate</th>
-            <th className="w-24 px-2 py-2 text-right">Amount</th>
-            <th className="w-20 px-2 py-2">Actions</th>
+      <div className="max-w-full overflow-x-auto rounded-cyber border border-line">
+      <table className="min-w-[980px] w-full text-sm">
+        <thead className="bg-surface-high">
+          <tr className="border-b border-line text-left">
+            <th className="w-12 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Sr No</th>
+            <th className="min-w-[140px] px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Lottery Type</th>
+            <th className="w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Code</th>
+            <th className="w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">From</th>
+            <th className="w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">To</th>
+            <th className="w-16 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Qty</th>
+            <th className="w-20 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Rate</th>
+            <th className="w-24 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Amount</th>
+            <th className="w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Actions</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-line">
           {rows.map((row, index) => {
             const qty = rowQty(row);
             const amount = rowAmount(row);
             return (
-              <tr key={index} className="border-b">
-                <td className="px-2 py-2">{index + 1}</td>
+              <tr key={index} className="bg-surface-raised hover:bg-surface-high">
+                <td className="px-2 py-2 font-mono text-content-subtle">{index + 1}</td>
                 <td className="px-2 py-2">
                   <select
                     value={row.itemId ?? ''}
@@ -173,7 +174,8 @@ export default function SaleRangeTable({
                       handleItemChange(index, Number(event.target.value) || null)
                     }
                     onFocus={() => onActiveRowChange?.(index)}
-                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                    className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
+                    aria-label={`Row ${index + 1} lottery type`}
                   >
                     <option value="">Select item</option>
                     {items.map((item) => (
@@ -188,7 +190,8 @@ export default function SaleRangeTable({
                     value={row.code}
                     onChange={(event) => updateRow(index, { code: event.target.value })}
                     onFocus={() => onActiveRowChange?.(index)}
-                    className="w-full rounded border border-gray-300 px-2 py-1 font-mono text-sm"
+                    className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
+                    aria-label={`Row ${index + 1} item code`}
                   />
                 </td>
                 <td className="px-2 py-2">
@@ -203,8 +206,9 @@ export default function SaleRangeTable({
                       })
                     }
                     onFocus={() => onActiveRowChange?.(index)}
-                    className="w-full rounded border border-gray-300 px-2 py-1 font-mono text-left"
+                    className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                     inputMode="numeric"
+                    aria-label={`Row ${index + 1} from ticket`}
                   />
                 </td>
                 <td className="px-2 py-2">
@@ -219,11 +223,12 @@ export default function SaleRangeTable({
                       })
                     }
                     onFocus={() => onActiveRowChange?.(index)}
-                    className="w-full rounded border border-gray-300 px-2 py-1 font-mono text-left"
+                    className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                     inputMode="numeric"
+                    aria-label={`Row ${index + 1} to ticket`}
                   />
                 </td>
-                <td className="px-2 py-2 text-right font-mono">{qty || '—'}</td>
+                <td className="px-2 py-2 text-right font-mono tabular-nums text-content">{qty || '—'}</td>
                 <td className="px-2 py-2">
                   <input
                     ref={(el) => {
@@ -237,8 +242,9 @@ export default function SaleRangeTable({
                     }
                     onFocus={() => onActiveRowChange?.(index)}
                     readOnly={!canEditRate}
-                    className={`w-full rounded border border-gray-300 px-2 py-1 font-mono text-left ${!canEditRate ? 'bg-gray-100' : ''}`}
+                    className={`w-full rounded-cyber border border-line-control px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20 ${!canEditRate ? 'bg-surface-high text-content-subtle' : 'bg-canvas'}`}
                     inputMode="decimal"
+                    aria-label={`Row ${index + 1} rate`}
                   />
                 </td>
                 <td className="px-2 py-2">
@@ -260,13 +266,14 @@ export default function SaleRangeTable({
                         removeRow(index);
                       }
                     }}
-                    className="w-full rounded border border-gray-200 bg-gray-50 px-2 py-1 font-mono text-left"
+                    className="w-full rounded-cyber border border-line bg-surface-high px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
+                    aria-label={`Row ${index + 1} amount`}
                   />
                 </td>
                 <td className="px-2 py-2">
                   <button
                     type="button"
-                    className="text-red-600 hover:underline"
+                    className="rounded-cyber px-1.5 py-1 text-cyber-error hover:bg-cyber-error/10 focus:outline-none focus:ring-2 focus:ring-cyber-error/30"
                     onClick={() => removeRow(index)}
                   >
                     Delete
@@ -277,20 +284,21 @@ export default function SaleRangeTable({
           })}
         </tbody>
         <tfoot>
-          <tr className="border-t bg-gray-50 font-medium">
-            <td colSpan={5} className="px-2 py-2 text-right text-gray-700">
+          <tr className="border-t border-line bg-surface-high font-medium">
+            <td colSpan={5} className="px-2 py-2 text-right font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted">
               Totals
             </td>
-            <td className="px-2 py-2 text-right font-mono">{totalQty}</td>
+            <td className="px-2 py-2 text-right font-mono tabular-nums text-cyber-hover">{totalQty}</td>
             <td className="px-2 py-2" />
-            <td className="px-2 py-2 text-right font-mono">
+            <td className="px-2 py-2 text-right font-mono tabular-nums text-cyber-hover">
               {totalAmount > 0 ? totalAmount.toFixed(2) : '—'}
             </td>
             <td className="px-2 py-2" />
           </tr>
         </tfoot>
       </table>
-      <p className="mt-2 text-xs text-gray-500">Enter on Amount adds a new row · F5 deletes the current row</p>
+      </div>
+      <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.05em] text-content-subtle">Enter on Amount adds a new row · F5 deletes the current row</p>
     </div>
   );
 }

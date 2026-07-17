@@ -177,19 +177,25 @@ export default function DrawResultsPage() {
   if (!allowed) return null;
 
   if (loading) {
-    return <p className="text-sm text-gray-500">Loading…</p>;
+    return (
+      <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low py-12 text-center font-mono text-xs uppercase tracking-[0.05em] text-content-subtle" role="status">
+        Loading draw…
+      </div>
+    );
   }
 
   if (drawId == null || draw == null) {
     return (
-      <div>
+      <div className="space-y-4">
         <div className="mb-6">
           <Button variant="secondary" onClick={() => navigate('/draws')}>
             ← Back to Draws
           </Button>
         </div>
-        <h1 className="mb-2 text-2xl font-bold text-gray-900">Import Draw Results</h1>
-        <p className="text-sm text-gray-600">Draw not found or invalid draw ID.</p>
+        <h1 className="font-display text-2xl font-bold text-content">Import Draw Results</h1>
+        <p className="rounded-cyber border border-cyber-error/40 bg-cyber-error/10 px-4 py-3 text-sm text-cyber-error">
+          Draw not found or invalid draw ID.
+        </p>
       </div>
     );
   }
@@ -197,57 +203,72 @@ export default function DrawResultsPage() {
   const formDisabled = saving;
 
   return (
-    <div>
-      <div className="mb-6">
+    <div className="space-y-4">
+      <div>
         <Button variant="secondary" onClick={() => navigate('/draws')}>
           ← Back to Draws
         </Button>
       </div>
 
-      <h1 className="mb-2 text-2xl font-bold text-gray-900">Import Draw Results</h1>
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Result processing</p>
+        <h1 className="font-display text-2xl font-bold text-content">Import Draw Results</h1>
+        <p className="mt-1 text-sm text-content-subtle">
+          Upload a result file or enter winning numbers manually.
+        </p>
+      </div>
       {draw && (
-        <div className="mb-6 rounded border border-gray-200 bg-white p-4 text-sm text-gray-700">
-          <p>
-            <span className="font-medium">Draw:</span> {draw.name}
-          </p>
-          <p>
-            <span className="font-medium">Date:</span> {formatDate(draw.drawDate)}
-          </p>
-          <p>
-            <span className="font-medium">Item:</span> {draw.itemName ?? '—'}
-          </p>
+        <div className="grid gap-px overflow-hidden rounded-cyber-lg border border-line bg-line sm:grid-cols-3">
+          <div className="bg-surface-raised p-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-content-subtle">Draw</p>
+            <p className="mt-1 font-semibold text-content">{draw.name}</p>
+          </div>
+          <div className="bg-surface-raised p-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-content-subtle">Date</p>
+            <p className="mt-1 font-semibold text-content">{formatDate(draw.drawDate)}</p>
+          </div>
+          <div className="bg-surface-raised p-4">
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-content-subtle">Item</p>
+            <p className="mt-1 font-semibold text-content">{draw.itemName ?? '—'}</p>
+          </div>
         </div>
       )}
 
-      <form onSubmit={handleImport} className="space-y-6">
-        <div className="rounded border border-gray-200 bg-white p-4">
-          <h2 className="mb-3 font-semibold text-gray-900">Upload result.txt</h2>
+      <form onSubmit={handleImport} className="space-y-4">
+        <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+          <h2 className="font-display font-bold text-content">Upload result.txt</h2>
+          <p className="mb-3 mt-1 text-sm text-content-subtle">Plain-text result files are parsed into the manual-entry grid.</p>
+          <label htmlFor="draw-result-file" className="sr-only">Result text file</label>
           <input
+            id="draw-result-file"
             type="file"
             accept=".txt,text/plain"
             onChange={handleFileChange}
-            className="text-sm"
+            className="block w-full rounded-cyber border border-dashed border-line-control bg-canvas px-3 py-3 text-sm text-content file:mr-3 file:rounded-cyber file:border-0 file:bg-cyber-soft file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-content hover:border-cyber"
           />
-        </div>
+        </section>
 
-        <div className="rounded border border-gray-200 bg-white p-4">
-          <h2 className="mb-3 font-semibold text-gray-900">Manual Entry</h2>
+        <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+          <div className="mb-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-content-subtle">Five prize levels</p>
+            <h2 className="font-display font-bold text-content">Manual Entry</h2>
+          </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-gray-600">
-                  <th className="px-2 py-2">Prize Level</th>
-                  <th className="px-2 py-2">Prize Label</th>
-                  <th className="px-2 py-2">Winning Numbers</th>
-                  <th className="px-2 py-2">Prize Amount (₹)</th>
+            <table className="min-w-[720px] text-sm">
+              <thead className="bg-surface-high">
+                <tr className="border-b border-line text-left">
+                  <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted">Prize Level</th>
+                  <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted">Prize Label</th>
+                  <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted">Winning Numbers</th>
+                  <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted">Prize Amount (₹)</th>
                 </tr>
               </thead>
               <tbody>
                 {manualRows.map((row, index) => (
-                  <tr key={row.prizeLevel} className="border-b align-top">
-                    <td className="px-2 py-2">{row.prizeLevel}</td>
-                    <td className="px-2 py-2">{PRIZE_LABELS[row.prizeLevel]}</td>
-                    <td className="px-2 py-2">
+                  <tr key={row.prizeLevel} className="border-b border-line align-top even:bg-surface-low">
+                    <td className="px-3 py-3 font-mono text-cyber-hover">{row.prizeLevel}</td>
+                    <td className="px-3 py-3 text-content-muted">{PRIZE_LABELS[row.prizeLevel]}</td>
+                    <td className="px-3 py-3">
                       <textarea
                         rows={3}
                         value={row.numbers}
@@ -257,10 +278,11 @@ export default function DrawResultsPage() {
                           setManualRows(next);
                         }}
                         placeholder="One number per line"
-                        className="w-full min-w-[180px] rounded border border-gray-300 px-2 py-1 font-mono text-sm"
+                        aria-label={`Winning numbers for ${PRIZE_LABELS[row.prizeLevel]}`}
+                        className="w-full min-w-[240px] rounded-cyber border border-line-control bg-canvas px-3 py-2 font-mono text-sm text-content outline-none placeholder:text-content-subtle focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                       />
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="px-3 py-3">
                       <input
                         type="number"
                         step="0.01"
@@ -270,7 +292,8 @@ export default function DrawResultsPage() {
                           next[index] = { ...row, prizeAmount: event.target.value };
                           setManualRows(next);
                         }}
-                        className="w-28 rounded border border-gray-300 px-2 py-1 text-left text-sm"
+                        aria-label={`Prize amount for ${PRIZE_LABELS[row.prizeLevel]}`}
+                        className="w-32 rounded-cyber border border-line-control bg-canvas px-3 py-2 text-left text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                       />
                     </td>
                   </tr>
@@ -278,11 +301,13 @@ export default function DrawResultsPage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
 
-        <Button type="submit" disabled={formDisabled}>
-          {saving ? 'Importing…' : 'Import Results'}
-        </Button>
+        <div className="flex justify-end border-t border-line pt-4">
+          <Button type="submit" disabled={formDisabled}>
+            {saving ? 'Importing…' : 'Import Results'}
+          </Button>
+        </div>
       </form>
 
       {confirmReimport ? (

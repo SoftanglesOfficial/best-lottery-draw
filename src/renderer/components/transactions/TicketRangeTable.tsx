@@ -43,20 +43,21 @@ export default function TicketRangeTable({ rows, onChange, onActiveRowChange }: 
 
   return (
     <div>
-      <table className="min-w-full text-sm">
-        <thead>
-          <tr className="border-b bg-gray-50 text-left text-xs uppercase text-gray-500">
-            <th className="px-3 py-2 w-16">Sr No</th>
-            <th className="px-3 py-2">From</th>
-            <th className="px-3 py-2">To</th>
-            <th className="px-3 py-2 w-24">Count</th>
-            <th className="px-3 py-2 w-24">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr key={index} className="border-b">
-              <td className="px-3 py-2">{index + 1}</td>
+      <div className="max-w-full overflow-x-auto rounded-cyber border border-line">
+        <table className="min-w-[620px] w-full text-sm">
+          <thead className="bg-surface-high">
+            <tr className="border-b border-line text-left">
+              <th className="w-16 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Sr No</th>
+              <th className="px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">From</th>
+              <th className="px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">To</th>
+              <th className="w-24 px-3 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Count</th>
+              <th className="w-24 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {rows.map((row, index) => (
+              <tr key={index} className="bg-surface-raised hover:bg-surface-high">
+                <td className="px-3 py-2 font-mono text-content-subtle">{index + 1}</td>
               <td className="px-3 py-2">
                 <input
                   ref={(el) => {
@@ -65,8 +66,9 @@ export default function TicketRangeTable({ rows, onChange, onActiveRowChange }: 
                   value={row.from}
                   onChange={(event) => updateRow(index, { from: event.target.value.replace(/\D/g, '').slice(0, 5) })}
                   onFocus={() => onActiveRowChange?.(index)}
-                  className="w-28 rounded border border-gray-300 px-2 py-1 font-mono text-left"
+                  className="w-28 rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                   inputMode="numeric"
+                  aria-label={`Row ${index + 1} from ticket`}
                 />
               </td>
               <td className="px-3 py-2">
@@ -87,25 +89,29 @@ export default function TicketRangeTable({ rows, onChange, onActiveRowChange }: 
                       removeRow(index);
                     }
                   }}
-                  className="w-28 rounded border border-gray-300 px-2 py-1 font-mono text-left"
+                  className="w-28 rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                   inputMode="numeric"
+                  aria-label={`Row ${index + 1} to ticket`}
                 />
               </td>
-              <td className="px-3 py-2 text-right font-mono">{rangeCount(row.from, row.to) || '—'}</td>
+              <td className="px-3 py-2 text-right font-mono tabular-nums text-content">{rangeCount(row.from, row.to) || '—'}</td>
               <td className="px-3 py-2">
                 <button
                   type="button"
-                  className="text-red-600 hover:underline"
+                  className="rounded-cyber px-1.5 py-1 text-cyber-error hover:bg-cyber-error/10 focus:outline-none focus:ring-2 focus:ring-cyber-error/30"
                   onClick={() => removeRow(index)}
                 >
                   Delete
                 </button>
               </td>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="mt-2 text-sm font-medium text-gray-700">Total tickets: {totalCount}</p>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 font-mono text-xs font-medium uppercase tracking-[0.05em] text-content-muted">
+        Total tickets: <span className="text-cyber-hover">{totalCount}</span>
+      </p>
     </div>
   );
 }

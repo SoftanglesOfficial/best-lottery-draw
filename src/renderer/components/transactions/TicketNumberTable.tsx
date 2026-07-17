@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import {
   autoCompleteTicket,
   isValidTicketNumber,
@@ -23,6 +23,7 @@ export default function TicketNumberTable({
   onF5,
 }: TicketNumberTableProps) {
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const descriptionIdPrefix = useId();
   const [blurredRows, setBlurredRows] = useState<Set<number>>(() => new Set());
 
   const focusRow = (index: number) => {
@@ -108,15 +109,16 @@ export default function TicketNumberTable({
 
   return (
     <div>
-      <table className="min-w-full text-sm">
-        <thead>
-          <tr className="border-b bg-gray-50 text-left text-xs uppercase text-gray-500">
-            <th className="w-16 px-3 py-2">Sr No</th>
-            <th className="px-3 py-2">Ticket Number</th>
-            <th className="w-24 px-3 py-2">Actions</th>
+      <div className="max-w-full overflow-x-auto rounded-cyber border border-line">
+      <table className="min-w-[480px] w-full text-sm">
+        <thead className="bg-surface-high">
+          <tr className="border-b border-line text-left">
+            <th className="w-16 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Sr No</th>
+            <th className="px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Ticket Number</th>
+            <th className="w-24 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Actions</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-line">
           {rows.map((row, index) => {
             const isDuplicate =
               isValidTicketNumber(row.number) && duplicateNumbers.has(row.number);
@@ -124,16 +126,22 @@ export default function TicketNumberTable({
               blurredRows.has(index) &&
               row.number.length > 0 &&
               !isValidTicketNumber(row.number);
+            const errorMessage = isDuplicate
+              ? 'Duplicate ticket number.'
+              : showInvalidError
+                ? 'Ticket number must be 5 digits.'
+                : null;
+            const errorId = `${descriptionIdPrefix}-row-${index}-error`;
 
             const borderClass = isDuplicate
-              ? 'border-amber-500 bg-amber-50'
+              ? 'border-cyber-warning bg-cyber-warning/10'
               : showInvalidError
-                ? 'border-red-500 bg-red-50'
-                : 'border-gray-300';
+                ? 'border-cyber-error bg-cyber-error/10'
+                : 'border-line-control bg-canvas';
 
             return (
-              <tr key={index} className="border-b">
-                <td className="px-3 py-2">{index + 1}</td>
+              <tr key={index} className="bg-surface-raised hover:bg-surface-high">
+                <td className="px-3 py-2 font-mono text-content-subtle">{index + 1}</td>
                 <td className="px-3 py-2">
                   <input
                     ref={(el) => {
@@ -164,16 +172,28 @@ export default function TicketNumberTable({
                         removeRow(index);
                       }
                     }}
-                    className={`w-32 rounded border px-2 py-1 font-mono text-left ${borderClass}`}
+                    className={`w-32 rounded-cyber border px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20 ${borderClass}`}
                     inputMode="numeric"
                     maxLength={TICKET_NUMBER_LENGTH}
                     aria-invalid={showInvalidError || isDuplicate}
+                    aria-label={`Ticket number row ${index + 1}`}
+                    aria-describedby={errorMessage ? errorId : undefined}
                   />
+                  {errorMessage ? (
+                    <p
+                      id={errorId}
+                      className={`mt-1 font-mono text-[10px] ${
+                        isDuplicate ? 'text-cyber-warning' : 'text-cyber-error'
+                      }`}
+                    >
+                      {errorMessage}
+                    </p>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2">
                   <button
                     type="button"
-                    className="text-red-600 hover:underline"
+                    className="rounded-cyber px-1.5 py-1 text-cyber-error hover:bg-cyber-error/10 focus:outline-none focus:ring-2 focus:ring-cyber-error/30"
                     onClick={() => removeRow(index)}
                   >
                     Delete
@@ -184,7 +204,10 @@ export default function TicketNumberTable({
           })}
         </tbody>
       </table>
-      <p className="mt-2 text-sm font-medium text-gray-700">Valid tickets: {validCount}</p>
+      </div>
+      <p className="mt-2 font-mono text-xs font-medium uppercase tracking-[0.05em] text-content-muted">
+        Valid tickets: <span className="text-cyber-hover">{validCount}</span>
+      </p>
     </div>
   );
 }

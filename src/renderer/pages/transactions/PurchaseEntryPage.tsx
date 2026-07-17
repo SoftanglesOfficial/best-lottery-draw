@@ -157,24 +157,28 @@ export default function PurchaseEntryPage({
   if (!allowed) return null;
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">{title}</h1>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Purchase workflow</p>
+        <h1 className="font-display text-2xl font-bold text-content">{title}</h1>
+        <p className="mt-1 text-sm text-content-subtle">Enter provider, draw, and ticket range details.</p>
+      </div>
 
       {type === 'purchase_return' && purchaseSummary ? (
-        <div className="mb-4 rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        <div className="rounded-cyber border border-cyber-info/40 bg-cyber-info/10 px-4 py-3 font-mono text-xs text-cyber-info" role="status">
           Purchased: {purchaseSummary.totalPurchased} | Already Returned:{' '}
           {purchaseSummary.totalReturned} | Available to Return: {purchaseSummary.net}
         </div>
       ) : null}
 
-      <div className="mb-4 rounded border border-gray-200 bg-white p-4">
+      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4" aria-label="Purchase details">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-700">Draw *</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Draw *</span>
           <select
             value={drawId ?? ''}
             onChange={(event) => setDrawId(Number(event.target.value) || null)}
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
             required
           >
             <option value="">Select draw</option>
@@ -186,11 +190,11 @@ export default function PurchaseEntryPage({
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-700">Provider *</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Provider *</span>
           <select
             value={providerId ?? ''}
             onChange={(event) => setProviderId(Number(event.target.value) || null)}
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
             required
           >
             <option value="">Select provider</option>
@@ -216,15 +220,21 @@ export default function PurchaseEntryPage({
           onChange={(event) => setVoucherNo(event.target.value)}
         />
         </div>
-      </div>
+      </section>
 
-      <div className="mb-4 rounded border border-gray-200 bg-white p-4">
+      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4" aria-label="Ticket ranges">
+        <div className="mb-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-content-subtle">Ticket grid</p>
+          <h2 className="font-display font-bold text-content">Purchase Ranges</h2>
+        </div>
         <TicketRangeTable rows={rows} onChange={setRows} />
-      </div>
+      </section>
 
-      <Button type="submit" disabled={saving || companyId == null}>
-        {saving ? 'Saving…' : saveLabel}
-      </Button>
+      <div className="flex justify-end">
+        <Button type="submit" disabled={saving || companyId == null}>
+          {saving ? 'Saving…' : saveLabel}
+        </Button>
+      </div>
     </form>
   );
 }

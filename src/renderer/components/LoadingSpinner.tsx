@@ -9,7 +9,7 @@ const sizeClasses: Record<SpinnerSize, string> = {
 export function LoadingSpinner({ size = 'md' }: { size?: SpinnerSize }) {
   return (
     <div
-      className={`animate-spin rounded-full border-indigo-600 border-t-transparent ${sizeClasses[size]}`}
+      className={`animate-spin rounded-full border-cyber border-r-cyber/30 border-t-transparent ${sizeClasses[size]}`}
       role="status"
       aria-label="Loading"
     />
@@ -20,7 +20,7 @@ export function FullPageLoading({ message = 'Loading...' }: { message?: string }
   return (
     <div className="flex min-h-[240px] flex-col items-center justify-center gap-3">
       <LoadingSpinner size="lg" />
-      <p className="text-sm text-gray-500">{message}</p>
+      <p className="font-mono text-xs uppercase tracking-[0.05em] text-content-subtle">{message}</p>
     </div>
   );
 }

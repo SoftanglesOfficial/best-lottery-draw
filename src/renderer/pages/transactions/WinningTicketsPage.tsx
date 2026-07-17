@@ -190,7 +190,7 @@ export default function WinningTicketsPage() {
       render: (row) => (
         <button
           type="button"
-          className="text-red-600 hover:underline"
+          className="rounded-cyber px-1.5 py-1 text-cyber-error hover:bg-cyber-error/10"
           onClick={() => setDeleteTarget(row)}
         >
           Delete
@@ -209,59 +209,73 @@ export default function WinningTicketsPage() {
   if (!allowed) return null;
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Winning Tickets</h1>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Winner register</p>
+          <h1 className="font-display text-2xl font-bold text-content">Winning Tickets</h1>
+          <p className="mt-1 text-sm text-content-subtle">Find, review, and manage winners for a draw.</p>
+        </div>
         <Button onClick={() => void handleFindWinners()} disabled={finding}>
           {finding ? 'Finding…' : 'Find Winners'}
         </Button>
       </div>
 
-      <label className="mb-6 flex max-w-md flex-col gap-1">
-        <span className="text-sm font-medium text-gray-700">Select Draw</span>
-        <select
-          value={selectedDrawId ?? ''}
-          onChange={(event) => setSelectedDrawId(Number(event.target.value) || null)}
-          className="rounded border border-gray-300 bg-white px-3 py-2 text-sm"
-          disabled={loading}
-        >
-          <option value="">Select a draw</option>
-          {draws.map((draw) => (
-            <option key={draw.id} value={draw.id}>
-              {draw.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+        <label className="flex max-w-md flex-col gap-1">
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Select Draw</span>
+          <select
+            value={selectedDrawId ?? ''}
+            onChange={(event) => setSelectedDrawId(Number(event.target.value) || null)}
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
+            disabled={loading}
+          >
+            <option value="">Select a draw</option>
+            {draws.map((draw) => (
+              <option key={draw.id} value={draw.id}>
+                {draw.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
 
       {prizeBreakdown.length > 0 ? (
-        <div className="mb-6 rounded border border-gray-200 p-4">
-          <h2 className="mb-3 text-sm font-medium text-gray-700">Prize Breakdown</h2>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-gray-50 text-left">
-                <th className="px-3 py-2">Prize Level</th>
-                <th className="px-3 py-2 text-right">Count</th>
-                <th className="px-3 py-2 text-right">Total Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {prizeBreakdown.map((row) => (
-                <tr key={row.prizeLevel} className="border-b">
-                  <td className="px-3 py-2">{row.prizeLevel}</td>
-                  <td className="px-3 py-2 text-right">{row.count}</td>
-                  <td className="px-3 py-2 text-right">
-                    {formatAmount(String(row.totalAmount))}
-                  </td>
+        <section className="overflow-hidden rounded-cyber-lg border border-line bg-surface-raised">
+          <div className="border-b border-line px-4 py-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-content-subtle">Current draw</p>
+            <h2 className="font-display font-bold text-content">Prize Breakdown</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-[520px] w-full text-sm">
+              <thead className="bg-surface-high">
+                <tr className="border-b border-line text-left">
+                  <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted">Prize Level</th>
+                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted">Count</th>
+                  <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted">Total Amount</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {prizeBreakdown.map((row) => (
+                  <tr key={row.prizeLevel} className="even:bg-surface-low hover:bg-surface-high">
+                    <td className="px-3 py-2 font-mono text-cyber-hover">{row.prizeLevel}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-content-muted">{row.count}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-content">
+                      {formatAmount(String(row.totalAmount))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       ) : null}
 
-      <div className="mb-6 rounded border border-gray-200 p-4">
-        <h2 className="mb-3 text-sm font-medium text-gray-700">Add Winning Ticket Manually</h2>
+      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+        <div className="mb-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-content-subtle">Manual action</p>
+          <h2 className="font-display font-bold text-content">Add Winning Ticket Manually</h2>
+        </div>
         <div className="flex flex-wrap items-end gap-3">
           <Input
             label="Ticket Number"
@@ -281,13 +295,13 @@ export default function WinningTicketsPage() {
             onChange={(event) => setManualAmount(event.target.value)}
           />
           <label className="flex min-w-[160px] flex-col gap-1 text-sm">
-            <span className="font-medium text-gray-700">Buyer</span>
+            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Buyer</span>
             <select
               value={manualBuyerId}
               onChange={(event) =>
                 setManualBuyerId(event.target.value ? Number(event.target.value) : '')
               }
-              className="rounded border border-gray-300 px-3 py-2"
+              className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
             >
               <option value="">Optional</option>
               {buyers.map((buyer) => (
@@ -304,19 +318,19 @@ export default function WinningTicketsPage() {
             {adding ? 'Adding…' : 'Add Ticket'}
           </Button>
         </div>
-      </div>
+      </section>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low py-12 text-center font-mono text-xs uppercase tracking-[0.05em] text-content-subtle" role="status">Loading winning tickets…</div>
       ) : (
         <Table columns={columns} data={tickets} rowKey={(row) => row.id} />
       )}
 
       {partyWinners.length > 0 ? (
-        <div className="mt-8">
-          <h2 className="mb-3 text-sm font-medium text-gray-700">Party-wise Winners</h2>
+        <section className="pt-2">
+          <h2 className="mb-3 font-display font-bold text-content">Party-wise Winners</h2>
           <Table columns={partyColumns} data={partyWinners} rowKey={(row) => row.id} />
-        </div>
+        </section>
       ) : null}
 
       {deleteTarget ? (

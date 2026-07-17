@@ -46,7 +46,7 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const { companyId } = useActiveCompany();
 
-  const tabParam = (searchParams.get('tab') as TabId) || 'database';
+  const tabParam = user ? (searchParams.get('tab') as TabId) || 'database' : 'database';
   const [activeTab, setActiveTab] = useState<TabId>(tabParam);
 
   useEffect(() => {
@@ -58,27 +58,38 @@ export default function SettingsPage() {
     setSearchParams({ tab: id });
   };
 
-  const visibleTabs = TABS.filter(
-    (tab) => !tab.minRole || (user && isAtLeastRole(user.role, tab.minRole)),
-  );
+  const visibleTabs = user
+    ? TABS.filter((tab) => !tab.minRole || isAtLeastRole(user.role, tab.minRole))
+    : TABS.filter((tab) => tab.id === 'database');
 
   return (
-    <div>
-      {!user ? (
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => navigate('/')}
-          className="mb-4 inline-flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
-      ) : null}
+    <div className={!user ? 'mx-auto w-full max-w-3xl py-4 sm:py-8' : undefined}>
+      <div className={!user ? 'mb-5 flex items-center gap-4' : undefined}>
+        {!user ? (
+          <Button
+            type="button"
+            variant="secondary"
+            allowOffline
+            onClick={() => navigate('/')}
+            className="inline-flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Back
+          </Button>
+        ) : null}
 
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">Settings</h1>
+        <div>
+          <h1 className="font-display text-2xl font-bold text-content">Settings</h1>
+          {!user ? (
+            <p className="mt-1 text-sm text-content-muted">
+              Configure the database connection before signing in.
+            </p>
+          ) : null}
+        </div>
+      </div>
 
-        <div className="mb-6 flex flex-wrap gap-1 border-b border-gray-200">
+      {user ? (
+        <div className="mb-6 mt-6 flex flex-wrap gap-1 border-b border-line">
           {visibleTabs.map((tab) => (
             <button
               key={tab.id}
@@ -86,24 +97,25 @@ export default function SettingsPage() {
               onClick={() => setTab(tab.id)}
               className={`cursor-pointer px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? 'border-b-2 border-indigo-600 text-indigo-600'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'border-b-2 border-cyber text-cyber-hover'
+                  : 'text-content-subtle hover:text-content'
               }`}
             >
               {tab.label}
             </button>
           ))}
         </div>
+      ) : null}
 
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          {activeTab === 'database' ? <DatabaseTab userRole={user?.role} /> : null}
-          {activeTab === 'backup' ? <BackupTab companyId={companyId} userId={user?.id} /> : null}
-          {activeTab === 'audit' ? <AuditTab companyId={companyId} /> : null}
-          {activeTab === 'profile' ? <ProfileTab user={user} /> : null}
-          {activeTab === 'utilities' ? (
-            <UtilitiesTab companyId={companyId} userId={user?.id} userRole={user?.role} />
-          ) : null}
-        </div>
+      <div className="rounded-cyber-lg border border-line-strong bg-surface-raised p-4 sm:p-6">
+        {activeTab === 'database' ? <DatabaseTab userRole={user?.role} /> : null}
+        {activeTab === 'backup' ? <BackupTab companyId={companyId} userId={user?.id} /> : null}
+        {activeTab === 'audit' ? <AuditTab companyId={companyId} /> : null}
+        {activeTab === 'profile' ? <ProfileTab user={user} /> : null}
+        {activeTab === 'utilities' ? (
+          <UtilitiesTab companyId={companyId} userId={user?.id} userRole={user?.role} />
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -260,13 +272,15 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
     <form onSubmit={handleConnect} className="space-y-6">
       <div className="flex items-center gap-2">
         <span
-          className={`inline-block h-2.5 w-2.5 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`}
+          className={`inline-block h-2.5 w-2.5 rounded-full ${
+            connected ? 'bg-cyber-success' : 'bg-cyber-error'
+          }`}
         />
-        <span className="text-sm text-gray-700">
+        <span className="text-sm text-content-muted">
           {connected ? 'Connected' : 'Disconnected'}
         </span>
         {connected && version ? (
-          <span className="text-sm text-gray-500">— {version.split(',')[0]}</span>
+          <span className="text-sm text-content-subtle">— {version.split(',')[0]}</span>
         ) : null}
       </div>
 
@@ -279,7 +293,7 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
       </div>
 
       {testStatus !== 'idle' ? (
-        <p className={`text-sm ${testStatus === 'ok' ? 'text-green-600' : 'text-red-600'}`}>
+        <p className={`text-sm ${testStatus === 'ok' ? 'text-cyber-success' : 'text-cyber-error'}`}>
           Test: {testMessage}
         </p>
       ) : null}
@@ -301,31 +315,35 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
         </Button>
       </div>
 
-      <div className="rounded-lg border border-gray-200 p-4">
-        <h3 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-700">LAN Mode</h3>
+      <div className="rounded-cyber border border-line bg-surface-low p-4">
+        <h3 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.05em] text-content-muted">
+          LAN Mode
+        </h3>
         <div className="mb-3 flex flex-wrap gap-3">
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm text-content-muted">
             <input
               type="radio"
               name="networkMode"
               checked={networkMode === 'server'}
               onChange={() => void handleNetworkMode('server')}
+              className="accent-cyber"
             />
             This PC is the Server
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm text-content-muted">
             <input
               type="radio"
               name="networkMode"
               checked={networkMode === 'client'}
               onChange={() => void handleNetworkMode('client')}
+              className="accent-cyber"
             />
             This PC is a Client
           </label>
         </div>
         {networkMode === 'server' ? (
           <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-content-muted">
               Broadcast: {broadcasting ? 'Active (UDP 41234)' : 'Stopped'}
             </span>
             {broadcasting ? (
@@ -339,7 +357,7 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
             )}
           </div>
         ) : (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-content-subtle">
             Use Auto-Discover Server to find the database host on your LAN.
           </p>
         )}

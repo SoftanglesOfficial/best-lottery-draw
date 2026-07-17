@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Clock3 } from 'lucide-react';
 import Modal from './Modal';
 import { Button } from './ui';
 import { useAuth } from '../lib/auth';
@@ -40,10 +41,13 @@ export default function SessionTimeout() {
   if (!expired || !user) return null;
 
   return (
-    <Modal title="Session Expired"   onClose={() => setExpired(false)}>
-      <p className="mb-4 text-sm text-gray-600">
-        Your session has expired due to inactivity. Please login again.
-      </p>
+    <Modal title="Session Expired" onClose={() => setExpired(false)}>
+      <div className="mb-5 flex items-start gap-3 rounded-cyber border border-cyber-warning/40 bg-cyber-warning/10 p-4">
+        <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-cyber-warning" aria-hidden="true" />
+        <p className="text-sm text-content-muted">
+          Your session has expired due to inactivity. Please login again.
+        </p>
+      </div>
       <Button type="button" className="w-full" onClick={logout}>
         Login Again
       </Button>

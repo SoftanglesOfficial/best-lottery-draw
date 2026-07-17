@@ -16,10 +16,12 @@ export default function EmptyState({
   onAction,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-white px-6 py-12 text-center">
-      <Icon className="mb-3 h-10 w-10 text-gray-400" />
-      <h3 className="text-sm font-medium text-gray-900">No {entity} found</h3>
-      <p className="mt-1 text-sm text-gray-500">
+    <div className="flex flex-col items-center justify-center rounded-cyber-lg border border-dashed border-line-strong bg-surface-low px-6 py-12 text-center">
+      <div className="mb-3 rounded-cyber bg-cyber-soft p-3">
+        <Icon className="h-8 w-8 text-cyber" />
+      </div>
+      <h3 className="font-display text-base font-bold text-content">No {entity} found</h3>
+      <p className="mt-1 text-sm text-content-subtle">
         Get started by creating your first {entity.toLowerCase()}.
       </p>
       {actionLabel && onAction ? (

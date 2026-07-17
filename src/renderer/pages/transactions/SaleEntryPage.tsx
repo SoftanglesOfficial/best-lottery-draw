@@ -203,11 +203,15 @@ export default function SaleEntryPage({
   if (!allowed) return null;
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">{title}</h1>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Sales workflow</p>
+        <h1 className="font-display text-2xl font-bold text-content">{title}</h1>
+        <p className="mt-1 text-sm text-content-subtle">Enter buyer, draw, lottery, and ticket range details.</p>
+      </div>
 
       {drawPastClose && selectedDraw ? (
-        <div className="mb-4 rounded border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900">
+        <div className="rounded-cyber border border-cyber-warning/50 bg-cyber-warning/10 px-4 py-3 text-sm text-cyber-warning" role="alert">
           <strong>Warning:</strong> This draw closed at{' '}
           {formatCloseTimeLabel(selectedDraw.closeTime)} on{' '}
           {new Date(selectedDraw.drawDate).toLocaleDateString('en-GB')}. You are entering sales after
@@ -216,20 +220,20 @@ export default function SaleEntryPage({
       ) : null}
 
       {type === 'sale_return' && buyerSummary ? (
-        <div className="mb-4 rounded border border-purple-200 bg-purple-50 px-4 py-3 text-sm text-purple-900">
+        <div className="rounded-cyber border border-cyber/40 bg-cyber/10 px-4 py-3 font-mono text-xs text-cyber-hover" role="status">
           Sold: {buyerSummary.totalSold} | Returned: {buyerSummary.totalReturned} | Available:{' '}
           {buyerSummary.net}
         </div>
       ) : null}
 
-      <div className="mb-4 rounded border border-gray-200 bg-white p-4">
+      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4" aria-label="Sale details">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-700">Draw *</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Draw *</span>
           <select
             value={drawId ?? ''}
             onChange={(event) => setDrawId(Number(event.target.value) || null)}
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
             required
           >
             <option value="">Select draw</option>
@@ -241,11 +245,11 @@ export default function SaleEntryPage({
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-700">Sale To *</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Sale To *</span>
           <select
             value={buyerId ?? ''}
             onChange={(event) => setBuyerId(Number(event.target.value) || null)}
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
             required
           >
             <option value="">Select buyer</option>
@@ -264,20 +268,26 @@ export default function SaleEntryPage({
         />
         <Input label="Memo ID" value={memoId ?? ''} readOnly />
         </div>
-      </div>
+      </section>
 
-      <div className="mb-4 rounded border border-gray-200 bg-white p-4">
+      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4" aria-label="Sale ticket ranges">
+        <div className="mb-3">
+          <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-content-subtle">Ticket grid</p>
+          <h2 className="font-display font-bold text-content">Sale Ranges</h2>
+        </div>
         <SaleRangeTable
           rows={rows}
           onChange={setRows}
           items={items}
           defaultRate={defaultRate}
         />
-      </div>
+      </section>
 
-      <Button type="submit" disabled={saving || companyId == null}>
-        {saving ? 'Saving…' : saveLabel}
-      </Button>
+      <div className="flex justify-end">
+        <Button type="submit" disabled={saving || companyId == null}>
+          {saving ? 'Saving…' : saveLabel}
+        </Button>
+      </div>
     </form>
   );
 }

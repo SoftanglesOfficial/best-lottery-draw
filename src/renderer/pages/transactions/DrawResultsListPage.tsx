@@ -117,71 +117,79 @@ export default function DrawResultsListPage() {
   if (!allowed) return null;
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Draw Results</h1>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Result register</p>
+          <h1 className="font-display text-2xl font-bold text-content">Draw Results</h1>
+          <p className="mt-1 text-sm text-content-subtle">Review imported prize numbers by draw.</p>
+        </div>
         <Button onClick={() => void handleFindWinners()} disabled={finding}>
           {finding ? 'Finding…' : 'Find Winners'}
         </Button>
       </div>
 
-      <label className="mb-6 flex max-w-md flex-col gap-1">
-        <span className="text-sm font-medium text-gray-700">Select Draw</span>
-        <select
-          value={selectedDrawId ?? ''}
-          onChange={(event) => setSelectedDrawId(Number(event.target.value) || null)}
-          className="rounded border border-gray-300 bg-white px-3 py-2 text-sm"
-          disabled={loading}
-        >
-          <option value="">Select a draw</option>
-          {draws.map((draw) => (
-            <option key={draw.id} value={draw.id}>
-              {draw.name}
-              {draw.resultImported ? '' : ' (no results imported)'}
-            </option>
-          ))}
-        </select>
-      </label>
+      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+        <label className="flex max-w-md flex-col gap-1">
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Select Draw</span>
+          <select
+            value={selectedDrawId ?? ''}
+            onChange={(event) => setSelectedDrawId(Number(event.target.value) || null)}
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
+            disabled={loading}
+          >
+            <option value="">Select a draw</option>
+            {draws.map((draw) => (
+              <option key={draw.id} value={draw.id}>
+                {draw.name}
+                {draw.resultImported ? '' : ' (no results imported)'}
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low py-12 text-center font-mono text-xs uppercase tracking-[0.05em] text-content-subtle" role="status">Loading results…</div>
       ) : draws.length === 0 ? (
-        <p className="text-sm text-gray-500">No draws found. Create draws on the Draws page.</p>
+        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low py-12 text-center text-sm text-content-subtle">No draws found. Create draws on the Draws page.</div>
       ) : selectedDrawId == null ? (
-        <p className="text-sm text-gray-500">Select a draw.</p>
+        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low py-12 text-center text-sm text-content-subtle">Select a draw.</div>
       ) : !selectedDraw?.resultImported ? (
-        <p className="text-sm text-gray-500">
+        <p className="rounded-cyber border border-cyber-warning/40 bg-cyber-warning/10 px-4 py-3 text-sm text-cyber-warning">
           Results not imported for this draw. Go to Draws and use Import Results.
         </p>
       ) : grouped.length === 0 ? (
-        <p className="text-sm text-gray-500">No results for this draw.</p>
+        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low py-12 text-center text-sm text-content-subtle">No results for this draw.</div>
       ) : (
-        <div className="space-y-6">
+        <div className="grid gap-4 xl:grid-cols-2">
           {grouped.map(([level, levelResults]) => (
-            <div key={level} className="rounded border border-gray-200 bg-white p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <h2 className="font-semibold text-gray-900">{PRIZE_LABELS[level] ?? `Prize ${level}`}</h2>
+            <section key={level} className="overflow-hidden rounded-cyber-lg border border-line bg-surface-raised">
+              <div className="flex items-center justify-between border-b border-line px-4 py-3">
+                <h2 className="font-display font-bold text-content">{PRIZE_LABELS[level] ?? `Prize ${level}`}</h2>
                 <Badge label={`Level ${level}`} color="blue" />
               </div>
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-gray-600">
-                    <th className="px-2 py-2">Prize Level</th>
-                    <th className="px-2 py-2">Winning Number</th>
-                    <th className="px-2 py-2">Prize Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {levelResults.map((result) => (
-                    <tr key={result.id} className="border-b">
-                      <td className="px-2 py-2">{result.prizeLevel}</td>
-                      <td className="px-2 py-2 font-mono">{result.winningNumber}</td>
-                      <td className="px-2 py-2 text-right">{formatAmount(result.prizeAmount)}</td>
+              <div className="overflow-x-auto">
+                <table className="min-w-[520px] w-full text-sm">
+                  <thead className="bg-surface-high">
+                    <tr className="border-b border-line text-left">
+                      <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted">Prize Level</th>
+                      <th className="px-3 py-2 font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted">Winning Number</th>
+                      <th className="px-3 py-2 text-right font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted">Prize Amount</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {levelResults.map((result) => (
+                      <tr key={result.id} className="even:bg-surface-low hover:bg-surface-high">
+                        <td className="px-3 py-2 text-content-muted">{result.prizeLevel}</td>
+                        <td className="px-3 py-2 font-mono font-medium text-cyber-hover">{result.winningNumber}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-content">{formatAmount(result.prizeAmount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           ))}
         </div>
       )}

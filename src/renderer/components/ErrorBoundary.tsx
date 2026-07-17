@@ -22,34 +22,53 @@ export default class ErrorBoundary extends Component<Props, State> {
     console.error('Render error:', error, info);
   }
 
+  private goToDashboard = () => {
+    if (window.location.protocol === 'file:') {
+      window.location.hash = '/dashboard';
+      window.location.reload();
+      return;
+    }
+    window.location.assign('/dashboard');
+  };
+
   render() {
     if (this.state.error) {
       return (
-        <div className="flex min-h-[400px] flex-col items-center justify-center p-6 text-center">
-          <AlertTriangle className="mb-4 h-12 w-12 text-red-500" />
-          <h1 className="text-xl font-semibold text-gray-900">Something went wrong</h1>
-          <p className="mt-2 max-w-md text-sm text-gray-500">
-            An unexpected error occurred while rendering this page.
-          </p>
-          <button
-            type="button"
-            className="mt-4 text-sm text-indigo-600 hover:underline"
-            onClick={() => this.setState((s) => ({ ...s, showDetails: !s.showDetails }))}
-          >
-            {this.state.showDetails ? 'Hide details' : 'Show details'}
-          </button>
-          {this.state.showDetails ? (
-            <pre className="mt-3 max-w-xl overflow-auto rounded border bg-gray-50 p-3 text-left text-xs text-red-700">
-              {this.state.error.message}
-            </pre>
-          ) : null}
-          <div className="mt-6 flex gap-3">
-            <Button type="button" onClick={() => (window.location.href = '/dashboard')}>
-              Go to Dashboard
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => window.location.reload()}>
-              Reload App
-            </Button>
+        <div className="flex min-h-screen items-center justify-center bg-canvas p-4 text-content sm:p-6">
+          <div className="w-full max-w-lg rounded-cyber-lg border border-line-strong bg-surface-raised p-6 text-center shadow-2xl shadow-black/30 sm:p-8">
+            <span className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full border border-cyber-error/40 bg-cyber-error/10">
+              <AlertTriangle className="h-7 w-7 text-cyber-error" aria-hidden="true" />
+            </span>
+            <h1 className="font-display text-2xl font-bold text-content">Something went wrong</h1>
+            <p className="mx-auto mt-2 max-w-md text-sm text-content-muted">
+              An unexpected error occurred while rendering this page.
+            </p>
+            <button
+              type="button"
+              className="mt-4 text-sm font-medium text-cyber-hover hover:text-cyber hover:underline"
+              aria-expanded={this.state.showDetails}
+              onClick={() => this.setState((s) => ({ ...s, showDetails: !s.showDetails }))}
+            >
+              {this.state.showDetails ? 'Hide details' : 'Show details'}
+            </button>
+            {this.state.showDetails ? (
+              <pre className="mt-3 max-h-48 max-w-full overflow-auto whitespace-pre-wrap break-words rounded-cyber border border-cyber-error/30 bg-canvas p-3 text-left font-mono text-xs text-cyber-error">
+                {this.state.error.message}
+              </pre>
+            ) : null}
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
+              <Button
+                type="button"
+                variant="secondary"
+                allowOffline
+                onClick={() => window.location.reload()}
+              >
+                Reload App
+              </Button>
+              <Button type="button" allowOffline onClick={this.goToDashboard}>
+                Go to Dashboard
+              </Button>
+            </div>
           </div>
         </div>
       );

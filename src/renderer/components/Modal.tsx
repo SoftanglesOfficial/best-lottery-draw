@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { X } from 'lucide-react';
 
 type ModalProps = {
@@ -11,14 +11,22 @@ type ModalProps = {
 export default function Modal({ title, children, onClose, wide }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
+  const titleId = useId();
   onCloseRef.current = onClose;
 
-  // Focus first form field once when modal opens — not on every re-render
   useEffect(() => {
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const firstField = dialogRef.current?.querySelector<HTMLElement>(
-      'input:not([type="hidden"]), select, textarea',
+      'input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled)',
     );
-    firstField?.focus();
+    const firstButton = dialogRef.current?.querySelector<HTMLElement>('button:not(:disabled)');
+    (firstField ?? firstButton ?? dialogRef.current)?.focus();
+
+    return () => {
+      if (previouslyFocused?.isConnected) {
+        previouslyFocused.focus();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -28,7 +36,7 @@ export default function Modal({ title, children, onClose, wide }: ModalProps) {
       }
       if (event.key === 'Tab' && dialogRef.current) {
         const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([tabindex="-1"]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+          'button:not(:disabled):not([tabindex="-1"]), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
         );
         if (focusable.length === 0) return;
         const first = focusable[0];
@@ -48,21 +56,22 @@ export default function Modal({ title, children, onClose, wide }: ModalProps) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
       <div
         ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        className={`w-full rounded-xl bg-white p-6 shadow-lg ${wide ? 'max-w-2xl' : 'max-w-lg'}`}
+        aria-labelledby={titleId}
+        className={`max-h-[calc(100vh-2rem)] w-full overflow-y-auto rounded-cyber-lg border border-line-strong bg-surface-raised p-6 shadow-2xl shadow-black/40 outline-none ${wide ? 'max-w-2xl' : 'max-w-lg'}`}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <h2 id={titleId} className="font-display text-lg font-bold text-content">{title}</h2>
           <button
             type="button"
             onClick={onClose}
-            tabIndex={-1}
             aria-label="Close"
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-cyber p-1 text-content-subtle hover:bg-surface-high hover:text-content"
           >
             <X className="h-5 w-5" />
           </button>

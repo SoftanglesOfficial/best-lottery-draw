@@ -1,12 +1,12 @@
 type BadgeColor = 'green' | 'red' | 'yellow' | 'blue' | 'orange' | 'gray';
 
 const COLORS: Record<BadgeColor, string> = {
-  green: 'bg-green-100 text-green-800',
-  red: 'bg-red-100 text-red-800',
-  yellow: 'bg-yellow-100 text-yellow-800',
-  blue: 'bg-blue-100 text-blue-800',
-  orange: 'bg-orange-100 text-orange-800',
-  gray: 'bg-gray-100 text-gray-800',
+  green: 'border-cyber-success/40 bg-cyber-success/10 text-cyber-success',
+  red: 'border-cyber-error/40 bg-cyber-error/10 text-cyber-error',
+  yellow: 'border-cyber-warning/40 bg-cyber-warning/10 text-cyber-warning',
+  blue: 'border-cyber-info/40 bg-cyber-info/10 text-cyber-info',
+  orange: 'border-orange-400/40 bg-orange-400/10 text-orange-300',
+  gray: 'border-line-strong bg-surface-high text-content-muted',
 };
 
 type BadgeProps = {
@@ -16,7 +16,7 @@ type BadgeProps = {
 
 export default function Badge({ label, color }: BadgeProps) {
   return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${COLORS[color]}`}>
+    <span className={`inline-flex rounded-full border px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.05em] ${COLORS[color]}`}>
       {label}
     </span>
   );

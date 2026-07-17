@@ -25,10 +25,10 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 const MAX_TOASTS = 3;
 
 const styles: Record<ToastType, string> = {
-  success: 'bg-green-600 text-white',
-  error: 'bg-red-600 text-white',
-  warning: 'bg-yellow-500 text-gray-900',
-  info: 'bg-blue-600 text-white',
+  success: 'border-cyber-success/50 bg-surface-raised text-cyber-success',
+  error: 'border-cyber-error/50 bg-surface-raised text-cyber-error',
+  warning: 'border-cyber-warning/50 bg-surface-raised text-cyber-warning',
+  info: 'border-cyber-info/50 bg-surface-raised text-cyber-info',
 };
 
 const icons: Record<ToastType, typeof CheckCircle2> = {
@@ -62,21 +62,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed right-4 top-4 z-[100] flex w-80 flex-col gap-2">
+      <div className="no-print fixed bottom-4 right-4 z-[100] flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
         {toasts.map((toast) => {
           const Icon = icons[toast.type];
           return (
             <div
               key={toast.id}
-              className={`flex cursor-pointer items-start gap-2 rounded-md px-4 py-3 text-sm shadow-md ${styles[toast.type]}`}
-              onClick={() => dismiss(toast.id)}
+              className={`flex cursor-pointer items-start gap-2 rounded-cyber border px-4 py-3 text-sm shadow-xl shadow-black/30 ${styles[toast.type]}`}
               role="alert"
+              onClick={() => dismiss(toast.id)}
             >
               <Icon className="mt-0.5 h-4 w-4 shrink-0" />
               <span className="flex-1">{toast.message}</span>
               <button
                 type="button"
-                className="shrink-0 opacity-80 hover:opacity-100"
+                className="shrink-0 rounded-cyber opacity-70 hover:bg-white/10 hover:opacity-100"
                 onClick={(event) => {
                   event.stopPropagation();
                   dismiss(toast.id);

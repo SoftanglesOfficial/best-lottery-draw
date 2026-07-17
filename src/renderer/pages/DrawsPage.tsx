@@ -278,6 +278,11 @@ export default function DrawsPage() {
     }
   };
 
+  const closeHistory = () => {
+    setHistoryDraw(null);
+    setAuditLogs([]);
+  };
+
   const columns: TableColumn<DrawRecord>[] = [
     { key: 'name', header: 'Name', render: (row) => row.name },
     { key: 'item', header: 'Item', render: (row) => row.itemName ?? '—' },
@@ -316,7 +321,7 @@ export default function DrawsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              className="text-indigo-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400"
+              className="rounded-cyber px-1.5 py-1 text-cyber-hover hover:bg-cyber/10 disabled:cursor-not-allowed disabled:text-content-subtle"
               disabled={!canEdit}
               title={!canEdit ? 'Draw is locked' : undefined}
               onClick={() => openEdit(row)}
@@ -325,7 +330,7 @@ export default function DrawsPage() {
             </button>
             <button
               type="button"
-              className="text-red-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400"
+              className="rounded-cyber px-1.5 py-1 text-cyber-error hover:bg-cyber-error/10 disabled:cursor-not-allowed disabled:text-content-subtle"
               disabled={!canDelete}
               title={!canDelete ? (isLocked ? 'Draw is locked' : 'Draw has transactions') : undefined}
               onClick={() => setDeleteTarget(row)}
@@ -334,7 +339,7 @@ export default function DrawsPage() {
             </button>
             <button
               type="button"
-              className="text-indigo-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400"
+              className="rounded-cyber px-1.5 py-1 text-cyber-hover hover:bg-cyber/10 disabled:cursor-not-allowed disabled:text-content-subtle"
               disabled={!canImport}
               title={!canImport ? 'Results already imported and draw is locked' : undefined}
               onClick={() => navigate(`/draws/${row.id}/results`)}
@@ -343,7 +348,7 @@ export default function DrawsPage() {
             </button>
             <button
               type="button"
-              className="text-indigo-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400"
+              className="rounded-cyber px-1.5 py-1 text-cyber-hover hover:bg-cyber/10 disabled:cursor-not-allowed disabled:text-content-subtle"
               disabled={!canFindWinners}
               title={!canFindWinners ? 'Import results first' : undefined}
               onClick={() => void handleFindWinners(row)}
@@ -353,7 +358,7 @@ export default function DrawsPage() {
             {(isLocked ? canUnlock : true) && (
               <button
                 type="button"
-                className="text-orange-600 hover:underline disabled:cursor-not-allowed disabled:text-gray-400"
+                className="rounded-cyber px-1.5 py-1 text-cyber-warning hover:bg-cyber-warning/10 disabled:cursor-not-allowed disabled:text-content-subtle"
                 disabled={isLocked && !canUnlock}
                 title={isLocked && !canUnlock ? 'Draw is locked' : undefined}
                 onClick={() => void handleLockToggle(row)}
@@ -364,7 +369,7 @@ export default function DrawsPage() {
             {isAdmin && row.status === 'open' ? (
               <button
                 type="button"
-                className="text-indigo-600 hover:underline"
+                className="rounded-cyber px-1.5 py-1 text-cyber-hover hover:bg-cyber/10"
                 onClick={() => openExtendTime(row)}
               >
                 Extend Time
@@ -372,7 +377,7 @@ export default function DrawsPage() {
             ) : null}
             <button
               type="button"
-              className="text-gray-600 hover:text-indigo-600"
+              className="rounded-cyber p-1.5 text-content-subtle hover:bg-surface-high hover:text-cyber-hover"
               title="History"
               onClick={() => void openHistory(row)}
             >
@@ -387,73 +392,86 @@ export default function DrawsPage() {
   if (!allowed) return null;
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Draws</h1>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Draw lifecycle</p>
+          <h1 className="font-display text-2xl font-bold text-content">Draws</h1>
+          <p className="mt-1 text-sm text-content-subtle">
+            Create, monitor, lock, and process lottery draws.
+          </p>
+        </div>
         <Button onClick={openCreate} disabled={companyId == null}>
           New Draw
         </Button>
       </div>
 
       {items.length === 0 && (
-        <div className="mb-4 rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        <div className="rounded-cyber border border-cyber-info/40 bg-cyber-info/10 px-4 py-3 text-sm text-cyber-info">
           Create lottery items under Master → Items to enable new draws.
         </div>
       )}
 
       {closingSoonCount > 0 && (
-        <div className="mb-4 rounded border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-900">
+        <div className="rounded-cyber border border-cyber-warning/40 bg-cyber-warning/10 px-4 py-3 text-sm text-cyber-warning">
           {closingSoonCount} draw{closingSoonCount === 1 ? '' : 's'} closing in the next 30 minutes
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap gap-3 rounded border border-gray-200 bg-white p-4">
-        <Input
-          label="From"
-          type="date"
-          value={dateFrom}
-          onChange={(event) => setDateFrom(event.target.value)}
-          className="w-40"
-        />
-        <Input
-          label="To"
-          type="date"
-          value={dateTo}
-          onChange={(event) => setDateTo(event.target.value)}
-          className="w-40"
-        />
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-700">Status</span>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="rounded border border-gray-300 bg-white px-3 py-2 text-sm"
-          >
-            <option value="">All</option>
-            <option value="open">Open</option>
-            <option value="closed">Closed</option>
-            <option value="locked">Locked</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-700">Item</span>
-          <select
-            value={itemFilter}
-            onChange={(event) => setItemFilter(event.target.value)}
-            className="min-w-[160px] rounded border border-gray-300 bg-white px-3 py-2 text-sm"
-          >
-            <option value="">All items</option>
-            {items.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+        <p className="mb-3 font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-content-subtle">
+          Filter register
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <Input
+            label="From"
+            type="date"
+            value={dateFrom}
+            onChange={(event) => setDateFrom(event.target.value)}
+            className="w-40"
+          />
+          <Input
+            label="To"
+            type="date"
+            value={dateTo}
+            onChange={(event) => setDateTo(event.target.value)}
+            className="w-40"
+          />
+          <label className="flex flex-col gap-1">
+            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Status</span>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
+            >
+              <option value="">All</option>
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+              <option value="locked">Locked</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Item</span>
+            <select
+              value={itemFilter}
+              onChange={(event) => setItemFilter(event.target.value)}
+              className="min-w-[160px] rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
+            >
+              <option value="">All items</option>
+              {items.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </section>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low py-12 text-center font-mono text-xs uppercase tracking-[0.05em] text-content-subtle" role="status">
+          Loading draws…
+        </div>
       ) : (
         <Table columns={columns} data={filteredDraws} rowKey={(row) => row.id} />
       )}
@@ -468,12 +486,12 @@ export default function DrawsPage() {
               placeholder="Auto-generated if left blank"
             />
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Item *</span>
+              <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Item *</span>
               <select
                 required
                 value={form.itemId}
                 onChange={(event) => setForm({ ...form, itemId: Number(event.target.value) })}
-                className="rounded border border-gray-300 px-3 py-2 text-sm"
+                className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
               >
                 <option value={0} disabled>
                   Select item
@@ -535,12 +553,12 @@ export default function DrawsPage() {
               onChange={(event) => setExtendNewTime(event.target.value)}
             />
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Reason *</span>
+              <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Reason *</span>
               <textarea
                 required
                 value={extendReason}
                 onChange={(event) => setExtendReason(event.target.value)}
-                className="min-h-[80px] rounded border border-gray-300 px-3 py-2 text-sm"
+                className="min-h-[80px] rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none placeholder:text-content-subtle focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                 placeholder="Why is the close time being extended?"
               />
             </label>
@@ -556,45 +574,30 @@ export default function DrawsPage() {
         </Modal>
       ) : null}
 
-      {historyDraw && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/30">
-          <div className="flex h-full w-full max-w-md flex-col bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <h2 className="font-semibold text-gray-900">Draw History — {historyDraw.name}</h2>
-              <button
-                type="button"
-                className="text-sm text-gray-500 hover:text-gray-800"
-                onClick={() => {
-                  setHistoryDraw(null);
-                  setAuditLogs([]);
-                }}
-              >
-                Close
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              {historyLoading ? (
-                <p className="text-sm text-gray-500">Loading…</p>
-              ) : auditLogs.length === 0 ? (
-                <p className="text-sm text-gray-500">No audit entries.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {auditLogs.map((log) => (
-                    <li key={log.id} className="rounded border border-gray-200 p-3 text-sm">
-                      <p className="font-medium text-gray-900">{log.action}</p>
-                      <p className="text-gray-600">
-                        {log.fullName ?? log.username ?? 'Unknown user'}
-                      </p>
-                      <p className="text-gray-500">{formatAuditTimestamp(log.timestamp)}</p>
-                      {log.details ? <p className="mt-1 text-gray-600">{log.details}</p> : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+      {historyDraw ? (
+        <Modal title={`Draw History — ${historyDraw.name}`} onClose={closeHistory}>
+          <div className="max-h-[65vh] overflow-y-auto pr-1">
+            {historyLoading ? (
+              <p className="text-sm text-content-subtle" role="status">Loading…</p>
+            ) : auditLogs.length === 0 ? (
+              <p className="rounded-cyber border border-dashed border-line-strong bg-surface-low p-6 text-center text-sm text-content-subtle">No audit entries.</p>
+            ) : (
+              <ul className="space-y-3">
+                {auditLogs.map((log) => (
+                  <li key={log.id} className="rounded-cyber border border-line bg-surface-low p-3 text-sm">
+                    <p className="font-mono text-xs font-medium uppercase tracking-[0.05em] text-cyber-hover">{log.action}</p>
+                    <p className="mt-1 text-content-muted">
+                      {log.fullName ?? log.username ?? 'Unknown user'}
+                    </p>
+                    <p className="font-mono text-[10px] text-content-subtle">{formatAuditTimestamp(log.timestamp)}</p>
+                    {log.details ? <p className="mt-2 border-t border-line pt-2 text-content-muted">{log.details}</p> : null}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-        </div>
-      )}
+        </Modal>
+      ) : null}
     </div>
   );
 }
