@@ -107,3 +107,6 @@ Local config: `configStore.ts` (DB creds, window bounds). Prefs: auto-backup 23:
 **Deferred**: triple schema *merge* (Drizzle + inline SQL stays; `npm test` runs `scripts/verify-schema-sync.mjs` drift guard). Linux DEB/RPM makers configured in `forge.config.ts` but not validated on Linux CI.
 
 **Done this cycle**: `lib/api.ts` collapsed to `export const api = window.api`; renderer uses `api.*` directly.
+[PHASE 1] [COMPLETE] [2026-07-17] — Login, company, and server-authorized shift flow
+[PHASE 2] [COMPLETE] [2026-07-17] — Role-aware full-width menu and dashboard routing
+[PHASE 3] [COMPLETE] [2026-07-17] — Blue spreadsheet Sales Entry with preserved transaction behavior
