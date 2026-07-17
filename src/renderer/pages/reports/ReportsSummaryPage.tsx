@@ -100,26 +100,26 @@ export default function ReportsSummaryPage() {
   const summary = data?.summary;
 
   return (
-    <div className="print-full-width mx-auto max-w-6xl bg-white">
-      <h1 className="mb-4 text-2xl font-bold text-gray-900">Reports Summary</h1>
+    <div className="print-full-width mx-auto max-w-6xl text-content">
+      <h1 className="mb-4 font-display text-2xl font-bold text-content">Reports Summary</h1>
 
-      <div className="no-print mb-6 flex flex-wrap items-end gap-4 border-b bg-gray-50 p-4">
+      <div className="no-print mb-6 flex flex-wrap items-end gap-4 rounded-cyber-lg border border-line bg-surface-raised p-4">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-gray-700">Date From</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Date From</span>
           <input
             type="date"
             value={dateFrom}
             onChange={(event) => setDateFrom(event.target.value)}
-            className="rounded border border-gray-300 px-3 py-2"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-gray-700">Date To</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Date To</span>
           <input
             type="date"
             value={dateTo}
             onChange={(event) => setDateTo(event.target.value)}
-            className="rounded border border-gray-300 px-3 py-2"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
           />
         </label>
         <Button onClick={() => void loadDashboard()} disabled={loading}>
@@ -127,54 +127,61 @@ export default function ReportsSummaryPage() {
         </Button>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-5">
-        <div className="rounded border p-4">
-          <p className="text-2xl font-bold">{loading ? '…' : formatCurrency(summary?.sales ?? 0)}</p>
-          <p className="text-sm text-gray-500">Gross Sales</p>
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div className="rounded-cyber-lg border border-line bg-surface-raised p-4 shadow-sm">
+          <p className="font-mono text-2xl font-bold text-cyber">{loading ? '…' : formatCurrency(summary?.sales ?? 0)}</p>
+          <p className="mt-1 text-sm text-content-muted">Gross Sales</p>
         </div>
-        <div className="rounded border p-4">
-          <p className="text-2xl font-bold">
+        <div className="rounded-cyber-lg border border-line bg-surface-raised p-4 shadow-sm">
+          <p className="font-mono text-2xl font-bold text-content">
             {loading ? '…' : formatCurrency(summary?.purchases ?? 0)}
           </p>
-          <p className="text-sm text-gray-500">Net Purchases</p>
+          <p className="mt-1 text-sm text-content-muted">Net Purchases</p>
         </div>
-        <div className="rounded border p-4">
-          <p className="text-2xl font-bold">{loading ? '…' : formatCurrency(summary?.pwt ?? 0)}</p>
-          <p className="text-sm text-gray-500">PWT</p>
+        <div className="rounded-cyber-lg border border-line bg-surface-raised p-4 shadow-sm">
+          <p className="font-mono text-2xl font-bold text-content">{loading ? '…' : formatCurrency(summary?.pwt ?? 0)}</p>
+          <p className="mt-1 text-sm text-content-muted">PWT</p>
         </div>
-        <div className="rounded border p-4">
-          <p className="text-2xl font-bold">{loading ? '…' : formatCurrency(summary?.net ?? 0)}</p>
-          <p className="text-sm text-gray-500">Net Profit</p>
+        <div className="rounded-cyber-lg border border-line bg-surface-raised p-4 shadow-sm">
+          <p className="font-mono text-2xl font-bold text-cyber-success">{loading ? '…' : formatCurrency(summary?.net ?? 0)}</p>
+          <p className="mt-1 text-sm text-content-muted">Net Profit</p>
         </div>
-        <div className="rounded border p-4">
-          <p className="text-2xl font-bold">{loading ? '…' : (summary?.transactionCount ?? 0)}</p>
-          <p className="text-sm text-gray-500">Transactions</p>
+        <div className="rounded-cyber-lg border border-line bg-surface-raised p-4 shadow-sm">
+          <p className="font-mono text-2xl font-bold text-content">{loading ? '…' : (summary?.transactionCount ?? 0)}</p>
+          <p className="mt-1 text-sm text-content-muted">Transactions</p>
         </div>
       </div>
 
-      <div className="mb-6 rounded border p-4">
-        <h2 className="mb-4 text-sm font-medium text-gray-700">Last 7 Days — Sales vs Purchases</h2>
+      <div className="mb-6 rounded-cyber-lg border border-line bg-surface-raised p-4">
+        <h2 className="mb-4 font-display text-sm font-bold text-content">Last 7 Days — Sales vs Purchases</h2>
         {data?.chartData ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-              <Legend />
-              <Bar dataKey="sales" fill="#4f46e5" name="Sales" />
-              <Bar dataKey="purchases" fill="#9ca3af" name="Purchases" />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="report-chart">
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={data.chartData}>
+                <CartesianGrid stroke="#29344d" strokeDasharray="3 3" />
+                <XAxis dataKey="date" stroke="#a9b4c8" tick={{ fill: '#a9b4c8' }} />
+                <YAxis stroke="#a9b4c8" tick={{ fill: '#a9b4c8' }} />
+                <Tooltip
+                  contentStyle={{ background: '#121a2b', border: '1px solid #3b4966', borderRadius: 6 }}
+                  labelStyle={{ color: '#f2f6ff' }}
+                  itemStyle={{ color: '#dce5f5' }}
+                  formatter={(value) => formatCurrency(Number(value))}
+                />
+                <Legend />
+                <Bar className="report-chart-sales" dataKey="sales" fill="#22d3ee" name="Sales" />
+                <Bar className="report-chart-purchases" dataKey="purchases" fill="#8b5cf6" name="Purchases" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
-          <p className="text-sm text-gray-500">No chart data.</p>
+          <p className="text-sm text-content-subtle">No chart data.</p>
         )}
       </div>
 
       <div>
-        <h2 className="mb-3 text-sm font-medium text-gray-700">Recent Transactions</h2>
+        <h2 className="mb-3 font-display text-sm font-bold text-content">Recent Transactions</h2>
         {loading ? (
-          <p className="text-sm text-gray-500">Loading…</p>
+          <p className="text-sm text-content-subtle">Loading…</p>
         ) : (
           <Table
             columns={txnColumns}

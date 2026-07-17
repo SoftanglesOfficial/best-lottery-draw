@@ -256,6 +256,7 @@ export default function TransactionListPage({
                   ? (buyerDrawStats.returnedTotals.get(statsKey) ?? 0)
                   : 0;
                 const netTotal = soldTotal - returnedTotal;
+                const detailsId = `transaction-${row.id}-details`;
 
                 return (
                 <Fragment key={row.id}>
@@ -288,6 +289,8 @@ export default function TransactionListPage({
                           type="button"
                           className="rounded-cyber px-1.5 py-1 text-cyber-hover hover:bg-cyber/10 focus:outline-none focus:ring-2 focus:ring-cyber/30"
                           onClick={() => setExpandedId(expandedId === row.id ? null : row.id)}
+                          aria-expanded={expandedId === row.id}
+                          aria-controls={detailsId}
                         >
                           View
                         </button>
@@ -305,7 +308,7 @@ export default function TransactionListPage({
                   </tr>
                   {expandedId === row.id ? (
                     <tr className="bg-surface-low">
-                      <td colSpan={tableColumnCount} className="px-4 py-3">
+                      <td id={detailsId} colSpan={tableColumnCount} className="px-4 py-3">
                         {ticketView === 'ranges' ? (
                           <p className="font-mono text-sm text-content-muted">{formatRanges(row.ticketData)}</p>
                         ) : (

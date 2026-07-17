@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { FullPageLoading } from '../components/LoadingSpinner';
 import { useToast } from '../components/Toast';
 import { Button, Input } from '../components/ui';
 import { useActiveCompany } from '../lib/useActiveCompany';
@@ -199,19 +200,21 @@ export default function ItemSchemePage() {
 
   if (companyId == null) {
     return (
-      <div>
-        <h1 className="mb-6 text-xl font-semibold text-gray-900">
+      <div className="space-y-6">
+        <h1 className="font-display text-2xl font-bold text-content">
           {editingId ? 'Edit Item Scheme' : 'New Item Scheme'}
         </h1>
-        <p className="text-sm text-gray-500">Select an active company to manage item schemes.</p>
+        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low px-6 py-12 text-center text-sm text-content-subtle">
+          Select an active company to manage item schemes.
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-bold text-content">
           {editingId ? 'Edit Item Scheme' : 'New Item Scheme'}
         </h1>
         <Button type="button" variant="secondary" onClick={() => navigate('/master/item-schemes-list')}>
@@ -220,14 +223,14 @@ export default function ItemSchemePage() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <FullPageLoading message="Loading item scheme…" />
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
+          <section className="grid grid-cols-1 gap-4 rounded-cyber-lg border border-line bg-surface-raised p-4 sm:grid-cols-2 lg:max-w-3xl">
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Item</span>
+              <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Item</span>
               <select
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                 value={itemId ?? ''}
                 onChange={(e) => setItemId(e.target.value ? Number(e.target.value) : null)}
                 required
@@ -252,38 +255,35 @@ export default function ItemSchemePage() {
               value={drawNo}
               onChange={(e) => setDrawNo(e.target.value)}
             />
-          </div>
+          </section>
 
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
+          <section className="max-w-full overflow-x-auto rounded-cyber-lg border border-line bg-surface-raised">
+            <table className="min-w-[1120px] divide-y divide-line text-sm">
+              <thead className="border-b border-line bg-surface-high">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Rank</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Prefix</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Series</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">No Length</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Results</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">₹ Prize</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">₹ Bonus Recv</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">₹ Bonus Pay</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">₹ Incent Recv</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">₹ Incent Pay</th>
+                  {['Rank', 'Prefix', 'Series', 'No Length', 'Results', '₹ Prize', '₹ Bonus Recv', '₹ Bonus Pay', '₹ Incent Recv', '₹ Incent Pay'].map((heading) => (
+                    <th key={heading} className="whitespace-nowrap px-3 py-3 text-left font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">
+                      {heading}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-line">
                 {prizes.map((prize, index) => (
-                  <tr key={prize.prizeRank} className="bg-white">
-                    <td className="px-3 py-2 font-medium text-gray-700">{prize.prizeRank}</td>
+                  <tr key={prize.prizeRank} className={index % 2 === 0 ? 'bg-surface-raised' : 'bg-surface-low'}>
+                    <td className="px-3 py-2 font-mono font-medium text-cyber-hover">{prize.prizeRank}</td>
                     <td className="px-3 py-2">
                       <input
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                        aria-label={`Prefix for prize ${prize.prizeRank}`}
+                        className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1.5 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                         value={prize.checkPrefix ?? ''}
                         onChange={(e) => updatePrize(index, 'checkPrefix', e.target.value)}
                       />
                     </td>
                     <td className="px-3 py-2">
                       <input
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                        aria-label={`Series for prize ${prize.prizeRank}`}
+                        className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1.5 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                         value={prize.checkSeries ?? ''}
                         onChange={(e) => updatePrize(index, 'checkSeries', e.target.value)}
                       />
@@ -291,7 +291,8 @@ export default function ItemSchemePage() {
                     <td className="px-3 py-2">
                       <input
                         type="number"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
+                        aria-label={`Number length for prize ${prize.prizeRank}`}
+                        className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1.5 text-left text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                         value={prize.prizeNoLength ?? ''}
                         onChange={(e) => updatePrize(index, 'prizeNoLength', e.target.value)}
                       />
@@ -299,7 +300,8 @@ export default function ItemSchemePage() {
                     <td className="px-3 py-2">
                       <input
                         type="number"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
+                        aria-label={`Results for prize ${prize.prizeRank}`}
+                        className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1.5 text-left text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                         value={prize.noOfResult ?? ''}
                         onChange={(e) => updatePrize(index, 'noOfResult', e.target.value)}
                       />
@@ -308,7 +310,8 @@ export default function ItemSchemePage() {
                       <input
                         type="number"
                         step="0.01"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
+                        aria-label={`Prize amount for prize ${prize.prizeRank}`}
+                        className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1.5 text-left text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                         value={prize.prizeAmount ?? ''}
                         onChange={(e) => updatePrize(index, 'prizeAmount', e.target.value)}
                       />
@@ -317,7 +320,8 @@ export default function ItemSchemePage() {
                       <input
                         type="number"
                         step="0.01"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
+                        aria-label={`Bonus receivable for prize ${prize.prizeRank}`}
+                        className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1.5 text-left text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                         value={prize.bonusReceivable ?? ''}
                         onChange={(e) => updatePrize(index, 'bonusReceivable', e.target.value)}
                       />
@@ -326,7 +330,8 @@ export default function ItemSchemePage() {
                       <input
                         type="number"
                         step="0.01"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
+                        aria-label={`Bonus payable for prize ${prize.prizeRank}`}
+                        className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1.5 text-left text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                         value={prize.bonusPayable ?? ''}
                         onChange={(e) => updatePrize(index, 'bonusPayable', e.target.value)}
                       />
@@ -335,7 +340,8 @@ export default function ItemSchemePage() {
                       <input
                         type="number"
                         step="0.01"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
+                        aria-label={`Incentive receivable for prize ${prize.prizeRank}`}
+                        className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1.5 text-left text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                         value={prize.incentiveReceivable ?? ''}
                         onChange={(e) => updatePrize(index, 'incentiveReceivable', e.target.value)}
                       />
@@ -344,7 +350,8 @@ export default function ItemSchemePage() {
                       <input
                         type="number"
                         step="0.01"
-                        className="w-full rounded border border-gray-300 px-2 py-1 text-left text-sm"
+                        aria-label={`Incentive payable for prize ${prize.prizeRank}`}
+                        className="w-full rounded-cyber border border-line-control bg-canvas px-2 py-1.5 text-left text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                         value={prize.incentivePayable ?? ''}
                         onChange={(e) => updatePrize(index, 'incentivePayable', e.target.value)}
                       />
@@ -353,9 +360,9 @@ export default function ItemSchemePage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </section>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end border-t border-line pt-4">
             <Button type="submit" disabled={saving}>
               {saving ? 'Saving…' : editingId ? 'Update Scheme' : 'Save Scheme'}
             </Button>

@@ -24,9 +24,9 @@ function toDateInputValue(date: Date) {
 }
 
 function balanceClass(value: number) {
-  if (value > 0) return 'text-green-600';
-  if (value < 0) return 'text-red-600';
-  return '';
+  if (value > 0) return 'text-cyber-success';
+  if (value < 0) return 'text-cyber-error';
+  return 'text-content';
 }
 
 export default function BuyerLedgerPage() {
@@ -113,13 +113,13 @@ export default function BuyerLedgerPage() {
   if (!allowed) return null;
 
   return (
-    <div className="print-full-width mx-auto max-w-6xl bg-white">
-      <div className="no-print mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Buyer Ledger</h1>
-        <div className="flex gap-2">
+    <div className="print-full-width mx-auto max-w-6xl text-content">
+      <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-bold text-content">Buyer Ledger</h1>
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="flex items-center gap-1 rounded border px-3 py-1 text-sm"
+            className="flex items-center gap-2 rounded-cyber border border-line-strong bg-surface-raised px-3 py-2 text-sm font-semibold text-content-muted transition-colors hover:border-cyber hover:text-cyber-hover focus:outline-none focus:ring-2 focus:ring-cyber/30"
             onClick={() => printReport('Buyer Ledger')}
           >
             <Printer className="h-4 w-4" />
@@ -127,7 +127,7 @@ export default function BuyerLedgerPage() {
           </button>
           <button
             type="button"
-            className="flex items-center gap-1 rounded border px-3 py-1 text-sm"
+            className="flex items-center gap-2 rounded-cyber border border-line-strong bg-surface-raised px-3 py-2 text-sm font-semibold text-content-muted transition-colors hover:border-cyber hover:text-cyber-hover focus:outline-none focus:ring-2 focus:ring-cyber/30 disabled:cursor-not-allowed disabled:opacity-50"
             onClick={handleExportCsv}
             disabled={!generated}
           >
@@ -137,33 +137,33 @@ export default function BuyerLedgerPage() {
         </div>
       </div>
 
-      <div className="no-print mb-6 flex flex-wrap items-end gap-4 border-b bg-gray-50 p-4">
+      <div className="no-print mb-6 flex flex-wrap items-end gap-4 rounded-cyber-lg border border-line bg-surface-raised p-4">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-gray-700">Date From</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Date From</span>
           <input
             type="date"
             value={dateFrom}
             onChange={(event) => setDateFrom(event.target.value)}
-            className="rounded border border-gray-300 px-3 py-2"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-gray-700">Date To</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Date To</span>
           <input
             type="date"
             value={dateTo}
             onChange={(event) => setDateTo(event.target.value)}
-            className="rounded border border-gray-300 px-3 py-2"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
           />
         </label>
         <label className="flex min-w-[200px] flex-col gap-1 text-sm">
-          <span className="font-medium text-gray-700">Buyer</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Buyer</span>
           <select
             value={buyerId}
             onChange={(event) =>
               setBuyerId(event.target.value ? Number(event.target.value) : '')
             }
-            className="rounded border border-gray-300 px-3 py-2"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
           >
             <option value="">All buyers</option>
             {buyers.map((buyer) => (
@@ -179,12 +179,12 @@ export default function BuyerLedgerPage() {
       </div>
 
       {!generated ? (
-        <p className="text-sm text-gray-500">Set filters and click Generate Report.</p>
+        <p className="rounded-cyber border border-dashed border-line-strong bg-surface-low px-4 py-8 text-center text-sm text-content-subtle">Set filters and click Generate Report.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-cyber-lg border border-line">
+          <table className="min-w-[900px] w-full text-sm">
             <thead>
-              <tr className="border-b bg-gray-50 text-left">
+              <tr className="border-b border-line bg-surface-high text-left font-mono text-xs uppercase tracking-wider text-content-muted">
                 <th className="px-3 py-2" />
                 <th className="px-3 py-2">Buyer Name</th>
                 <th className="px-3 py-2">Group</th>
@@ -199,7 +199,7 @@ export default function BuyerLedgerPage() {
               {rows.map((row) => (
                 <Fragment key={row.buyerId}>
                   <tr
-                    className="cursor-pointer border-b hover:bg-gray-50"
+                    className="cursor-pointer border-b border-line text-content-muted transition-colors hover:bg-surface-high hover:text-content"
                     onClick={() =>
                       setExpandedId((current) => (current === row.buyerId ? null : row.buyerId))
                     }
@@ -223,10 +223,10 @@ export default function BuyerLedgerPage() {
                   </tr>
                   {expandedId === row.buyerId ? (
                     <tr key={`${row.buyerId}-detail`}>
-                      <td colSpan={8} className="bg-gray-50 px-6 py-3">
+                      <td colSpan={8} className="bg-surface-low px-6 py-3">
                         <table className="w-full text-xs">
                           <thead>
-                            <tr className="text-left text-gray-600">
+                            <tr className="text-left font-mono uppercase tracking-wide text-content-subtle">
                               <th className="pb-2 pr-4">Draw Name</th>
                               <th className="pb-2 pr-4">Date</th>
                               <th className="pb-2 pr-4 text-right">Sold</th>
@@ -238,7 +238,7 @@ export default function BuyerLedgerPage() {
                           </thead>
                           <tbody>
                             {row.drawBreakdown.map((draw) => (
-                              <tr key={draw.drawId} className="border-t border-gray-200">
+                              <tr key={draw.drawId} className="border-t border-line text-content-muted">
                                 <td className="py-1 pr-4">{draw.drawName ?? '—'}</td>
                                 <td className="py-1 pr-4">{formatDate(draw.drawDate)}</td>
                                 <td className="py-1 pr-4 text-right">
@@ -267,7 +267,7 @@ export default function BuyerLedgerPage() {
                   ) : null}
                 </Fragment>
               ))}
-              <tr className="border-t-2 border-gray-300 bg-gray-50 font-bold">
+              <tr className="border-t-2 border-cyber/50 bg-surface-high font-bold text-content">
                 <td className="px-3 py-2" colSpan={3}>
                   Grand Total
                 </td>

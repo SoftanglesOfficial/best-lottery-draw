@@ -120,10 +120,10 @@ export default function BackupsPage() {
   if (!allowed) return null;
 
   return (
-    <div className="mx-auto max-w-6xl bg-white">
+    <div className="mx-auto max-w-6xl text-content">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">Backups</h1>
-        <div className="flex gap-3">
+        <h1 className="font-display text-2xl font-bold text-content">Backups</h1>
+        <div className="flex flex-wrap gap-3">
           <Button onClick={() => void handleCreate()} disabled={creating || companyId == null}>
             {creating ? 'Creating…' : 'Create Backup'}
           </Button>
@@ -138,7 +138,7 @@ export default function BackupsPage() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading backups…</p>
+        <p className="rounded-cyber border border-line bg-surface-raised px-4 py-8 text-center text-sm text-content-subtle">Loading backups…</p>
       ) : (
         <Table columns={columns} data={backups} rowKey={(row) => row.id} />
       )}

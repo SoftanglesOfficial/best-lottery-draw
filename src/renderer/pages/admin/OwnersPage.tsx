@@ -140,10 +140,10 @@ export default function OwnersPage() {
       header: 'Actions',
       render: (row) => (
         <div className="flex gap-2">
-          <button type="button" className="text-indigo-600 hover:underline" onClick={() => openEdit(row)}>
+          <button type="button" className="font-medium text-cyber-hover hover:text-cyber-hover hover:underline focus:outline-none focus:ring-2 focus:ring-cyber/30" onClick={() => openEdit(row)}>
             Edit
           </button>
-          <button type="button" className="text-indigo-600 hover:underline" onClick={() => openAssign(row)}>
+          <button type="button" className="font-medium text-cyber-hover hover:text-cyber-hover hover:underline focus:outline-none focus:ring-2 focus:ring-cyber/30" onClick={() => openAssign(row)}>
             Assign Companies
           </button>
         </div>
@@ -154,16 +154,16 @@ export default function OwnersPage() {
   if (!allowed) return null;
 
   return (
-    <div>
+    <div className="mx-auto max-w-7xl text-content">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Company Owners</h1>
+        <h1 className="font-display text-2xl font-bold text-content">Company Owners</h1>
         <Button type="button" onClick={openCreate}>
           New Owner
         </Button>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <p className="rounded-cyber border border-line bg-surface-raised px-4 py-8 text-center text-sm text-content-subtle">Loading owners…</p>
       ) : (
         <Table columns={columns} data={owners} rowKey={(row) => row.id} />
       )}
@@ -215,14 +215,15 @@ export default function OwnersPage() {
             {companies.map((company) => (
               <label
                 key={company.id}
-                className="flex cursor-pointer items-center gap-3 rounded-md border border-gray-200 px-3 py-2 hover:bg-gray-50"
+                className="flex cursor-pointer items-center gap-3 rounded-cyber border border-line bg-surface-low px-3 py-2 text-content-muted transition-colors hover:border-cyber/50 hover:bg-surface-high hover:text-content"
               >
                 <input
                   type="checkbox"
                   checked={assignedIds.includes(company.id)}
                   onChange={(e) => toggleCompany(company.id, e.target.checked)}
+                  className="h-4 w-4 accent-cyber"
                 />
-                <span className="text-sm text-gray-800">{company.name}</span>
+                <span className="text-sm">{company.name}</span>
               </label>
             ))}
           </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { FullPageLoading } from '../../components/LoadingSpinner';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
 import { Button } from '../../components/ui';
@@ -90,14 +91,14 @@ export default function ItemSchemesPage() {
         <div className="flex gap-2">
           <button
             type="button"
-            className="text-indigo-600 hover:underline"
+            className="rounded-cyber px-1.5 py-1 text-cyber-hover outline-none hover:bg-cyber/10 focus-visible:ring-2 focus-visible:ring-cyber/40"
             onClick={() => navigate(`/item-schemes?id=${row.id}`)}
           >
             Edit
           </button>
           <button
             type="button"
-            className="text-red-600 hover:underline"
+            className="rounded-cyber px-1.5 py-1 text-cyber-error outline-none hover:bg-cyber-error/10 focus-visible:ring-2 focus-visible:ring-cyber-error/40"
             onClick={() => setDeleteTarget(row)}
           >
             Delete
@@ -111,28 +112,32 @@ export default function ItemSchemesPage() {
 
   if (companyId == null && filterItemId == null) {
     return (
-      <div>
-        <h1 className="mb-6 text-xl font-semibold text-gray-900">Item Schemes</h1>
-        <p className="text-sm text-gray-500">Select an active company to manage item schemes.</p>
+      <div className="space-y-6">
+        <h1 className="font-display text-2xl font-bold text-content">Item Schemes</h1>
+        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low px-6 py-12 text-center text-sm text-content-subtle">
+          Select an active company to manage item schemes.
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Item Schemes</h1>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-bold text-content">Item Schemes</h1>
         <Button type="button" onClick={() => navigate('/item-schemes')}>
           New Scheme
         </Button>
       </div>
 
       {filterItemId ? (
-        <p className="mb-4 text-sm text-gray-500">Showing schemes for item #{filterItemId}</p>
+        <div className="rounded-cyber border border-cyber-info/30 bg-cyber-info/10 px-4 py-3 text-sm text-cyber-info">
+          Showing schemes for item #{filterItemId}
+        </div>
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <FullPageLoading message="Loading item schemes…" />
       ) : (
         <Table columns={columns} data={schemes} rowKey={(row) => row.id} />
       )}

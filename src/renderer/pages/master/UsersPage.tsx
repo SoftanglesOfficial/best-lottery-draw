@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Badge, { roleBadgeColor } from '../../components/Badge';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { FullPageLoading } from '../../components/LoadingSpinner';
 import Modal from '../../components/Modal';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
@@ -148,12 +149,12 @@ export default function UsersPage() {
       header: 'Actions',
       render: (row) => (
         <div className="flex gap-2">
-          <button type="button" className="text-indigo-600 hover:underline" onClick={() => openEdit(row)}>
+          <button type="button" className="rounded-cyber px-1.5 py-1 text-cyber-hover outline-none hover:bg-cyber/10 focus-visible:ring-2 focus-visible:ring-cyber/40" onClick={() => openEdit(row)}>
             Edit
           </button>
           <button
             type="button"
-            className="text-red-600 hover:underline"
+            className="rounded-cyber px-1.5 py-1 text-cyber-error outline-none hover:bg-cyber-error/10 focus-visible:ring-2 focus-visible:ring-cyber-error/40"
             onClick={() => setDeleteTarget(row)}
           >
             Delete
@@ -166,23 +167,23 @@ export default function UsersPage() {
   if (!allowed) return null;
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Users</h1>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-bold text-content">Users</h1>
         <Button type="button" onClick={openCreate}>
           New User
         </Button>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <FullPageLoading message="Loading users…" />
       ) : (
         <Table columns={columns} data={users} rowKey={(row) => row.id} />
       )}
 
       {modalOpen ? (
         <Modal title={editing ? 'Edit User' : 'New User'} onClose={() => setModalOpen(false)} wide>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Input
               label="Full Name"
               value={form.fullName}
@@ -203,9 +204,9 @@ export default function UsersPage() {
               required={!editing}
             />
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Role</span>
+              <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Role</span>
               <select
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}
               >
@@ -215,12 +216,13 @@ export default function UsersPage() {
               </select>
             </label>
             <div>
-              <p className="mb-2 text-sm font-medium text-gray-700">Company Assignment</p>
-              <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border border-gray-200 p-3">
+              <p className="mb-2 font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Company Assignment</p>
+              <div className="max-h-40 space-y-2 overflow-y-auto rounded-cyber border border-line-control bg-canvas p-3">
                 {companies.map((company) => (
-                  <label key={company.id} className="flex items-center gap-2 text-sm">
+                  <label key={company.id} className="flex items-center gap-2 rounded-cyber px-2 py-1 text-sm text-content-muted hover:bg-surface-high hover:text-content">
                     <input
                       type="checkbox"
+                      className="h-4 w-4 accent-cyber focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber/40"
                       checked={(form.companyIds ?? []).includes(company.id)}
                       onChange={(e) => toggleCompany(company.id, e.target.checked)}
                     />
@@ -229,7 +231,7 @@ export default function UsersPage() {
                 ))}
               </div>
             </div>
-            <div className="flex justify-end gap-3 pt-2">
+            <div className="flex flex-wrap justify-end gap-3 border-t border-line pt-4">
               <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>
                 Cancel
               </Button>

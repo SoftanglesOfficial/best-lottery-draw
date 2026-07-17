@@ -16,7 +16,7 @@ export default function ShiftGroupsPage() {
       renderExtraActions={(row) => (
         <button
           type="button"
-          className="text-indigo-600 hover:underline"
+          className="rounded-cyber px-1.5 py-1 text-cyber-hover outline-none hover:bg-cyber/10 focus-visible:ring-2 focus-visible:ring-cyber/40"
           onClick={() => navigate(`/master/shifts?groupId=${row.id}`)}
         >
           View Shifts

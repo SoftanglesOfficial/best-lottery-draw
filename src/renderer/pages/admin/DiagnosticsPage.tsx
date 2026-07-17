@@ -22,8 +22,8 @@ export default function DiagnosticsPage() {
   if (!data?.success) {
     return (
       <div className="mx-auto max-w-4xl space-y-6">
-        <h1 className="text-xl font-semibold text-gray-900">System Diagnostics</h1>
-        <p className="text-sm text-red-600">{data && !data.success ? data.error : 'Unavailable'}</p>
+        <h1 className="font-display text-2xl font-bold text-content">System Diagnostics</h1>
+        <p className="rounded-cyber border border-cyber-error/40 bg-cyber-error/10 p-4 text-sm text-cyber-error">{data && !data.success ? data.error : 'Unavailable'}</p>
       </div>
     );
   }
@@ -31,55 +31,55 @@ export default function DiagnosticsPage() {
   const info: DiagnosticsData = data.data;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900">System Diagnostics</h1>
+    <div className="mx-auto max-w-5xl space-y-6 text-content">
+      <h1 className="font-display text-2xl font-bold text-content">System Diagnostics</h1>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-700">Database</h2>
+      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+            <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Database</h2>
             <dl className="grid gap-2 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-gray-500">Status</dt>
-                <dd>{info.dbConnected ? 'Connected' : 'Disconnected'}</dd>
+                <dt className="text-content-subtle">Status</dt>
+                <dd className={info.dbConnected ? 'text-cyber-success' : 'text-cyber-error'}>{info.dbConnected ? 'Connected' : 'Disconnected'}</dd>
               </div>
               <div>
-                <dt className="text-gray-500">Version</dt>
+                <dt className="text-content-subtle">Version</dt>
                 <dd className="break-all">{info.dbVersion ?? '—'}</dd>
               </div>
               <div>
-                <dt className="text-gray-500">Host</dt>
-                <dd>{info.dbConfig.host}:{info.dbConfig.port}/{info.dbConfig.database}</dd>
+                <dt className="text-content-subtle">Host</dt>
+                <dd className="font-mono">{info.dbConfig.host}:{info.dbConfig.port}/{info.dbConfig.database}</dd>
               </div>
             </dl>
           </section>
 
-          <section className="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-700">Network</h2>
+          <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+            <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Network</h2>
             <dl className="grid gap-2 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-gray-500">Mode</dt>
+                <dt className="text-content-subtle">Mode</dt>
                 <dd>{info.networkMode}</dd>
               </div>
               <div>
-                <dt className="text-gray-500">Broadcast</dt>
+                <dt className="text-content-subtle">Broadcast</dt>
                 <dd>{info.broadcast.isBroadcasting ? 'Active' : 'Stopped'}</dd>
               </div>
               <div>
-                <dt className="text-gray-500">Local IP</dt>
+                <dt className="text-content-subtle">Local IP</dt>
                 <dd>{info.broadcast.localIp}</dd>
               </div>
             </dl>
           </section>
 
-          <section className="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-700">Backup</h2>
+          <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+            <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Backup</h2>
             <p className="text-sm">Auto-backup: {info.autoBackup ? 'On' : 'Off'}</p>
             <p className="text-sm">Last backup date: {info.lastBackupDate ?? '—'}</p>
             <p className="text-sm">Last backup record: {info.lastBackupRecordAt ? new Date(info.lastBackupRecordAt).toLocaleString() : '—'}</p>
           </section>
 
           {info.tableCounts ? (
-            <section className="rounded-lg border border-gray-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-700">Table Counts</h2>
+            <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+              <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Table Counts</h2>
               <ul className="text-sm">
                 <li>Users: {info.tableCounts.users}</li>
                 <li>Companies: {info.tableCounts.companies}</li>
@@ -89,8 +89,8 @@ export default function DiagnosticsPage() {
             </section>
           ) : null}
 
-          <section className="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-700">Runtime</h2>
+          <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+            <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Runtime</h2>
             <ul className="text-sm">
               <li>App: {info.appVersion}</li>
               <li>Electron: {info.electronVersion}</li>
@@ -98,14 +98,14 @@ export default function DiagnosticsPage() {
             </ul>
           </section>
 
-          <section className="rounded-lg border border-gray-200 bg-white p-4">
-            <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-700">Active Sessions</h2>
+          <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+            <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Active Sessions</h2>
             {info.activeSessions.length === 0 ? (
-              <p className="text-sm text-gray-500">No session records.</p>
+              <p className="text-sm text-content-subtle">No session records.</p>
             ) : (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto"><table className="min-w-[640px] w-full text-sm">
                 <thead>
-                  <tr className="text-left text-xs uppercase text-gray-500">
+                  <tr className="text-left font-mono text-xs uppercase text-content-muted">
                     <th className="py-2">User ID</th>
                     <th>Company</th>
                     <th>Last Seen</th>
@@ -114,7 +114,7 @@ export default function DiagnosticsPage() {
                 </thead>
                 <tbody>
                   {info.activeSessions.map((session) => (
-                    <tr key={session.id} className="border-t">
+                    <tr key={session.id} className="border-t border-line text-content-muted">
                       <td className="py-2">{session.userId}</td>
                       <td>{session.companyId}</td>
                       <td>{session.lastSeen ? new Date(session.lastSeen).toLocaleString() : '—'}</td>
@@ -122,7 +122,7 @@ export default function DiagnosticsPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )}
           </section>
     </div>

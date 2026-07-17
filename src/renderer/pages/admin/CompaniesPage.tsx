@@ -154,14 +154,15 @@ export default function CompaniesPage() {
       header: 'Actions',
       render: (row) => (
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="text-indigo-600 hover:underline" onClick={() => openEdit(row)}>
+          <button type="button" className="font-medium text-cyber-hover hover:text-cyber-hover hover:underline focus:outline-none focus:ring-2 focus:ring-cyber/30" onClick={() => openEdit(row)}>
             Edit
           </button>
-          <button type="button" className="text-indigo-600 hover:underline" onClick={() => handleClone(row)}>
+          <button type="button" className="font-medium text-cyber-hover hover:text-cyber-hover hover:underline focus:outline-none focus:ring-2 focus:ring-cyber/30" onClick={() => handleClone(row)}>
             Clone
           </button>
           <select
-            className="rounded border border-gray-300 px-2 py-1 text-xs"
+            aria-label={`Status for ${row.name}`}
+            className="rounded-cyber border border-line-control bg-canvas px-2 py-1 text-xs text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
             value={row.status ?? 'active'}
             onChange={(e) => handleStatus(row, e.target.value as CompanyStatus)}
           >
@@ -171,7 +172,7 @@ export default function CompaniesPage() {
           </select>
           <button
             type="button"
-            className="text-indigo-600 hover:underline"
+            className="font-medium text-cyber-hover hover:text-cyber-hover hover:underline focus:outline-none focus:ring-2 focus:ring-cyber/30"
             onClick={() => handleBillingLock(row)}
           >
             {row.billingLocked ? 'Unlock Billing' : 'Lock Billing'}
@@ -184,16 +185,16 @@ export default function CompaniesPage() {
   if (!allowed) return null;
 
   return (
-    <div>
+    <div className="mx-auto max-w-7xl text-content">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Companies</h1>
+        <h1 className="font-display text-2xl font-bold text-content">Companies</h1>
         <Button type="button" onClick={openCreate}>
           New Company
         </Button>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <p className="rounded-cyber border border-line bg-surface-raised px-4 py-8 text-center text-sm text-content-subtle">Loading companies…</p>
       ) : (
         <Table columns={columns} data={companies} rowKey={(row) => row.id} />
       )}
@@ -208,9 +209,9 @@ export default function CompaniesPage() {
               required
             />
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Owner</span>
+              <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Owner</span>
               <select
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                 value={form.ownerId ?? ''}
                 onChange={(e) =>
                   setForm({ ...form, ownerId: e.target.value ? Number(e.target.value) : null })

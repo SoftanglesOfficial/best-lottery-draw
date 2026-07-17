@@ -222,6 +222,29 @@ input[type='number'] {
     width: 100% !important;
     max-width: none !important;
   }
+  .print-full-width table {
+    min-width: 0 !important;
+  }
+  .print-full-width .report-chart .recharts-cartesian-grid line {
+    stroke: #777 !important;
+  }
+  .print-full-width .report-chart .recharts-cartesian-axis line,
+  .print-full-width .report-chart .recharts-cartesian-axis-tick-line {
+    stroke: #222 !important;
+  }
+  .print-full-width .report-chart .recharts-cartesian-axis-tick text,
+  .print-full-width .report-chart .recharts-legend-item-text {
+    fill: #111 !important;
+    color: #111 !important;
+  }
+  .print-full-width .report-chart .report-chart-sales .recharts-rectangle {
+    fill: #174a73 !important;
+    stroke: #0b253a !important;
+  }
+  .print-full-width .report-chart .report-chart-purchases .recharts-rectangle {
+    fill: #87420f !important;
+    stroke: #3f1e07 !important;
+  }
   .mc-app-frame {
     min-width: 0 !important;
   }

@@ -40,10 +40,11 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="mb-6 rounded border border-gray-200">
+    <section className="mb-6 overflow-hidden rounded-cyber-lg border border-line bg-surface-raised">
       <button
         type="button"
-        className="flex w-full items-center justify-between bg-gray-50 px-4 py-3 text-left font-medium"
+        className="flex w-full items-center justify-between bg-surface-high px-4 py-3 text-left font-display font-bold text-content transition-colors hover:bg-surface-highest focus:outline-none focus:ring-2 focus:ring-inset focus:ring-cyber/30"
+        aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
         {title}
@@ -107,12 +108,12 @@ export default function PnLPage() {
   const summary = report?.summary;
 
   return (
-    <div className="print-full-width mx-auto max-w-6xl bg-white">
-      <div className="no-print mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Profit & Loss</h1>
+    <div className="print-full-width mx-auto max-w-6xl text-content">
+      <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-bold text-content">Profit & Loss</h1>
         <button
           type="button"
-          className="flex items-center gap-1 rounded border px-3 py-1 text-sm"
+          className="flex items-center gap-2 rounded-cyber border border-line-strong bg-surface-raised px-3 py-2 text-sm font-semibold text-content-muted transition-colors hover:border-cyber hover:text-cyber focus:outline-none focus:ring-2 focus:ring-cyber/30 disabled:cursor-not-allowed disabled:opacity-50"
           onClick={() => printReport('Profit & Loss Report')}
           disabled={!report}
         >
@@ -121,24 +122,24 @@ export default function PnLPage() {
         </button>
       </div>
 
-      <div className="no-print mb-6 flex flex-wrap items-end gap-4 border-b bg-gray-50 p-4">
+      <div className="no-print mb-6 flex flex-wrap items-end gap-4 rounded-cyber-lg border border-line bg-surface-raised p-4">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-gray-700">Date From *</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Date From *</span>
           <input
             type="date"
             value={dateFrom}
             onChange={(event) => setDateFrom(event.target.value)}
-            className="rounded border border-gray-300 px-3 py-2"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
             required
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-gray-700">Date To *</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Date To *</span>
           <input
             type="date"
             value={dateTo}
             onChange={(event) => setDateTo(event.target.value)}
-            className="rounded border border-gray-300 px-3 py-2"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
             required
           />
         </label>
@@ -148,34 +149,34 @@ export default function PnLPage() {
       </div>
 
       {!report ? (
-        <p className="text-sm text-gray-500">Select a date range and click Generate.</p>
+        <p className="rounded-cyber border border-dashed border-line-strong bg-surface-low px-4 py-8 text-center text-sm text-content-subtle">Select a date range and click Generate.</p>
       ) : (
         <>
           <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div className="rounded border p-4">
-              <p className="text-sm text-gray-500">Gross Sales</p>
-              <p className="text-xl font-bold">{formatCurrency(summary!.netSales)}</p>
+            <div className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+              <p className="text-sm text-content-muted">Gross Sales</p>
+              <p className="font-mono text-xl font-bold text-cyber">{formatCurrency(summary!.netSales)}</p>
             </div>
-            <div className="rounded border p-4">
-              <p className="text-sm text-gray-500">Gross Purchases</p>
-              <p className="text-xl font-bold">{formatCurrency(summary!.netPurchases)}</p>
+            <div className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+              <p className="text-sm text-content-muted">Gross Purchases</p>
+              <p className="font-mono text-xl font-bold text-content">{formatCurrency(summary!.netPurchases)}</p>
             </div>
-            <div className="rounded border p-4">
-              <p className="text-sm text-gray-500">Total PWT Paid</p>
-              <p className="text-xl font-bold">{formatCurrency(summary!.totalPwtReceivable)}</p>
+            <div className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+              <p className="text-sm text-content-muted">Total PWT Paid</p>
+              <p className="font-mono text-xl font-bold text-content">{formatCurrency(summary!.totalPwtReceivable)}</p>
             </div>
-            <div className="rounded border p-4">
-              <p className="text-sm text-gray-500">Net Profit</p>
-              <p className="text-xl font-bold text-indigo-700">
+            <div className="rounded-cyber-lg border border-cyber/40 bg-cyber/5 p-4">
+              <p className="text-sm text-content-muted">Net Profit</p>
+              <p className="font-mono text-xl font-bold text-cyber-success">
                 {formatCurrency(summary!.grossProfit)}
               </p>
             </div>
           </div>
 
           <CollapsibleSection title="Company Summary">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="min-w-[680px] w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50 text-left">
+                <tr className="border-b border-line bg-surface-high text-left text-content-muted">
                   <th className="px-3 py-2">Company</th>
                   <th className="px-3 py-2 text-right">Sales</th>
                   <th className="px-3 py-2 text-right">Purchases</th>
@@ -185,7 +186,7 @@ export default function PnLPage() {
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-b">
+                <tr className="border-b border-line text-content-muted">
                   <td className="px-3 py-2">Current Company</td>
                   <td className="px-3 py-2 text-right">{formatCurrency(summary!.netSales)}</td>
                   <td className="px-3 py-2 text-right">{formatCurrency(summary!.netPurchases)}</td>
@@ -198,13 +199,13 @@ export default function PnLPage() {
                   </td>
                 </tr>
               </tbody>
-            </table>
+            </table></div>
           </CollapsibleSection>
 
           <CollapsibleSection title="Draw-wise Breakdown">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="min-w-[760px] w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50 text-left">
+                <tr className="border-b border-line bg-surface-high text-left text-content-muted">
                   <th className="px-3 py-2">Draw</th>
                   <th className="px-3 py-2">Date</th>
                   <th className="px-3 py-2">Item</th>
@@ -216,7 +217,7 @@ export default function PnLPage() {
               </thead>
               <tbody>
                 {report.drawBreakdown.map((row) => (
-                  <tr key={row.drawId} className="border-b">
+                  <tr key={row.drawId} className="border-b border-line text-content-muted">
                     <td className="px-3 py-2">{row.drawName}</td>
                     <td className="px-3 py-2">{formatDate(row.drawDate)}</td>
                     <td className="px-3 py-2">{row.itemName ?? '—'}</td>
@@ -227,26 +228,26 @@ export default function PnLPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           </CollapsibleSection>
 
           <CollapsibleSection title="Top 10 Buyers by Sales">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto"><table className="min-w-[420px] w-full text-sm">
               <thead>
-                <tr className="border-b bg-gray-50 text-left">
+                <tr className="border-b border-line bg-surface-high text-left text-content-muted">
                   <th className="px-3 py-2">Buyer</th>
                   <th className="px-3 py-2 text-right">Sales</th>
                 </tr>
               </thead>
               <tbody>
                 {report.topBuyers.map((row) => (
-                  <tr key={row.buyerId} className="border-b">
+                  <tr key={row.buyerId} className="border-b border-line text-content-muted">
                     <td className="px-3 py-2">{row.buyerName}</td>
                     <td className="px-3 py-2 text-right">{formatCurrency(row.sales)}</td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           </CollapsibleSection>
         </>
       )}

@@ -25,14 +25,14 @@ const TABS: { id: TabId; label: string; minRole?: 'manager' }[] = [
 
 function FieldError({ message }: { message?: string | null }) {
   if (!message) return null;
-  return <p className="mt-1 text-xs text-red-600">{message}</p>;
+  return <p className="mt-1 text-xs text-cyber-error">{message}</p>;
 }
 
 function actionBadgeClass(action: string) {
-  if (action === 'DRAW_LOCKED' || action === 'USER_DELETED') return 'bg-red-100 text-red-700';
-  if (action === 'DRAW_UNLOCKED') return 'bg-orange-100 text-orange-700';
-  if (action === 'USER_CREATED') return 'bg-blue-100 text-blue-700';
-  return 'bg-gray-100 text-gray-600';
+  if (action === 'DRAW_LOCKED' || action === 'USER_DELETED') return 'border border-cyber-error/30 bg-cyber-error/10 text-cyber-error';
+  if (action === 'DRAW_UNLOCKED') return 'border border-cyber-warning/30 bg-cyber-warning/10 text-cyber-warning';
+  if (action === 'USER_CREATED') return 'border border-cyber/30 bg-cyber/10 text-cyber-hover';
+  return 'border border-line bg-surface-high text-content-muted';
 }
 
 function formatKb(size: number | null | undefined) {
@@ -443,14 +443,14 @@ function BackupTab({ companyId, userId }: { companyId?: number | null; userId?: 
       </div>
 
       <label className="flex cursor-pointer items-center gap-3">
-        <input type="checkbox" checked={autoBackup} onChange={() => void toggleAutoBackup()} className="h-4 w-4 rounded" />
-        <span className="text-sm text-gray-700">Automatic daily backup at 11 PM</span>
+        <input type="checkbox" checked={autoBackup} onChange={() => void toggleAutoBackup()} className="h-4 w-4 rounded accent-cyber" />
+        <span className="text-sm text-content-muted">Automatic daily backup at 11 PM</span>
       </label>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-cyber-lg border border-line">
+        <table className="min-w-[720px] w-full text-sm text-content-muted">
           <thead>
-            <tr className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+            <tr className="bg-surface-high text-left font-mono text-xs font-medium uppercase tracking-wider text-content-muted">
               <th className="px-4 py-3">Filename</th>
               <th className="px-4 py-3">Size</th>
               <th className="px-4 py-3">Date</th>
@@ -460,18 +460,21 @@ function BackupTab({ companyId, userId }: { companyId?: number | null; userId?: 
           </thead>
           <tbody>
             {backups.map((row) => (
-              <tr key={row.id} className="border-t border-gray-200 hover:bg-gray-50">
+              <tr key={row.id} className="border-t border-line transition-colors hover:bg-surface-high">
                 <td className="px-4 py-3">{row.filename}</td>
                 <td className="px-4 py-3">{formatKb(row.size)}</td>
                 <td className="px-4 py-3">{row.createdAt ? new Date(row.createdAt).toLocaleString() : '—'}</td>
                 <td className="px-4 py-3">
-                  <span className={`rounded px-2 py-0.5 text-xs ${row.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  <span className={`rounded-cyber border px-2 py-0.5 text-xs ${row.status === 'completed' ? 'border-cyber-success/30 bg-cyber-success/10 text-cyber-success' : 'border-cyber-error/30 bg-cyber-error/10 text-cyber-error'}`}>
                     {row.status ?? '—'}
                   </span>
                 </td>
                 <td className="px-4 py-3">{row.triggeredByName ?? '—'}</td>
               </tr>
             ))}
+            {backups.length === 0 ? (
+              <tr><td colSpan={5} className="border-t border-line px-4 py-8 text-center text-content-subtle">No backup records.</td></tr>
+            ) : null}
           </tbody>
         </table>
       </div>
@@ -542,8 +545,8 @@ function AuditTab({ companyId }: { companyId?: number | null }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3">
         <label className="text-sm">
-          <span className="mb-1 block font-medium text-gray-700">Entity</span>
-          <select value={entity} onChange={(e) => setEntity(e.target.value)} className="rounded-md border border-gray-300 px-3 py-2 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+          <span className="mb-1 block font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Entity</span>
+          <select value={entity} onChange={(e) => setEntity(e.target.value)} className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20">
             <option value="">All</option>
             <option value="draws">Draws</option>
             <option value="transactions">Transactions</option>
@@ -553,11 +556,11 @@ function AuditTab({ companyId }: { companyId?: number | null }) {
         <Input label="Date From" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
         <Input label="Date To" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
         <Button variant="secondary" onClick={() => void load()}>Apply</Button>
-        <button type="button" className="flex items-center gap-1 rounded border px-3 py-2 text-sm" onClick={exportCsv}>
+        <button type="button" className="flex items-center gap-2 rounded-cyber border border-line-strong bg-surface-raised px-3 py-2 text-sm font-semibold text-content-muted transition-colors hover:border-cyber hover:text-cyber focus:outline-none focus:ring-2 focus:ring-cyber/30" onClick={exportCsv}>
           <Download className="h-4 w-4" /> Export CSV
         </button>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+        <label className="flex items-center gap-2 text-sm text-content-muted">
+          <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} className="h-4 w-4 accent-cyber" />
           Auto-refresh (30s)
         </label>
       </div>
@@ -565,10 +568,10 @@ function AuditTab({ companyId }: { companyId?: number | null }) {
       {loading ? (
         <FullPageLoading message="Loading audit logs…" />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-cyber-lg border border-line">
+          <table className="min-w-[880px] w-full text-sm text-content-muted">
             <thead>
-              <tr className="bg-gray-50 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <tr className="bg-surface-high text-left font-mono text-xs font-medium uppercase tracking-wider text-content-muted">
                 <th className="px-4 py-3">Timestamp</th>
                 <th className="px-4 py-3">User</th>
                 <th className="px-4 py-3">Action</th>
@@ -579,7 +582,7 @@ function AuditTab({ companyId }: { companyId?: number | null }) {
             </thead>
             <tbody>
               {logs.map((row) => (
-                <tr key={row.id} className="border-t hover:bg-gray-50">
+                <tr key={row.id} className="border-t border-line transition-colors hover:bg-surface-high">
                   <td className="px-4 py-3">{row.timestamp ? new Date(row.timestamp).toLocaleString() : '—'}</td>
                   <td className="px-4 py-3">{row.fullName ?? row.username ?? '—'}</td>
                   <td className="px-4 py-3">
@@ -592,6 +595,9 @@ function AuditTab({ companyId }: { companyId?: number | null }) {
                   <td className="px-4 py-3">{row.details ?? '—'}</td>
                 </tr>
               ))}
+              {logs.length === 0 ? (
+                <tr><td colSpan={6} className="border-t border-line px-4 py-8 text-center text-content-subtle">No audit logs match these filters.</td></tr>
+              ) : null}
             </tbody>
           </table>
         </div>
@@ -615,7 +621,7 @@ function ProfileTab({ user }: { user: ReturnType<typeof useAuth>['user'] }) {
   }, [user]);
 
   if (!user) {
-    return <p className="text-sm text-gray-500">Login to manage your profile.</p>;
+    return <p className="text-sm text-content-subtle">Login to manage your profile.</p>;
   }
 
   const saveName = async () => {
@@ -658,18 +664,18 @@ function ProfileTab({ user }: { user: ReturnType<typeof useAuth>['user'] }) {
   return (
     <div className="space-y-8">
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-gray-700">Account Info</p>
+        <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Account Info</p>
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <p className="text-sm text-gray-900">{user.fullName ?? user.username}</p>
+          <p className="text-sm font-medium text-content">{user.fullName ?? user.username}</p>
           <span className={`rounded px-2 py-0.5 text-xs font-medium ${ROLE_BADGE_CLASSES[user.role]}`}>
             {ROLE_LABELS[user.role]}
           </span>
-          <p className="text-sm text-gray-500">@{user.username}</p>
+          <p className="font-mono text-sm text-content-subtle">@{user.username}</p>
         </div>
       </div>
 
       <div className="space-y-3">
-        <p className="text-sm font-medium uppercase tracking-wide text-gray-700">Change Display Name</p>
+        <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Change Display Name</p>
         <Input label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
         <Button onClick={() => void saveName()} disabled={savingName}>
           {savingName ? 'Saving…' : 'Save Name'}
@@ -677,7 +683,7 @@ function ProfileTab({ user }: { user: ReturnType<typeof useAuth>['user'] }) {
       </div>
 
       <form onSubmit={savePassword} className="space-y-3">
-        <p className="text-sm font-medium uppercase tracking-wide text-gray-700">Change Password</p>
+        <p className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Change Password</p>
         <div>
           <Input label="Current Password" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
           <FieldError message={errors.current} />
@@ -750,7 +756,7 @@ function UtilitiesTab({
   }, [companyId]);
 
   if (!userId || !userRole || !isAtLeastRole(userRole, 'manager')) {
-    return <p className="text-sm text-gray-500">Manager access required.</p>;
+    return <p className="text-sm text-content-subtle">Manager access required.</p>;
   }
 
   if (loading) return <FullPageLoading />;
@@ -816,12 +822,12 @@ function UtilitiesTab({
   return (
     <div className="space-y-8">
       <section className="space-y-4">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-gray-700">Rate Management</h2>
+        <h2 className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Rate Management</h2>
 
-        <div className="grid gap-4 rounded-lg border border-gray-200 p-4 md:grid-cols-4">
+        <div className="grid gap-4 rounded-cyber-lg border border-line bg-surface-low p-4 md:grid-cols-4">
           <label className="text-sm">
-            <span className="mb-1 block font-medium">Buyer</span>
-            <select value={buyerId} onChange={(e) => setBuyerId(Number(e.target.value) || '')} className="w-full rounded-md border border-gray-300 px-3 py-2">
+            <span className="mb-1 block font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Buyer</span>
+            <select value={buyerId} onChange={(e) => setBuyerId(Number(e.target.value) || '')} className="w-full rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20">
               <option value="">Select</option>
               {buyers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
@@ -832,10 +838,10 @@ function UtilitiesTab({
           </div>
         </div>
 
-        <div className="grid gap-4 rounded-lg border border-gray-200 p-4 md:grid-cols-4">
+        <div className="grid gap-4 rounded-cyber-lg border border-line bg-surface-low p-4 md:grid-cols-4">
           <label className="text-sm">
-            <span className="mb-1 block font-medium">Provider</span>
-            <select value={providerId} onChange={(e) => setProviderId(Number(e.target.value) || '')} className="w-full rounded-md border border-gray-300 px-3 py-2">
+            <span className="mb-1 block font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Provider</span>
+            <select value={providerId} onChange={(e) => setProviderId(Number(e.target.value) || '')} className="w-full rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20">
               <option value="">Select</option>
               {providers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
@@ -846,17 +852,17 @@ function UtilitiesTab({
           </div>
         </div>
 
-        <div className="grid gap-4 rounded-lg border border-gray-200 p-4 md:grid-cols-5">
+        <div className="grid gap-4 rounded-cyber-lg border border-line bg-surface-low p-4 md:grid-cols-5">
           <label className="text-sm">
-            <span className="mb-1 block font-medium">Party Type</span>
-            <select value={partyType} onChange={(e) => setPartyType(e.target.value as 'buyer' | 'provider')} className="w-full rounded-md border border-gray-300 px-3 py-2">
+            <span className="mb-1 block font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Party Type</span>
+            <select value={partyType} onChange={(e) => setPartyType(e.target.value as 'buyer' | 'provider')} className="w-full rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20">
               <option value="buyer">Buyer</option>
               <option value="provider">Provider</option>
             </select>
           </label>
           <label className="text-sm">
-            <span className="mb-1 block font-medium">Party</span>
-            <select value={partyId} onChange={(e) => setPartyId(Number(e.target.value) || '')} className="w-full rounded-md border border-gray-300 px-3 py-2">
+            <span className="mb-1 block font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Party</span>
+            <select value={partyId} onChange={(e) => setPartyId(Number(e.target.value) || '')} className="w-full rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20">
               <option value="">Select</option>
               {(partyType === 'buyer' ? buyers : providers).map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -869,10 +875,10 @@ function UtilitiesTab({
           </div>
         </div>
 
-        <div className="grid gap-4 rounded-lg border border-gray-200 p-4 md:grid-cols-4">
+        <div className="grid gap-4 rounded-cyber-lg border border-line bg-surface-low p-4 md:grid-cols-4">
           <label className="text-sm">
-            <span className="mb-1 block font-medium">Buyer Group</span>
-            <select value={bulkGroupId} onChange={(e) => setBulkGroupId(Number(e.target.value) || '')} className="w-full rounded-md border border-gray-300 px-3 py-2">
+            <span className="mb-1 block font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Buyer Group</span>
+            <select value={bulkGroupId} onChange={(e) => setBulkGroupId(Number(e.target.value) || '')} className="w-full rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20">
               <option value="">Select</option>
               {buyerGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
@@ -886,14 +892,14 @@ function UtilitiesTab({
 
       {userRole && isAdminOrOwner(userRole) ? (
         <section className="space-y-4">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-gray-700">Database Utilities</h2>
+          <h2 className="font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Database Utilities</h2>
 
-          <div className="rounded-lg border border-gray-200 p-4 space-y-3">
-            <p className="text-sm font-medium text-gray-900">Delete Multiple Memos</p>
+          <div className="space-y-3 rounded-cyber-lg border border-cyber-error/30 bg-cyber-error/5 p-4">
+            <p className="text-sm font-medium text-content">Delete Multiple Memos</p>
             <div className="grid gap-3 md:grid-cols-3">
               <label className="text-sm">
-                <span className="mb-1 block font-medium">Draw</span>
-                <select value={memoDrawId} onChange={(e) => setMemoDrawId(Number(e.target.value) || '')} className="w-full rounded-md border border-gray-300 px-3 py-2">
+                <span className="mb-1 block font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Draw</span>
+                <select value={memoDrawId} onChange={(e) => setMemoDrawId(Number(e.target.value) || '')} className="w-full rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20">
                   <option value="">Select draw</option>
                   {draws.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
@@ -905,7 +911,7 @@ function UtilitiesTab({
               </div>
             </div>
             {memoPreview.length > 0 ? (
-              <p className="text-sm text-gray-600">This will delete {memoPreview.length} memo(s): {memoPreview.join(', ')}</p>
+              <p className="text-sm text-cyber-warning">This will delete {memoPreview.length} memo(s): {memoPreview.join(', ')}</p>
             ) : null}
           </div>
 

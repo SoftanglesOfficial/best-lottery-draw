@@ -13,9 +13,9 @@ function formatTimestamp(value: Date | string | null | undefined) {
 }
 
 function actionClass(action: string) {
-  if (action === 'DRAW_LOCKED') return 'text-red-600 font-medium';
-  if (action === 'DRAW_UNLOCKED') return 'text-orange-600 font-medium';
-  return 'text-gray-600';
+  if (action === 'DRAW_LOCKED') return 'text-cyber-error font-medium';
+  if (action === 'DRAW_UNLOCKED') return 'text-cyber-warning font-medium';
+  return 'text-content-muted';
 }
 
 export default function AuditLogsPage() {
@@ -106,47 +106,47 @@ export default function AuditLogsPage() {
   if (!allowed) return null;
 
   return (
-    <div className="mx-auto max-w-6xl bg-white">
-      <h1 className="mb-4 text-2xl font-bold text-gray-900">Audit Logs</h1>
+    <div className="mx-auto max-w-7xl text-content">
+      <h1 className="mb-4 font-display text-2xl font-bold text-content">Audit Logs</h1>
 
-      <div className="mb-6 flex flex-wrap items-end gap-4 border-b bg-gray-50 p-4">
+      <div className="mb-6 flex flex-wrap items-end gap-4 rounded-cyber-lg border border-line bg-surface-raised p-4">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-gray-700">Entity Type</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Entity Type</span>
           <select
             value={entity}
             onChange={(event) => setEntity(event.target.value)}
-            className="rounded border border-gray-300 px-3 py-2"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
           >
             <option value="">All</option>
             <option value="draws">Draws</option>
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-gray-700">Date From</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Date From</span>
           <input
             type="date"
             value={dateFrom}
             onChange={(event) => setDateFrom(event.target.value)}
-            className="rounded border border-gray-300 px-3 py-2"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-gray-700">Date To</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Date To</span>
           <input
             type="date"
             value={dateTo}
             onChange={(event) => setDateTo(event.target.value)}
-            className="rounded border border-gray-300 px-3 py-2"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
           />
         </label>
         <label className="flex min-w-[180px] flex-col gap-1 text-sm">
-          <span className="font-medium text-gray-700">User</span>
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">User</span>
           <select
             value={userId}
             onChange={(event) =>
               setUserId(event.target.value ? Number(event.target.value) : '')
             }
-            className="rounded border border-gray-300 px-3 py-2"
+            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
           >
             <option value="">All users</option>
             {users.map((user) => (
@@ -158,7 +158,7 @@ export default function AuditLogsPage() {
         </label>
         <button
           type="button"
-          className="rounded border px-4 py-2 text-sm"
+          className="rounded-cyber border border-cyber bg-cyber px-4 py-2 text-sm font-semibold text-cyber-foreground transition-colors hover:bg-cyber-hover focus:outline-none focus:ring-2 focus:ring-cyber/30"
           onClick={() => void loadLogs()}
         >
           Apply Filters
@@ -166,7 +166,7 @@ export default function AuditLogsPage() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading audit logs…</p>
+        <p className="rounded-cyber border border-line bg-surface-raised px-4 py-8 text-center text-sm text-content-subtle">Loading audit logs…</p>
       ) : (
         <Table columns={columns} data={logs} rowKey={(row) => row.id} />
       )}

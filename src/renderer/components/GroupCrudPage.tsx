@@ -132,10 +132,18 @@ export default function GroupCrudPage<T extends GroupRecord>({
       header: 'Actions',
       render: (row) => (
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="text-indigo-600 hover:underline" onClick={() => openEdit(row)}>
+          <button
+            type="button"
+            className="rounded-cyber px-1.5 py-1 text-cyber-hover outline-none hover:bg-cyber/10 focus-visible:ring-2 focus-visible:ring-cyber/40"
+            onClick={() => openEdit(row)}
+          >
             Edit
           </button>
-          <button type="button" className="text-red-600 hover:underline" onClick={() => setDeleteTarget(row)}>
+          <button
+            type="button"
+            className="rounded-cyber px-1.5 py-1 text-cyber-error outline-none hover:bg-cyber-error/10 focus-visible:ring-2 focus-visible:ring-cyber-error/40"
+            onClick={() => setDeleteTarget(row)}
+          >
             Delete
           </button>
           {renderExtraActions?.(row)}
@@ -148,17 +156,19 @@ export default function GroupCrudPage<T extends GroupRecord>({
 
   if (companyId == null) {
     return (
-      <div>
-        <h1 className="mb-6 text-xl font-semibold text-gray-900">{title}</h1>
-        <p className="text-sm text-gray-500">Select an active company to manage {entityName}s.</p>
+      <div className="space-y-6">
+        <h1 className="font-display text-2xl font-bold text-content">{title}</h1>
+        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low px-6 py-12 text-center text-sm text-content-subtle">
+          Select an active company to manage {entityName}s.
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-bold text-content">{title}</h1>
         <Button type="button" onClick={openCreate}>
           New {entityName}
         </Button>
@@ -174,9 +184,9 @@ export default function GroupCrudPage<T extends GroupRecord>({
 
       {modalOpen ? (
         <Modal title={editing ? `Edit ${entityName}` : `New ${entityName}`} onClose={() => setModalOpen(false)}>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
-            <div className="mt-2 flex justify-end gap-3">
+            <div className="mt-2 flex flex-wrap justify-end gap-3 border-t border-line pt-4">
               <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>
                 Cancel
               </Button>

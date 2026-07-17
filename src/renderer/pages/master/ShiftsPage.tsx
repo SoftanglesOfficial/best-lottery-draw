@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { FullPageLoading } from '../../components/LoadingSpinner';
 import Modal from '../../components/Modal';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
@@ -154,10 +155,10 @@ export default function ShiftsPage() {
       header: 'Actions',
       render: (row) => (
         <div className="flex gap-2">
-          <button type="button" className="text-indigo-600 hover:underline" onClick={() => openEdit(row)}>
+          <button type="button" className="rounded-cyber px-1.5 py-1 text-cyber-hover outline-none hover:bg-cyber/10 focus-visible:ring-2 focus-visible:ring-cyber/40" onClick={() => openEdit(row)}>
             Edit
           </button>
-          <button type="button" className="text-red-600 hover:underline" onClick={() => setDeleteTarget(row)}>
+          <button type="button" className="rounded-cyber px-1.5 py-1 text-cyber-error outline-none hover:bg-cyber-error/10 focus-visible:ring-2 focus-visible:ring-cyber-error/40" onClick={() => setDeleteTarget(row)}>
             Delete
           </button>
         </div>
@@ -169,26 +170,28 @@ export default function ShiftsPage() {
 
   if (companyId == null) {
     return (
-      <div>
-        <h1 className="mb-6 text-xl font-semibold text-gray-900">Shifts</h1>
-        <p className="text-sm text-gray-500">Select an active company to manage shifts.</p>
+      <div className="space-y-6">
+        <h1 className="font-display text-2xl font-bold text-content">Shifts</h1>
+        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low px-6 py-12 text-center text-sm text-content-subtle">
+          Select an active company to manage shifts.
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Shifts</h1>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-bold text-content">Shifts</h1>
         <Button type="button" onClick={openCreate}>
           New Shift
         </Button>
       </div>
 
-      <label className="mb-4 flex max-w-xs flex-col gap-1">
-        <span className="text-sm font-medium text-gray-700">Shift Group</span>
+      <label className="flex max-w-xs flex-col gap-1 rounded-cyber-lg border border-line bg-surface-raised p-4">
+        <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Shift Group</span>
         <select
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
           value={selectedGroupId ?? ''}
           onChange={(e) => setSelectedGroupId(e.target.value ? Number(e.target.value) : null)}
         >
@@ -202,14 +205,14 @@ export default function ShiftsPage() {
       </label>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <FullPageLoading message="Loading shifts…" />
       ) : (
         <Table columns={columns} data={shifts} rowKey={(row) => row.id} />
       )}
 
       {modalOpen ? (
         <Modal title={editing ? 'Edit Shift' : 'New Shift'} onClose={() => setModalOpen(false)}>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Input
               label="Name"
               value={form.name}
@@ -217,9 +220,9 @@ export default function ShiftsPage() {
               required
             />
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Shift Group</span>
+              <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Shift Group</span>
               <select
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                 value={form.shiftGroupId || ''}
                 onChange={(e) => setForm({ ...form, shiftGroupId: Number(e.target.value) })}
                 required
@@ -232,7 +235,7 @@ export default function ShiftsPage() {
                 ))}
               </select>
             </label>
-            <div className="mt-2 flex justify-end gap-3">
+            <div className="mt-2 flex flex-wrap justify-end gap-3 border-t border-line pt-4">
               <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>
                 Cancel
               </Button>

@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Badge, { statusBadgeColor } from '../../components/Badge';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import { FullPageLoading } from '../../components/LoadingSpinner';
 import Modal from '../../components/Modal';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
@@ -32,7 +33,7 @@ function formatRate(value: string | null | undefined) {
 function buyerTypeBadge(type: BuyerType) {
   if (type === 'seller') {
     return (
-      <span className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-800">
+      <span className="inline-flex rounded-full border border-cyber/40 bg-cyber/10 px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-cyber-hover">
         Seller
       </span>
     );
@@ -216,13 +217,13 @@ export default function BuyersPage() {
       header: 'Actions',
       render: (row) => (
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="text-indigo-600 hover:underline" onClick={() => openEdit(row)}>
+          <button type="button" className="rounded-cyber px-1.5 py-1 text-cyber-hover outline-none hover:bg-cyber/10 focus-visible:ring-2 focus-visible:ring-cyber/40" onClick={() => openEdit(row)}>
             Edit
           </button>
-          <button type="button" className="text-red-600 hover:underline" onClick={() => setDeleteTarget(row)}>
+          <button type="button" className="rounded-cyber px-1.5 py-1 text-cyber-error outline-none hover:bg-cyber-error/10 focus-visible:ring-2 focus-visible:ring-cyber-error/40" onClick={() => setDeleteTarget(row)}>
             Delete
           </button>
-          <button type="button" className="text-indigo-600 hover:underline" onClick={() => handleToggleStatus(row)}>
+          <button type="button" className="rounded-cyber px-1.5 py-1 text-cyber-hover outline-none hover:bg-cyber/10 focus-visible:ring-2 focus-visible:ring-cyber/40" onClick={() => handleToggleStatus(row)}>
             {row.status === 'active' ? 'Lock' : 'Activate'}
           </button>
         </div>
@@ -234,31 +235,33 @@ export default function BuyersPage() {
 
   if (companyId == null) {
     return (
-      <div>
-        <h1 className="mb-6 text-xl font-semibold text-gray-900">Buyers</h1>
-        <p className="text-sm text-gray-500">Select an active company to manage buyers.</p>
+      <div className="space-y-6">
+        <h1 className="font-display text-2xl font-bold text-content">Buyers</h1>
+        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low px-6 py-12 text-center text-sm text-content-subtle">
+          Select an active company to manage buyers.
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Buyers</h1>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-bold text-content">Buyers</h1>
         <Button type="button" onClick={openCreate}>
           New Buyer
         </Button>
       </div>
 
       {loading ? (
-        <p className="text-sm text-gray-500">Loading…</p>
+        <FullPageLoading message="Loading buyers…" />
       ) : (
         <Table columns={columns} data={buyers} rowKey={(row) => row.id} />
       )}
 
       {modalOpen && form ? (
         <Modal title={editing ? 'Edit Buyer' : 'New Buyer'} onClose={() => setModalOpen(false)} wide>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Input
               label="Name"
               value={form.name}
@@ -266,9 +269,9 @@ export default function BuyersPage() {
               required
             />
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Type</span>
+              <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Type</span>
               <select
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                 value={form.type ?? 'stockist'}
                 onChange={(e) => setForm({ ...form, type: e.target.value as BuyerType })}
               >
@@ -277,9 +280,9 @@ export default function BuyersPage() {
               </select>
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Group</span>
+              <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Group</span>
               <select
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                 value={form.buyerGroupId || ''}
                 onChange={(e) => setForm({ ...form, buyerGroupId: Number(e.target.value) })}
                 required
@@ -317,9 +320,9 @@ export default function BuyersPage() {
               }
             />
             <label className="flex flex-col gap-1">
-              <span className="text-sm font-medium text-gray-700">Status</span>
+              <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Status</span>
               <select
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="w-full rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                 value={form.status ?? 'active'}
                 onChange={(e) => setForm({ ...form, status: e.target.value as EntityStatus })}
               >
@@ -338,7 +341,7 @@ export default function BuyersPage() {
               value={form.address ?? ''}
               onChange={(e) => setForm({ ...form, address: e.target.value })}
             />
-            <div className="mt-2 flex justify-end gap-3">
+            <div className="mt-2 flex flex-wrap justify-end gap-3 border-t border-line pt-4">
               <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>
                 Cancel
               </Button>
