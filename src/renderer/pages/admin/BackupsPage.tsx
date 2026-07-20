@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
-import { Button } from '../../components/ui';
+import { Button, PageHeader } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useAuth } from '../../lib/auth';
@@ -120,22 +120,26 @@ export default function BackupsPage() {
   if (!allowed) return null;
 
   return (
-    <div className="mx-auto max-w-6xl text-content">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-display text-2xl font-bold text-content">Backups</h1>
-        <div className="flex flex-wrap gap-3">
-          <Button onClick={() => void handleCreate()} disabled={creating || companyId == null}>
-            {creating ? 'Creating…' : 'Create Backup'}
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setConfirmRestore(true)}
-            disabled={restoring}
-          >
-            {restoring ? 'Restoring…' : 'Restore from Backup'}
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-4 text-content">
+      <PageHeader
+        eyebrow="Administration"
+        title="Backups"
+        subtitle="Create and restore company data backups."
+        actions={
+          <>
+            <Button onClick={() => void handleCreate()} disabled={creating || companyId == null}>
+              {creating ? 'Creating…' : 'Create Backup'}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setConfirmRestore(true)}
+              disabled={restoring}
+            >
+              {restoring ? 'Restoring…' : 'Restore from Backup'}
+            </Button>
+          </>
+        }
+      />
 
       {loading ? (
         <p className="rounded-cyber border border-line bg-surface-raised px-4 py-8 text-center text-sm text-content-subtle">Loading backups…</p>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
+import { PageHeader } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
@@ -106,10 +107,14 @@ export default function AuditLogsPage() {
   if (!allowed) return null;
 
   return (
-    <div className="mx-auto max-w-7xl text-content">
-      <h1 className="mb-4 font-display text-2xl font-bold text-content">Audit Logs</h1>
+    <div className="space-y-4 text-content">
+      <PageHeader
+        eyebrow="Administration"
+        title="Audit Logs"
+        subtitle="Review user activity and system changes."
+      />
 
-      <div className="mb-6 flex flex-wrap items-end gap-4 rounded-cyber-lg border border-line bg-surface-raised p-4">
+      <div className="flex flex-wrap items-end gap-4 rounded-cyber-lg border border-line bg-surface-raised p-4">
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Entity Type</span>
           <select

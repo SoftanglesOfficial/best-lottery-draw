@@ -3,7 +3,7 @@ import Badge, { statusBadgeColor } from '../../components/Badge';
 import Modal from '../../components/Modal';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, PageHeader } from '../../components/ui';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
 import type { CompanyInput, CompanyRecord, CompanyStatus, UserRecord } from '../../../shared/types';
@@ -17,7 +17,7 @@ const EMPTY_FORM: CompanyInput = {
 };
 
 export default function CompaniesPage() {
-  const allowed = useRoleGuard(['admin', 'owner']);
+  const allowed = useRoleGuard(['admin']);
   const { showToast } = useToast();
   const [companies, setCompanies] = useState<CompanyRecord[]>([]);
   const [owners, setOwners] = useState<UserRecord[]>([]);
@@ -185,13 +185,17 @@ export default function CompaniesPage() {
   if (!allowed) return null;
 
   return (
-    <div className="mx-auto max-w-7xl text-content">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-display text-2xl font-bold text-content">Companies</h1>
-        <Button type="button" onClick={openCreate}>
-          New Company
-        </Button>
-      </div>
+    <div className="space-y-4 text-content">
+      <PageHeader
+        eyebrow="Administration"
+        title="Companies"
+        subtitle="Manage company ownership, status, and billing access."
+        actions={
+          <Button type="button" onClick={openCreate}>
+            New Company
+          </Button>
+        }
+      />
 
       {loading ? (
         <p className="rounded-cyber border border-line bg-surface-raised px-4 py-8 text-center text-sm text-content-subtle">Loading companies…</p>

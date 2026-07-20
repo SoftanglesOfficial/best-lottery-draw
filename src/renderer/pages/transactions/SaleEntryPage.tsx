@@ -1,5 +1,6 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import LegacyTransactionShell from '../../components/transactions/LegacyTransactionShell';
 import SaleRangeTable, {
   emptySaleRangeRow,
   saleRangesToTicketData,
@@ -9,7 +10,7 @@ import SaleRangeTable, {
   type SaleRangeRow,
 } from '../../components/transactions/SaleRangeTable';
 import { useToast } from '../../components/Toast';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, PageHeader } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
@@ -22,6 +23,8 @@ type SaleEntryOptions = {
   saveLabel?: string;
   type?: 'sale' | 'sale_return' | 'booking';
 };
+
+const LEGACY_TYPES = new Set<SaleEntryOptions['type']>(['sale', 'sale_return']);
 
 function isSameDay(a: Date | string, dateStr: string) {
   const date = a instanceof Date ? a : new Date(a);
@@ -55,7 +58,10 @@ export default function SaleEntryPage({
     net: number;
   } | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [activeRowIndex, setActiveRowIndex] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
 
+  const useLegacyShell = LEGACY_TYPES.has(type);
   const defaultRate = useMemo(() => {
     const buyer = buyers.find((entry) => entry.id === buyerId);
     return buyer?.saleRate ? String(buyer.saleRate) : '';
@@ -70,6 +76,7 @@ export default function SaleEntryPage({
   );
 
   const selectedDraw = draws.find((draw) => draw.id === drawId) ?? null;
+  const selectedBuyer = buyers.find((buyer) => buyer.id === buyerId) ?? null;
   const drawPastClose =
     type === 'sale' && selectedDraw != null && isDrawPastCloseTime(selectedDraw, now);
 
@@ -122,9 +129,62 @@ export default function SaleEntryPage({
   }, [allowed, load]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 30_000);
+    if (!useLegacyShell) return;
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [useLegacyShell]);
+
+  const deleteActiveRow = useCallback(() => {
+    if (rows.length <= 1) {
+      setRows([emptySaleRangeRow(defaultRate)]);
+      setActiveRowIndex(0);
+      return;
+    }
+    const next = rows.filter((_, index) => index !== activeRowIndex);
+    setRows(next);
+    setActiveRowIndex(Math.max(0, activeRowIndex - 1));
+  }, [activeRowIndex, defaultRate, rows]);
+
+  const clearWorksheet = useCallback(() => {
+    setRows([emptySaleRangeRow(defaultRate)]);
+    setActiveRowIndex(0);
+  }, [defaultRate]);
+
+  useEffect(() => {
+    if (!useLegacyShell) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'F2') {
+        event.preventDefault();
+        formRef.current?.requestSubmit();
+      }
+      if (event.key === 'F3') {
+        event.preventDefault();
+        deleteActiveRow();
+      }
+      if (event.key === 'F6' && type === 'sale_return') {
+        event.preventDefault();
+        navigate('/transactions/sale-entry');
+      }
+      if (event.key === 'F7') {
+        event.preventDefault();
+        navigate('/transactions/ticket-search');
+      }
+      if (event.key === 'F8') {
+        event.preventDefault();
+        clearWorksheet();
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        navigate(-1);
+      }
+      if (event.key === 'F10' || event.key === 'F12') {
+        event.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [useLegacyShell, type, deleteActiveRow, clearWorksheet, navigate]);
 
   useEffect(() => {
     void refreshBuyerSummary();
@@ -160,7 +220,7 @@ export default function SaleEntryPage({
     }
 
     const ticketCount = totalSaleRangeQty(rows);
-    const amount = type === 'booking' ? null : totalSaleRangeAmount(rows);
+    const amount = totalSaleRangeAmount(rows);
 
     if (type === 'sale_return') {
       if (!buyerSummary || buyerSummary.totalSold <= 0) {
@@ -176,7 +236,7 @@ export default function SaleEntryPage({
     setSaving(true);
     try {
       const result = await api.transactionsCreate({
-        type,
+        type: type === 'booking' ? 'booking' : type,
         companyId,
         userId: user.id,
         drawId,
@@ -204,181 +264,107 @@ export default function SaleEntryPage({
 
   if (!allowed) return null;
 
-  if (type === 'sale') {
+  if (useLegacyShell) {
     const totalQty = totalSaleRangeQty(rows);
     const totalAmount = totalSaleRangeAmount(rows);
+    const isReturn = type === 'sale_return';
 
     return (
-      <form
-        onSubmit={handleSubmit}
-        className="flex h-full min-h-[720px] flex-col overflow-hidden bg-[#06154d] font-sans text-white"
-      >
-        <header className="flex h-16 shrink-0 items-center justify-between border-b-2 border-[#78a5f2] bg-gradient-to-b from-[#2462d4] to-[#0e3d9e] px-5 shadow-[inset_0_-1px_0_#082969]">
-          <div className="flex items-center gap-4">
-            <div className="border-r border-[#75a2ef] pr-4">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#c8dcff]">
-                Best-12 Morning Booking
-              </p>
-              <h1 className="text-xl font-extrabold uppercase tracking-[0.04em] text-white">
-                Sales Entry
-              </h1>
+      <LegacyTransactionShell
+        formRef={formRef}
+        pageTitle={isReturn ? 'Sale Return' : 'Add Sale'}
+        centerTitle={isReturn ? 'Sale Return' : 'Sales Entry'}
+        contextLabel={
+          selectedBuyer
+            ? `${selectedBuyer.name} (Sr ${activeRowIndex + 1})`
+            : isReturn
+              ? 'Return Entry'
+              : 'Sales Entry'
+        }
+        accent={isReturn ? 'orange' : 'blue'}
+        memoId={memoId}
+        entryDate={entryDate}
+        onEntryDateChange={setEntryDate}
+        buyerId={buyerId}
+        onBuyerIdChange={setBuyerId}
+        buyers={buyers}
+        drawId={drawId}
+        onDrawIdChange={setDrawId}
+        draws={todayOpenDraws}
+        alerts={
+          drawPastClose && selectedDraw ? (
+            <div
+              className="shrink-0 border-b border-[#ffcf45] bg-[#806000] px-4 py-2 text-xs font-semibold text-white"
+              role="alert"
+            >
+              Warning: This draw closed at {formatCloseTimeLabel(selectedDraw.closeTime)} on{' '}
+              {new Date(selectedDraw.drawDate).toLocaleDateString('en-GB')}. You are entering sales
+              after the close time.
             </div>
-            <p className="hidden text-xs font-semibold text-[#d9e7ff] xl:block">
-              Range Sales Worksheet
-            </p>
-          </div>
-          <nav className="flex items-center gap-2" aria-label="Sales entry navigation">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="border border-[#9bbcf5] bg-[#123b92] px-4 py-1.5 text-xs font-bold uppercase text-white shadow-sm hover:bg-[#1a4aaa] focus:ring-2 focus:ring-[#ffd447]"
+          ) : null
+        }
+        statusBanner={
+          isReturn && buyerSummary ? (
+            <div
+              className="shrink-0 border-b border-[#ff8f63] bg-[#7c2d12] px-4 py-2 font-mono text-xs text-[#ffedd5]"
+              role="status"
             >
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/menu')}
-              className="border border-[#9bbcf5] bg-[#123b92] px-4 py-1.5 text-xs font-bold uppercase text-white shadow-sm hover:bg-[#1a4aaa] focus:ring-2 focus:ring-[#ffd447]"
-            >
-              Menu
-            </button>
-          </nav>
-        </header>
-
-        <section
-          className="shrink-0 border-b border-[#5e8ddd] bg-[#0b2e83] px-4 py-2"
-          aria-label="Sale details"
-        >
-          <div className="grid grid-cols-[minmax(220px,1.5fr)_minmax(240px,1.7fr)_180px_140px] gap-3">
-            <label className="flex min-w-0 items-center gap-2">
-              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
-                Draw *
-              </span>
-              <select
-                value={drawId ?? ''}
-                onChange={(event) => setDrawId(Number(event.target.value) || null)}
-                className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
-                required
-              >
-                <option value="">Select draw</option>
-                {todayOpenDraws.map((draw) => (
-                  <option key={draw.id} value={draw.id}>
-                    {draw.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex min-w-0 items-center gap-2">
-              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
-                Sale To *
-              </span>
-              <select
-                value={buyerId ?? ''}
-                onChange={(event) => setBuyerId(Number(event.target.value) || null)}
-                className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
-                required
-              >
-                <option value="">Select buyer</option>
-                {buyers.map((buyer) => (
-                  <option key={buyer.id} value={buyer.id}>
-                    {buyer.name} ({buyer.type === 'stockist' ? 'Stocker' : 'Seller'})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
-                Date
-              </span>
-              <input
-                type="date"
-                value={entryDate}
-                onChange={(event) => setEntryDate(event.target.value)}
-                className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
-              />
-            </label>
-            <label className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
-                Memo ID
-              </span>
-              <input
-                value={memoId ?? ''}
-                readOnly
-                className="h-8 min-w-0 flex-1 border border-[#6f96d7] bg-[#bcd1f1] px-2 font-mono text-xs font-bold text-[#15366f]"
-              />
-            </label>
-          </div>
-        </section>
-
-        {drawPastClose && selectedDraw ? (
-          <div
-            className="shrink-0 border-b border-[#ffcf45] bg-[#806000] px-4 py-2 text-xs font-semibold text-white"
-            role="alert"
-          >
-            Warning: This draw closed at {formatCloseTimeLabel(selectedDraw.closeTime)} on{' '}
-            {new Date(selectedDraw.drawDate).toLocaleDateString('en-GB')}. You are entering sales
-            after the close time.
-          </div>
-        ) : null}
-
-        <section
-          className="flex min-h-0 flex-1 flex-col bg-[#06154d] p-3"
-          aria-label="Sale ticket ranges"
-        >
-          <div className="flex shrink-0 items-center justify-between border border-b-0 border-[#4f78c4] bg-[#0d327f] px-3 py-1.5">
-            <h2 className="text-xs font-bold uppercase tracking-[0.12em] text-white">
-              Sale Range Spreadsheet
-            </h2>
-            <span className="font-mono text-[10px] uppercase text-[#bad3ff]">
-              Active memo {memoId ?? '—'}
-            </span>
-          </div>
-          <SaleRangeTable
-            rows={rows}
-            onChange={setRows}
-            items={items}
-            defaultRate={defaultRate}
-            variant="blueSpreadsheet"
-          />
-        </section>
-
-        <div className="shrink-0 border-t border-[#6d98e4] bg-[#08266f]">
-          <div className="grid h-9 grid-cols-[1fr_220px_220px] items-center border-b border-[#416db9] px-4 text-xs">
-            <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-[#bcd5ff]">
-              Ready · Enter on Amount adds row · F5 deletes current row
-            </p>
-            <p className="border-l border-[#416db9] px-4 text-right font-bold uppercase">
-              Total Qty <span className="ml-3 font-mono text-[#ffe16a]">{totalQty}</span>
-            </p>
-            <p className="border-l border-[#416db9] px-4 text-right font-bold uppercase">
-              Net Amount{' '}
-              <span className="ml-3 font-mono text-[#ffe16a]">{totalAmount.toFixed(2)}</span>
-            </p>
-          </div>
-          <div className="flex h-12 items-center justify-between bg-[#0e3b99] px-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#bed5ff]">
-              {rows.length} worksheet row{rows.length === 1 ? '' : 's'}
-            </p>
-            <button
-              type="submit"
-              disabled={saving || companyId == null}
-              className="min-w-36 border-2 border-[#ffdf63] bg-[#f1b900] px-6 py-2 text-xs font-extrabold uppercase tracking-wide text-[#10275e] shadow-[0_2px_0_#745600] hover:bg-[#ffd447] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? 'Saving…' : saveLabel}
-            </button>
-          </div>
-        </div>
-      </form>
+              Sold: {buyerSummary.totalSold} | Returned: {buyerSummary.totalReturned} | Available:{' '}
+              {buyerSummary.net}
+            </div>
+          ) : null
+        }
+        rowCount={rows.length}
+        activeRowIndex={activeRowIndex}
+        totalQty={totalQty}
+        totalAmount={totalAmount}
+        saving={saving}
+        saveLabel={saving ? 'Saving…' : 'Save (F2)'}
+        disabled={companyId == null}
+        printShortcut={isReturn ? 'F10' : 'F12'}
+        shortcuts={
+          isReturn
+            ? [
+                'F2 Save',
+                'F3 Delete Row',
+                'F5 Delete Row',
+                'F6 Make Sale',
+                'F7 Search',
+                'F8 Clear',
+                'Esc Exit',
+                'F10 Print',
+              ]
+            : undefined
+        }
+        extraActions={
+          isReturn
+            ? [{ label: 'Make Sale (F6)', onClick: () => navigate('/transactions/sale-entry') }]
+            : []
+        }
+        onSubmit={handleSubmit}
+        onDeleteRow={deleteActiveRow}
+        onClear={clearWorksheet}
+        onSearch={() => navigate('/transactions/ticket-search')}
+      >
+        <SaleRangeTable
+          rows={rows}
+          onChange={setRows}
+          items={items}
+          defaultRate={defaultRate}
+          variant="blueSpreadsheet"
+          onActiveRowChange={setActiveRowIndex}
+        />
+      </LegacyTransactionShell>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Sales workflow</p>
-        <h1 className="font-display text-2xl font-bold text-content">{title}</h1>
-        <p className="mt-1 text-sm text-content-subtle">Enter buyer, draw, lottery, and ticket range details.</p>
-      </div>
+      <PageHeader
+        eyebrow="Sales workflow"
+        title={title}
+        subtitle="Enter buyer, draw, lottery, and ticket range details."
+      />
 
       {drawPastClose && selectedDraw ? (
         <div className="rounded-cyber border border-cyber-warning/50 bg-cyber-warning/10 px-4 py-3 text-sm text-cyber-warning" role="alert">

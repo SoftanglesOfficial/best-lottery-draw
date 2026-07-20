@@ -5,7 +5,7 @@ import { FullPageLoading, InlineSpinner } from './LoadingSpinner';
 import Modal from './Modal';
 import Table, { type TableColumn } from './Table';
 import { useToast } from './Toast';
-import { Button, Input } from './ui';
+import { Button, Input, PageHeader } from './ui';
 import { useActiveCompany } from '../lib/useActiveCompany';
 import { useRoleGuard } from '../lib/useRoleGuard';
 
@@ -156,8 +156,12 @@ export default function GroupCrudPage<T extends GroupRecord>({
 
   if (companyId == null) {
     return (
-      <div className="space-y-6">
-        <h1 className="font-display text-2xl font-bold text-content">{title}</h1>
+      <div className="space-y-4">
+        <PageHeader
+          eyebrow="Master data"
+          title={title}
+          subtitle={`Create and manage ${entityName.toLowerCase()} records.`}
+        />
         <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low px-6 py-12 text-center text-sm text-content-subtle">
           Select an active company to manage {entityName}s.
         </div>
@@ -166,13 +170,17 @@ export default function GroupCrudPage<T extends GroupRecord>({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-bold text-content">{title}</h1>
-        <Button type="button" onClick={openCreate}>
-          New {entityName}
-        </Button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        eyebrow="Master data"
+        title={title}
+        subtitle={`Create and manage ${entityName.toLowerCase()} records.`}
+        actions={
+          <Button type="button" onClick={openCreate}>
+            New {entityName}
+          </Button>
+        }
+      />
 
       {loading ? (
         <FullPageLoading message={`Loading ${entityName}s…`} />

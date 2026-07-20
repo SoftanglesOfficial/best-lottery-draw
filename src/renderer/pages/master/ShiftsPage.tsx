@@ -5,7 +5,7 @@ import { FullPageLoading } from '../../components/LoadingSpinner';
 import Modal from '../../components/Modal';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, PageHeader } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
@@ -170,8 +170,8 @@ export default function ShiftsPage() {
 
   if (companyId == null) {
     return (
-      <div className="space-y-6">
-        <h1 className="font-display text-2xl font-bold text-content">Shifts</h1>
+      <div className="space-y-4">
+        <PageHeader eyebrow="Master data" title="Shifts" subtitle="Manage shifts within each shift group." />
         <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low px-6 py-12 text-center text-sm text-content-subtle">
           Select an active company to manage shifts.
         </div>
@@ -180,13 +180,17 @@ export default function ShiftsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-bold text-content">Shifts</h1>
-        <Button type="button" onClick={openCreate}>
-          New Shift
-        </Button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        eyebrow="Master data"
+        title="Shifts"
+        subtitle="Manage shifts within each shift group."
+        actions={
+          <Button type="button" onClick={openCreate}>
+            New Shift
+          </Button>
+        }
+      />
 
       <label className="flex max-w-xs flex-col gap-1 rounded-cyber-lg border border-line bg-surface-raised p-4">
         <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Shift Group</span>

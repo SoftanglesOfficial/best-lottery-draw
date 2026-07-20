@@ -3,6 +3,7 @@ import ConfirmDialog from '../ConfirmDialog';
 import EmptyState from '../EmptyState';
 import { FullPageLoading } from '../LoadingSpinner';
 import { useToast } from '../Toast';
+import { PageHeader } from '../ui';
 import { useAuth } from '../../lib/auth';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
@@ -156,11 +157,11 @@ export default function TransactionListPage({
 
   return (
     <div className="space-y-4">
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Transaction register</p>
-        <h1 className="font-display text-2xl font-bold text-content">{title}</h1>
-        <p className="mt-1 text-sm text-content-subtle">Filter, inspect, and manage transaction records.</p>
-      </div>
+      <PageHeader
+        eyebrow="Transaction register"
+        title={title}
+        subtitle="Filter, inspect, and manage transaction records."
+      />
 
       <section className="flex flex-wrap gap-3 rounded-cyber-lg border border-line bg-surface-raised p-4" aria-label="Transaction filters">
         <label className="flex flex-col gap-1">

@@ -5,7 +5,7 @@ import { FullPageLoading } from '../../components/LoadingSpinner';
 import Modal from '../../components/Modal';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, PageHeader } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { ROLE_LABELS } from '../../lib/roles';
 import { useRoleGuard } from '../../lib/useRoleGuard';
@@ -167,13 +167,17 @@ export default function UsersPage() {
   if (!allowed) return null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-bold text-content">Users</h1>
-        <Button type="button" onClick={openCreate}>
-          New User
-        </Button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        eyebrow="Master data"
+        title="Users"
+        subtitle="Manage operational users and company assignments."
+        actions={
+          <Button type="button" onClick={openCreate}>
+            New User
+          </Button>
+        }
+      />
 
       {loading ? (
         <FullPageLoading message="Loading users…" />

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, PageHeader } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
@@ -210,16 +210,16 @@ export default function WinningTicketsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Winner register</p>
-          <h1 className="font-display text-2xl font-bold text-content">Winning Tickets</h1>
-          <p className="mt-1 text-sm text-content-subtle">Find, review, and manage winners for a draw.</p>
-        </div>
-        <Button onClick={() => void handleFindWinners()} disabled={finding}>
-          {finding ? 'Finding…' : 'Find Winners'}
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Winner register"
+        title="Winning Tickets"
+        subtitle="Find, review, and manage winners for a draw."
+        actions={
+          <Button onClick={() => void handleFindWinners()} disabled={finding}>
+            {finding ? 'Finding…' : 'Find Winners'}
+          </Button>
+        }
+      />
 
       <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
         <label className="flex max-w-md flex-col gap-1">

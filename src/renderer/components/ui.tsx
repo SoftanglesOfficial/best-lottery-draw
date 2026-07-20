@@ -2,6 +2,28 @@ import { useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type Rea
 import { Eye, EyeOff } from 'lucide-react';
 import { useDbConnection } from '../lib/ConnectionContext';
 
+type PageHeaderProps = {
+  eyebrow: ReactNode;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  actions?: ReactNode;
+};
+
+export function PageHeader({ eyebrow, title, subtitle, actions }: PageHeaderProps) {
+  return (
+    <header className="flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <p className="font-mono text-[10px] font-medium uppercase tracking-[0.08em] text-content-subtle">
+          {eyebrow}
+        </p>
+        <h1 className="font-display text-2xl font-bold text-content">{title}</h1>
+        {subtitle ? <p className="mt-1 text-sm text-content-muted">{subtitle}</p> : null}
+      </div>
+      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+    </header>
+  );
+}
+
 type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   label: string;
 };

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { rangeCount } from '../../lib/transactionDisplay';
 import { isAtLeastRole } from '../../lib/roles';
 import { useAuth } from '../../lib/auth';
@@ -104,11 +104,16 @@ export default function SaleRangeTable({
   variant = 'default',
 }: SaleRangeTableProps) {
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const [activeRowIndex, setActiveRowIndex] = useState(0);
   const { user } = useAuth();
   const canEditRate = user ? isAtLeastRole(user.role, 'manager') : false;
   const blueSpreadsheet = variant === 'blueSpreadsheet';
   const blueField =
-    'h-7 w-full border border-[#315aa8] bg-[#f7fbff] px-2 font-mono text-xs text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]';
+    'h-7 w-full border border-[#315aa8] bg-[#f7fbff] px-1.5 font-mono text-xs text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]';
+  const setActiveRow = (index: number) => {
+    setActiveRowIndex(index);
+    onActiveRowChange?.(index);
+  };
 
   const updateRow = (index: number, patch: Partial<SaleRangeRow>) => {
     const next = rows.map((row, i) => (i === index ? { ...row, ...patch } : row));
@@ -125,11 +130,13 @@ export default function SaleRangeTable({
   const removeRow = (index: number) => {
     if (rows.length <= 1) {
       onChange([emptySaleRangeRow(defaultRate)]);
+      setActiveRow(0);
       return;
     }
     const next = rows.filter((_, i) => i !== index);
     onChange(next);
     const focusIndex = Math.max(0, index - 1);
+    setActiveRow(focusIndex);
     setTimeout(() => inputRefs.current[focusIndex * 4]?.focus(), 0);
   };
 
@@ -148,29 +155,44 @@ export default function SaleRangeTable({
     if (rows.length === 0) onChange([emptySaleRangeRow(defaultRate)]);
   }, [rows.length, onChange, defaultRate]);
 
+  useEffect(() => {
+    setActiveRowIndex((current) => Math.min(current, Math.max(0, rows.length - 1)));
+  }, [rows.length]);
+
   return (
     <div className={blueSpreadsheet ? 'flex h-full min-h-0 flex-col' : undefined}>
       <div className={blueSpreadsheet ? 'min-h-0 flex-1 overflow-auto border border-[#3f68ba] bg-[#071b5d]' : 'max-w-full overflow-x-auto rounded-cyber border border-line'}>
-      <table className={blueSpreadsheet ? 'w-full min-w-[980px] border-collapse text-xs' : 'min-w-[980px] w-full text-sm'}>
-        <thead className={blueSpreadsheet ? 'sticky top-0 z-10 bg-[#1748ad]' : 'bg-surface-high'}>
-          <tr className={blueSpreadsheet ? 'border-b border-[#78a4ec] text-left text-white' : 'border-b border-line text-left'}>
-            <th className={blueSpreadsheet ? 'w-12 border-r border-[#4f78c4] px-2 py-1.5 text-center font-semibold uppercase' : 'w-12 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Sr No</th>
-            <th className={blueSpreadsheet ? 'min-w-[180px] border-r border-[#4f78c4] px-2 py-1.5 font-semibold uppercase' : 'min-w-[140px] px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Lottery Type</th>
-            <th className={blueSpreadsheet ? 'w-24 border-r border-[#4f78c4] px-2 py-1.5 font-semibold uppercase' : 'w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Code</th>
-            <th className={blueSpreadsheet ? 'w-28 border-r border-[#4f78c4] px-2 py-1.5 font-semibold uppercase' : 'w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>From</th>
-            <th className={blueSpreadsheet ? 'w-28 border-r border-[#4f78c4] px-2 py-1.5 font-semibold uppercase' : 'w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>To</th>
-            <th className={blueSpreadsheet ? 'w-20 border-r border-[#4f78c4] px-2 py-1.5 text-right font-semibold uppercase' : 'w-16 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Qty</th>
-            <th className={blueSpreadsheet ? 'w-24 border-r border-[#4f78c4] px-2 py-1.5 text-right font-semibold uppercase' : 'w-20 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Rate</th>
-            <th className={blueSpreadsheet ? 'w-28 border-r border-[#4f78c4] px-2 py-1.5 text-right font-semibold uppercase' : 'w-24 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Amount</th>
-            <th className={blueSpreadsheet ? 'w-20 px-2 py-1.5 text-center font-semibold uppercase' : 'w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Actions</th>
+      <table className={blueSpreadsheet ? 'w-full min-w-[980px] table-fixed border-collapse text-xs' : 'min-w-[980px] w-full text-sm'}>
+        <thead className={blueSpreadsheet ? 'sticky top-0 z-10 bg-white' : 'bg-surface-high'}>
+          <tr className={blueSpreadsheet ? 'border-b-2 border-[#071b4d] text-left text-[#071b4d]' : 'border-b border-line text-left'}>
+            <th className={blueSpreadsheet ? 'w-10 border-r border-[#071b4d] px-1 py-1 text-center text-[10px] font-bold uppercase' : 'w-12 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Sr</th>
+            <th className={blueSpreadsheet ? 'w-[22%] border-r border-[#071b4d] px-1 py-1 text-[10px] font-bold uppercase' : 'min-w-[140px] px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Item</th>
+            <th className={blueSpreadsheet ? 'w-14 border-r border-[#071b4d] px-1 py-1 text-[10px] font-bold uppercase' : 'w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Code</th>
+            <th className={blueSpreadsheet ? 'w-[11%] border-r border-[#071b4d] px-1 py-1 text-[10px] font-bold uppercase' : 'w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>From</th>
+            <th className={blueSpreadsheet ? 'w-[11%] border-r border-[#071b4d] px-1 py-1 text-[10px] font-bold uppercase' : 'w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>To</th>
+            <th className={blueSpreadsheet ? 'w-12 border-r border-[#071b4d] px-1 py-1 text-right text-[10px] font-bold uppercase' : 'w-16 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Qty</th>
+            <th className={blueSpreadsheet ? 'w-14 border-r border-[#071b4d] px-1 py-1 text-right text-[10px] font-bold uppercase' : 'w-20 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Rate</th>
+            <th className={blueSpreadsheet ? 'w-[11%] border-r border-[#071b4d] px-1 py-1 text-right text-[10px] font-bold uppercase' : 'w-24 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Amount</th>
+            <th className={blueSpreadsheet ? 'w-12 px-1 py-1 text-center text-[10px] font-bold uppercase' : 'w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Del</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
           {rows.map((row, index) => {
             const qty = rowQty(row);
             const amount = rowAmount(row);
+            const isActive = blueSpreadsheet && activeRowIndex === index;
+            const rowBg = blueSpreadsheet
+              ? isActive
+                ? 'bg-[#e85d04] text-white'
+                : index % 2 === 0
+                  ? 'bg-[#dceaff] text-[#071b4d]'
+                  : 'bg-[#c9dcfb] text-[#071b4d]'
+              : '';
+            const activeField = isActive
+              ? 'h-7 w-full border border-[#ffd447] bg-white px-1.5 font-mono text-xs text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]'
+              : blueField;
             return (
-              <tr key={index} className={blueSpreadsheet ? `${index % 2 === 0 ? 'bg-[#dceaff]' : 'bg-[#c9dcfb]'} border-b border-[#83a5da] text-[#071b4d]` : 'bg-surface-raised hover:bg-surface-high'}>
+              <tr key={index} className={blueSpreadsheet ? `${rowBg} border-b border-[#83a5da]` : 'bg-surface-raised hover:bg-surface-high'}>
                 <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-2 py-1 text-center font-mono font-bold' : 'px-2 py-2 font-mono text-content-subtle'}>{index + 1}</td>
                 <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-2 py-2'}>
                   <select
@@ -178,8 +200,8 @@ export default function SaleRangeTable({
                     onChange={(event) =>
                       handleItemChange(index, Number(event.target.value) || null)
                     }
-                    onFocus={() => onActiveRowChange?.(index)}
-                    className={blueSpreadsheet ? blueField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
+                    onFocus={() => setActiveRow(index)}
+                    className={blueSpreadsheet ? activeField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
                     aria-label={`Row ${index + 1} lottery type`}
                   >
                     <option value="">Select item</option>
@@ -194,8 +216,8 @@ export default function SaleRangeTable({
                   <input
                     value={row.code}
                     onChange={(event) => updateRow(index, { code: event.target.value })}
-                    onFocus={() => onActiveRowChange?.(index)}
-                    className={blueSpreadsheet ? blueField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
+                    onFocus={() => setActiveRow(index)}
+                    className={blueSpreadsheet ? activeField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
                     aria-label={`Row ${index + 1} item code`}
                   />
                 </td>
@@ -210,8 +232,8 @@ export default function SaleRangeTable({
                         from: event.target.value.replace(/\D/g, '').slice(0, 5),
                       })
                     }
-                    onFocus={() => onActiveRowChange?.(index)}
-                    className={blueSpreadsheet ? blueField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
+                    onFocus={() => setActiveRow(index)}
+                    className={blueSpreadsheet ? activeField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
                     inputMode="numeric"
                     aria-label={`Row ${index + 1} from ticket`}
                   />
@@ -227,8 +249,8 @@ export default function SaleRangeTable({
                         to: event.target.value.replace(/\D/g, '').slice(0, 5),
                       })
                     }
-                    onFocus={() => onActiveRowChange?.(index)}
-                    className={blueSpreadsheet ? blueField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
+                    onFocus={() => setActiveRow(index)}
+                    className={blueSpreadsheet ? activeField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
                     inputMode="numeric"
                     aria-label={`Row ${index + 1} to ticket`}
                   />
@@ -245,9 +267,13 @@ export default function SaleRangeTable({
                         rate: event.target.value.replace(/[^\d.]/g, ''),
                       })
                     }
-                    onFocus={() => onActiveRowChange?.(index)}
+                    onFocus={() => setActiveRow(index)}
                     readOnly={!canEditRate}
-                    className={blueSpreadsheet ? `${blueField} ${!canEditRate ? 'bg-[#b8cbed] text-[#33517f]' : ''}` : `w-full rounded-cyber border border-line-control px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20 ${!canEditRate ? 'bg-surface-high text-content-subtle' : 'bg-canvas'}`}
+                    className={
+                      blueSpreadsheet
+                        ? `${activeField} ${!canEditRate ? 'bg-[#b8cbed] text-[#33517f]' : ''}`
+                        : `w-full rounded-cyber border border-line-control px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20 ${!canEditRate ? 'bg-surface-high text-content-subtle' : 'bg-canvas'}`
+                    }
                     inputMode="decimal"
                     aria-label={`Row ${index + 1} rate`}
                   />
@@ -260,7 +286,7 @@ export default function SaleRangeTable({
                     value={amount ? amount.toFixed(2) : ''}
                     readOnly
                     tabIndex={0}
-                    onFocus={() => onActiveRowChange?.(index)}
+                    onFocus={() => setActiveRow(index)}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') {
                         event.preventDefault();
@@ -271,17 +297,21 @@ export default function SaleRangeTable({
                         removeRow(index);
                       }
                     }}
-                    className={blueSpreadsheet ? `${blueField} bg-[#aec7ef] font-bold` : 'w-full rounded-cyber border border-line bg-surface-high px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
+                    className={
+                      blueSpreadsheet
+                        ? `${activeField} font-bold ${isActive ? 'bg-[#fff4e6]' : 'bg-[#aec7ef]'}`
+                        : 'w-full rounded-cyber border border-line bg-surface-high px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'
+                    }
                     aria-label={`Row ${index + 1} amount`}
                   />
                 </td>
                 <td className={blueSpreadsheet ? 'px-1.5 py-1 text-center' : 'px-2 py-2'}>
                   <button
                     type="button"
-                    className={blueSpreadsheet ? 'border border-[#9e1d32] bg-[#c93149] px-2 py-1 text-[10px] font-bold uppercase text-white hover:bg-[#a91f35] focus:outline-none focus:ring-2 focus:ring-[#ffd447]' : 'rounded-cyber px-1.5 py-1 text-cyber-error hover:bg-cyber-error/10 focus:outline-none focus:ring-2 focus:ring-cyber-error/30'}
+                    className={blueSpreadsheet ? 'cursor-pointer px-1 py-0.5 text-[10px] font-bold uppercase text-[#9e1d32] hover:text-[#c93149] focus:outline-none focus:ring-1 focus:ring-[#ffd447]' : 'rounded-cyber px-1.5 py-1 text-cyber-error hover:bg-cyber-error/10 focus:outline-none focus:ring-2 focus:ring-cyber-error/30'}
                     onClick={() => removeRow(index)}
                   >
-                    Delete
+                    ×
                   </button>
                 </td>
               </tr>
@@ -303,7 +333,11 @@ export default function SaleRangeTable({
         </tfoot>
       </table>
       </div>
-      <p className={blueSpreadsheet ? 'bg-[#0b2d7d] px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-[#bcd5ff]' : 'mt-2 font-mono text-[10px] uppercase tracking-[0.05em] text-content-subtle'}>Enter on Amount adds a new row · F5 deletes the current row</p>
+      {!blueSpreadsheet ? (
+        <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.05em] text-content-subtle">
+          Enter on Amount adds a new row · F5 deletes the current row
+        </p>
+      ) : null}
     </div>
   );
 }

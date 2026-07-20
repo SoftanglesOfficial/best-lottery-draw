@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FullPageLoading } from '../components/LoadingSpinner';
 import { useToast } from '../components/Toast';
-import { Button, Input } from '../components/ui';
+import { Button, Input, PageHeader } from '../components/ui';
 import { useActiveCompany } from '../lib/useActiveCompany';
 import { useRoleGuard } from '../lib/useRoleGuard';
 import { api } from '../lib/api';
@@ -200,10 +200,12 @@ export default function ItemSchemePage() {
 
   if (companyId == null) {
     return (
-      <div className="space-y-6">
-        <h1 className="font-display text-2xl font-bold text-content">
-          {editingId ? 'Edit Item Scheme' : 'New Item Scheme'}
-        </h1>
+      <div className="space-y-4">
+        <PageHeader
+          eyebrow="Master data"
+          title={editingId ? 'Edit Item Scheme' : 'New Item Scheme'}
+          subtitle="Configure draw details and prize rules."
+        />
         <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low px-6 py-12 text-center text-sm text-content-subtle">
           Select an active company to manage item schemes.
         </div>
@@ -212,20 +214,22 @@ export default function ItemSchemePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-bold text-content">
-          {editingId ? 'Edit Item Scheme' : 'New Item Scheme'}
-        </h1>
-        <Button type="button" variant="secondary" onClick={() => navigate('/master/item-schemes-list')}>
-          Back to List
-        </Button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        eyebrow="Master data"
+        title={editingId ? 'Edit Item Scheme' : 'New Item Scheme'}
+        subtitle="Configure draw details and prize rules."
+        actions={
+          <Button type="button" variant="secondary" onClick={() => navigate('/master/item-schemes-list')}>
+            Back to List
+          </Button>
+        }
+      />
 
       {loading ? (
         <FullPageLoading message="Loading item scheme…" />
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <section className="grid grid-cols-1 gap-4 rounded-cyber-lg border border-line bg-surface-raised p-4 sm:grid-cols-2 lg:max-w-3xl">
             <label className="flex flex-col gap-1">
               <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Item</span>

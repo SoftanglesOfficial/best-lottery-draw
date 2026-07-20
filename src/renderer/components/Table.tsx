@@ -10,9 +10,10 @@ type TableProps<T> = {
   columns: TableColumn<T>[];
   data: T[];
   rowKey: (row: T) => string | number;
+  density?: 'normal' | 'compact';
 };
 
-export default function Table<T>({ columns, data, rowKey }: TableProps<T>) {
+export default function Table<T>({ columns, data, rowKey, density = 'compact' }: TableProps<T>) {
   if (data.length === 0) {
     return (
       <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low py-12 text-center text-sm text-content-subtle">
@@ -20,6 +21,8 @@ export default function Table<T>({ columns, data, rowKey }: TableProps<T>) {
       </div>
     );
   }
+
+  const cellPadding = density === 'compact' ? 'px-3 py-2' : 'px-4 py-3';
 
   return (
     <div className="max-w-full overflow-x-auto rounded-cyber-lg border border-line bg-surface-raised">
@@ -29,7 +32,7 @@ export default function Table<T>({ columns, data, rowKey }: TableProps<T>) {
             {columns.map((column) => (
               <th
                 key={column.key}
-                className="whitespace-nowrap px-4 py-3 text-left font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted"
+                className={`whitespace-nowrap text-left font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted ${cellPadding}`}
               >
                 {column.header}
               </th>
@@ -47,7 +50,7 @@ export default function Table<T>({ columns, data, rowKey }: TableProps<T>) {
               }
             >
               {columns.map((column) => (
-                <td key={column.key} className="whitespace-nowrap px-4 py-3 text-sm text-content-muted">
+                <td key={column.key} className={`whitespace-nowrap text-sm text-content-muted ${cellPadding}`}>
                   {column.render ? column.render(row) : String((row as Record<string, unknown>)[column.key] ?? '')}
                 </td>
               ))}

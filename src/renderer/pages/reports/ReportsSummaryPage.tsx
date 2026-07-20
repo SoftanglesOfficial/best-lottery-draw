@@ -187,6 +187,7 @@ export default function ReportsSummaryPage() {
             columns={txnColumns}
             data={data?.recentTransactions ?? []}
             rowKey={(row) => row.id}
+            density="normal"
           />
         )}
       </div>

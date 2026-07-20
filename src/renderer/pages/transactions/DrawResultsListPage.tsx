@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Badge from '../../components/Badge';
 import { useToast } from '../../components/Toast';
-import { Button } from '../../components/ui';
+import { Button, PageHeader } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
@@ -118,16 +118,16 @@ export default function DrawResultsListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Result register</p>
-          <h1 className="font-display text-2xl font-bold text-content">Draw Results</h1>
-          <p className="mt-1 text-sm text-content-subtle">Review imported prize numbers by draw.</p>
-        </div>
-        <Button onClick={() => void handleFindWinners()} disabled={finding}>
-          {finding ? 'Finding…' : 'Find Winners'}
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Result register"
+        title="Draw Results"
+        subtitle="Review imported prize numbers by draw."
+        actions={
+          <Button onClick={() => void handleFindWinners()} disabled={finding}>
+            {finding ? 'Finding…' : 'Find Winners'}
+          </Button>
+        }
+      />
 
       <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
         <label className="flex max-w-md flex-col gap-1">

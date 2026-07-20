@@ -1,19 +1,31 @@
-import {
-  ArrowUpRight,
-  BarChart3,
-  Building2,
-  LayoutDashboard,
-  ReceiptText,
-} from 'lucide-react';
+import { BarChart3, Building2, ReceiptText } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { buildNavigation, type NavItem } from '../lib/navigation';
 
-const ANALYTICS_PATHS = new Set([
-  '/transactions/winning-tickets',
-  '/transactions/ticket-search',
-  '/transactions/draw-results',
-]);
+const MENU_LABELS: Record<string, string> = {
+  '/master/users': 'Manage Users',
+  '/master/item-schemes-list': 'Item Schemes List',
+  '/reports': 'P&L Summary',
+  '/transactions/draw-results': 'Result Analyzer',
+  '/transactions/purchase-entry': 'Add Purchase',
+  '/transactions/purchase-return': 'Add Purchase Return',
+  '/transactions/purchase-returns': 'Purchase Return List',
+  '/transactions/sale-entry': 'Add Sale',
+  '/transactions/sale-return': 'Add Sale Return',
+  '/transactions/sale-returns': 'Sale Return List',
+  '/transactions/booking-entry': 'Add Booking',
+  '/transactions/bookings': 'Booking List',
+};
+
+const MENU_ARIA_LABELS: Record<string, string> = {
+  '/transactions/purchase-return': 'Create purchase return',
+  '/transactions/sale-return': 'Create sale return',
+};
+
+function withMenuLabel(item: NavItem): NavItem {
+  return { ...item, label: MENU_LABELS[item.path] ?? item.label };
+}
 
 function MenuSection({
   id,
@@ -29,25 +41,25 @@ function MenuSection({
   if (items.length === 0) return null;
 
   return (
-    <section aria-labelledby={id}>
-      <div className="mb-3 flex items-center gap-2">
-        <Icon className="h-5 w-5 text-cyber" aria-hidden="true" />
-        <h2 id={id} className="font-display text-sm font-bold text-content">
+    <section
+      aria-labelledby={id}
+      className="min-w-0 border-r border-line px-2 py-2 last:border-r-0"
+    >
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <Icon className="h-3.5 w-3.5 text-cyber" aria-hidden="true" />
+        <h2 id={id} className="font-display text-[11px] font-bold text-content">
           {title}
         </h2>
       </div>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1">
         {items.map((item) => (
           <Link
             key={item.path}
             to={item.path}
-            className="group flex min-h-9 items-center justify-between rounded-cyber border border-line bg-surface-raised px-3 py-2 text-sm text-content transition-colors hover:border-cyber/70 hover:bg-cyber-soft focus-visible:border-cyber"
+            aria-label={MENU_ARIA_LABELS[item.path]}
+            className="flex h-8 min-w-0 items-center rounded-cyber border border-line bg-surface-raised px-2.5 text-xs font-medium text-content transition-colors hover:border-cyber/70 hover:bg-cyber-soft focus-visible:border-cyber focus-visible:outline-none"
           >
-            <span className="font-medium">{item.label}</span>
-            <ArrowUpRight
-              className="h-4 w-4 shrink-0 text-content-subtle group-hover:text-cyber"
-              aria-hidden="true"
-            />
+            <span className="truncate">{item.label}</span>
           </Link>
         ))}
       </div>
@@ -62,22 +74,41 @@ export default function MenuPage() {
   if (!user) return null;
 
   const navigation = buildNavigation(user.role);
-  const companyData = [...navigation.admin, ...navigation.master];
+  const itemSchemesIndex = navigation.master.findIndex(
+    (item) => item.path === '/master/item-schemes-list',
+  );
+  const master = navigation.master.map(withMenuLabel);
+  if (itemSchemesIndex >= 0) {
+    master.splice(itemSchemesIndex, 0, {
+      label: 'Item Scheme Entry',
+      path: '/item-schemes',
+    });
+  }
+  const draws = navigation.transactions.find((item) => item.path === '/draws');
+  const companyData = [...master, ...(draws ? [draws] : [])];
   const reports = [
-    ...navigation.reports,
-    ...navigation.transactions.filter((item) => ANALYTICS_PATHS.has(item.path)),
+    ...navigation.reports
+      .filter((item) => item.path !== '/reports/pnl')
+      .map(withMenuLabel),
+    ...navigation.transactions
+      .filter((item) => item.path === '/transactions/draw-results')
+      .map(withMenuLabel),
   ];
   const transactions = navigation.transactions
-    .filter((item) => !ANALYTICS_PATHS.has(item.path))
-    .map((item) => {
-      if (item.path === '/transactions/purchase-entry') return { ...item, label: 'Add Purchase' };
-      if (item.path === '/transactions/sale-entry') return { ...item, label: 'Add Sale' };
-      if (item.path === '/transactions/booking-entry') return { ...item, label: 'Add Booking' };
-      return item;
-    });
+    .filter(
+      (item) =>
+        item.path !== '/draws' &&
+        item.path !== '/transactions/draw-results' &&
+        item.path !== '/transactions/ticket-search',
+    )
+    .map(withMenuLabel);
+  transactions.push({ label: 'Open Dashboard', path: '/dashboard' });
 
   return (
-    <div className="grid w-full gap-6 lg:grid-cols-3">
+    <div
+      aria-label="Authorized shift menu"
+      className="grid min-h-full w-full grid-cols-3"
+    >
       <MenuSection
         id="company-data"
         title="Company Data"
@@ -90,33 +121,12 @@ export default function MenuPage() {
         items={reports}
         icon={BarChart3}
       />
-      <div className="flex flex-col gap-5">
-        <MenuSection
-          id="transactions"
-          title="Transactions"
-          items={transactions}
-          icon={ReceiptText}
-        />
-
-        <section aria-labelledby="open-dashboard">
-          <div className="mb-3 flex items-center gap-2">
-            <LayoutDashboard className="h-5 w-5 text-cyber" aria-hidden="true" />
-            <h2 id="open-dashboard" className="font-display text-sm font-bold text-content">
-              Open Dashboard
-            </h2>
-          </div>
-          <Link
-            to="/dashboard"
-            className="group flex min-h-10 items-center justify-between rounded-cyber border border-cyber/50 bg-cyber-soft px-3 py-2 text-sm text-content hover:border-cyber focus-visible:border-cyber"
-          >
-            <span className="font-bold">Open Dashboard</span>
-            <ArrowUpRight
-              className="h-4 w-4 shrink-0 text-cyber group-hover:text-cyber-hover"
-              aria-hidden="true"
-            />
-          </Link>
-        </section>
-      </div>
+      <MenuSection
+        id="transactions"
+        title="Transactions"
+        items={transactions}
+        icon={ReceiptText}
+      />
     </div>
   );
 }

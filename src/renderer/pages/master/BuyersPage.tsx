@@ -5,7 +5,7 @@ import { FullPageLoading } from '../../components/LoadingSpinner';
 import Modal from '../../components/Modal';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, PageHeader } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
@@ -235,8 +235,8 @@ export default function BuyersPage() {
 
   if (companyId == null) {
     return (
-      <div className="space-y-6">
-        <h1 className="font-display text-2xl font-bold text-content">Buyers</h1>
+      <div className="space-y-4">
+        <PageHeader eyebrow="Master data" title="Buyers" subtitle="Manage buyer records and sales terms." />
         <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low px-6 py-12 text-center text-sm text-content-subtle">
           Select an active company to manage buyers.
         </div>
@@ -245,13 +245,17 @@ export default function BuyersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-bold text-content">Buyers</h1>
-        <Button type="button" onClick={openCreate}>
-          New Buyer
-        </Button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        eyebrow="Master data"
+        title="Buyers"
+        subtitle="Manage buyer records and sales terms."
+        actions={
+          <Button type="button" onClick={openCreate}>
+            New Buyer
+          </Button>
+        }
+      />
 
       {loading ? (
         <FullPageLoading message="Loading buyers…" />

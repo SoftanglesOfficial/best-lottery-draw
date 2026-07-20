@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { PRIZE_LABELS, parseResultTxt } from '../../shared/parseDrawResults';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
-import { Button } from '../components/ui';
+import { Button, PageHeader } from '../components/ui';
 import { api } from '../lib/api';
 import { useActiveCompany } from '../lib/useActiveCompany';
 import { useRoleGuard } from '../lib/useRoleGuard';
@@ -187,12 +187,16 @@ export default function DrawResultsPage() {
   if (drawId == null || draw == null) {
     return (
       <div className="space-y-4">
-        <div className="mb-6">
-          <Button variant="secondary" onClick={() => navigate('/draws')}>
-            ← Back to Draws
-          </Button>
-        </div>
-        <h1 className="font-display text-2xl font-bold text-content">Import Draw Results</h1>
+        <PageHeader
+          eyebrow="Result processing"
+          title="Import Draw Results"
+          subtitle="Upload a result file or enter winning numbers manually."
+          actions={
+            <Button variant="secondary" onClick={() => navigate('/draws')}>
+              ← Back to Draws
+            </Button>
+          }
+        />
         <p className="rounded-cyber border border-cyber-error/40 bg-cyber-error/10 px-4 py-3 text-sm text-cyber-error">
           Draw not found or invalid draw ID.
         </p>
@@ -204,19 +208,16 @@ export default function DrawResultsPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <Button variant="secondary" onClick={() => navigate('/draws')}>
-          ← Back to Draws
-        </Button>
-      </div>
-
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Result processing</p>
-        <h1 className="font-display text-2xl font-bold text-content">Import Draw Results</h1>
-        <p className="mt-1 text-sm text-content-subtle">
-          Upload a result file or enter winning numbers manually.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Result processing"
+        title="Import Draw Results"
+        subtitle="Upload a result file or enter winning numbers manually."
+        actions={
+          <Button variant="secondary" onClick={() => navigate('/draws')}>
+            ← Back to Draws
+          </Button>
+        }
+      />
       {draw && (
         <div className="grid gap-px overflow-hidden rounded-cyber-lg border border-line bg-line sm:grid-cols-3">
           <div className="bg-surface-raised p-4">

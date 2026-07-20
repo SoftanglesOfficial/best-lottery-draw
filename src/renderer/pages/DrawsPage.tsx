@@ -6,7 +6,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import Modal from '../components/Modal';
 import Table, { type TableColumn } from '../components/Table';
 import { useToast } from '../components/Toast';
-import { Button, Input } from '../components/ui';
+import { Button, Input, PageHeader } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useActiveCompany } from '../lib/useActiveCompany';
 import { useRoleGuard } from '../lib/useRoleGuard';
@@ -393,18 +393,16 @@ export default function DrawsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Draw lifecycle</p>
-          <h1 className="font-display text-2xl font-bold text-content">Draws</h1>
-          <p className="mt-1 text-sm text-content-subtle">
-            Create, monitor, lock, and process lottery draws.
-          </p>
-        </div>
-        <Button onClick={openCreate} disabled={companyId == null}>
-          New Draw
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Draw lifecycle"
+        title="Draws"
+        subtitle="Create, monitor, lock, and process lottery draws."
+        actions={
+          <Button onClick={openCreate} disabled={companyId == null}>
+            New Draw
+          </Button>
+        }
+      />
 
       {items.length === 0 && (
         <div className="rounded-cyber border border-cyber-info/40 bg-cyber-info/10 px-4 py-3 text-sm text-cyber-info">

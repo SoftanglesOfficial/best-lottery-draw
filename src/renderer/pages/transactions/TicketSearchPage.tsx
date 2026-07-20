@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, PageHeader } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
@@ -63,11 +63,11 @@ export default function TicketSearchPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Transaction lookup</p>
-        <h1 className="font-display text-2xl font-bold text-content">Ticket Search</h1>
-        <p className="mt-1 text-sm text-content-subtle">Locate a ticket across sales and bookings.</p>
-      </div>
+      <PageHeader
+        eyebrow="Transaction lookup"
+        title="Ticket Search"
+        subtitle="Locate a ticket across sales and bookings."
+      />
 
       <form
         onSubmit={handleSearch}

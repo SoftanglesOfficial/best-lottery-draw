@@ -6,7 +6,7 @@ import TicketRangeTable, {
   type RangeRow,
 } from '../../components/transactions/TicketRangeTable';
 import { useToast } from '../../components/Toast';
-import { Button, Input } from '../../components/ui';
+import { Button, Input, PageHeader } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
@@ -158,11 +158,11 @@ export default function PurchaseEntryPage({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Purchase workflow</p>
-        <h1 className="font-display text-2xl font-bold text-content">{title}</h1>
-        <p className="mt-1 text-sm text-content-subtle">Enter provider, draw, and ticket range details.</p>
-      </div>
+      <PageHeader
+        eyebrow="Purchase workflow"
+        title={title}
+        subtitle="Enter provider, draw, and ticket range details."
+      />
 
       {type === 'purchase_return' && purchaseSummary ? (
         <div className="rounded-cyber border border-cyber-info/40 bg-cyber-info/10 px-4 py-3 font-mono text-xs text-cyber-info" role="status">

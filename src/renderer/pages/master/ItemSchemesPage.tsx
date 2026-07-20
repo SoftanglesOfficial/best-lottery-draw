@@ -4,7 +4,7 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import { FullPageLoading } from '../../components/LoadingSpinner';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
-import { Button } from '../../components/ui';
+import { Button, PageHeader } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
@@ -112,8 +112,8 @@ export default function ItemSchemesPage() {
 
   if (companyId == null && filterItemId == null) {
     return (
-      <div className="space-y-6">
-        <h1 className="font-display text-2xl font-bold text-content">Item Schemes</h1>
+      <div className="space-y-4">
+        <PageHeader eyebrow="Master data" title="Item Schemes" subtitle="Manage prize schemes for lottery items." />
         <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low px-6 py-12 text-center text-sm text-content-subtle">
           Select an active company to manage item schemes.
         </div>
@@ -122,13 +122,17 @@ export default function ItemSchemesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-bold text-content">Item Schemes</h1>
-        <Button type="button" onClick={() => navigate('/item-schemes')}>
-          New Scheme
-        </Button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        eyebrow="Master data"
+        title="Item Schemes"
+        subtitle="Manage prize schemes for lottery items."
+        actions={
+          <Button type="button" onClick={() => navigate('/item-schemes')}>
+            New Scheme
+          </Button>
+        }
+      />
 
       {filterItemId ? (
         <div className="rounded-cyber border border-cyber-info/30 bg-cyber-info/10 px-4 py-3 text-sm text-cyber-info">

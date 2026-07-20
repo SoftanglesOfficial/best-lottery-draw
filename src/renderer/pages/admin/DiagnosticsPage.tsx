@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import { FullPageLoading } from '../../components/LoadingSpinner';
+import { PageHeader } from '../../components/ui';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import type { DiagnosticsData } from '../../../shared/types';
 
@@ -21,8 +22,8 @@ export default function DiagnosticsPage() {
 
   if (!data?.success) {
     return (
-      <div className="mx-auto max-w-4xl space-y-6">
-        <h1 className="font-display text-2xl font-bold text-content">System Diagnostics</h1>
+      <div className="space-y-4">
+        <PageHeader eyebrow="Administration" title="System Diagnostics" subtitle="Inspect application health and runtime status." />
         <p className="rounded-cyber border border-cyber-error/40 bg-cyber-error/10 p-4 text-sm text-cyber-error">{data && !data.success ? data.error : 'Unavailable'}</p>
       </div>
     );
@@ -31,10 +32,11 @@ export default function DiagnosticsPage() {
   const info: DiagnosticsData = data.data;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 text-content">
-      <h1 className="font-display text-2xl font-bold text-content">System Diagnostics</h1>
+    <div className="space-y-4 text-content">
+      <PageHeader eyebrow="Administration" title="System Diagnostics" subtitle="Inspect application health and runtime status." />
 
-      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
             <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Database</h2>
             <dl className="grid gap-2 text-sm sm:grid-cols-2">
               <div>
@@ -50,9 +52,9 @@ export default function DiagnosticsPage() {
                 <dd className="font-mono">{info.dbConfig.host}:{info.dbConfig.port}/{info.dbConfig.database}</dd>
               </div>
             </dl>
-          </section>
+        </section>
 
-          <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+        <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
             <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Network</h2>
             <dl className="grid gap-2 text-sm sm:grid-cols-2">
               <div>
@@ -68,17 +70,17 @@ export default function DiagnosticsPage() {
                 <dd>{info.broadcast.localIp}</dd>
               </div>
             </dl>
-          </section>
+        </section>
 
-          <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+        <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
             <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Backup</h2>
             <p className="text-sm">Auto-backup: {info.autoBackup ? 'On' : 'Off'}</p>
             <p className="text-sm">Last backup date: {info.lastBackupDate ?? '—'}</p>
             <p className="text-sm">Last backup record: {info.lastBackupRecordAt ? new Date(info.lastBackupRecordAt).toLocaleString() : '—'}</p>
-          </section>
+        </section>
 
-          {info.tableCounts ? (
-            <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+        {info.tableCounts ? (
+          <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
               <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Table Counts</h2>
               <ul className="text-sm">
                 <li>Users: {info.tableCounts.users}</li>
@@ -86,19 +88,19 @@ export default function DiagnosticsPage() {
                 <li>Transactions: {info.tableCounts.transactions}</li>
                 <li>Draws: {info.tableCounts.draws}</li>
               </ul>
-            </section>
-          ) : null}
+          </section>
+        ) : null}
 
-          <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+        <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
             <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Runtime</h2>
             <ul className="text-sm">
               <li>App: {info.appVersion}</li>
               <li>Electron: {info.electronVersion}</li>
               <li>Node: {info.nodeVersion}</li>
             </ul>
-          </section>
+        </section>
 
-          <section className="rounded-cyber-lg border border-line bg-surface-raised p-4">
+        <section className="rounded-cyber-lg border border-line bg-surface-raised p-4 lg:col-span-2">
             <h2 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.08em] text-cyber-hover">Active Sessions</h2>
             {info.activeSessions.length === 0 ? (
               <p className="text-sm text-content-subtle">No session records.</p>
@@ -124,7 +126,8 @@ export default function DiagnosticsPage() {
                 </tbody>
               </table></div>
             )}
-          </section>
+        </section>
+      </div>
     </div>
   );
 }

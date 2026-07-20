@@ -1,11 +1,12 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import LegacyTransactionShell from '../../components/transactions/LegacyTransactionShell';
 import TicketNumberTable, {
   ticketsToTicketData,
   validTicketNumbers,
   type TicketRow,
 } from '../../components/transactions/TicketNumberTable';
 import { useToast } from '../../components/Toast';
-import { Button, Input } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
@@ -24,6 +25,7 @@ export default function BookingEntryPage() {
   const { user } = useAuth();
   const { companyId } = useActiveCompany();
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   const [draws, setDraws] = useState<DrawRecord[]>([]);
   const [buyers, setBuyers] = useState<BuyerRecord[]>([]);
@@ -34,13 +36,16 @@ export default function BookingEntryPage() {
   const [rows, setRows] = useState<TicketRow[]>([{ number: '' }]);
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [activeRowIndex, setActiveRowIndex] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const todayOpenDraws = draws.filter(
     (draw) => draw.status === 'open' && isSameDay(draw.drawDate, entryDate),
   );
   const selectedDraw = draws.find((draw) => draw.id === drawId) ?? null;
-  const drawPastClose =
-    selectedDraw != null && isDrawPastCloseTime(selectedDraw, now);
+  const selectedBuyer = buyers.find((buyer) => buyer.id === buyerId) ?? null;
+  const drawPastClose = selectedDraw != null && isDrawPastCloseTime(selectedDraw, now);
+  const totalQty = validTicketNumbers(rows).length;
 
   const refreshMemo = useCallback(async () => {
     if (companyId == null) return;
@@ -72,14 +77,61 @@ export default function BookingEntryPage() {
     }
   }, [companyId, entryDate, refreshMemo, showToast]);
 
+  const deleteActiveRow = useCallback(() => {
+    if (rows.length <= 1) {
+      setRows([{ number: '' }]);
+      setActiveRowIndex(0);
+      return;
+    }
+    const next = rows.filter((_, index) => index !== activeRowIndex);
+    setRows(next.length ? next : [{ number: '' }]);
+    setActiveRowIndex(Math.max(0, activeRowIndex - 1));
+  }, [activeRowIndex, rows]);
+
+  const clearWorksheet = useCallback(() => {
+    setRows([{ number: '' }]);
+    setActiveRowIndex(0);
+  }, []);
+
   useEffect(() => {
     if (allowed) void load();
   }, [allowed, load]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 30_000);
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'F2') {
+        event.preventDefault();
+        formRef.current?.requestSubmit();
+      }
+      if (event.key === 'F3') {
+        event.preventDefault();
+        deleteActiveRow();
+      }
+      if (event.key === 'F7') {
+        event.preventDefault();
+        navigate('/transactions/ticket-search');
+      }
+      if (event.key === 'F8') {
+        event.preventDefault();
+        clearWorksheet();
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        navigate(-1);
+      }
+      if (event.key === 'F12') {
+        event.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [deleteActiveRow, clearWorksheet, navigate]);
 
   useEffect(() => {
     if (drawId == null) return;
@@ -132,79 +184,53 @@ export default function BookingEntryPage() {
   if (!allowed) return null;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-cyber-hover">Booking workflow</p>
-        <h1 className="font-display text-2xl font-bold text-content">Booking Entry</h1>
-        <p className="mt-1 text-sm text-content-subtle">Book individual tickets against a buyer and draw.</p>
-      </div>
-
-      {drawPastClose && selectedDraw ? (
-        <div className="rounded-cyber border border-cyber-warning/50 bg-cyber-warning/10 px-4 py-3 text-sm text-cyber-warning" role="alert">
-          <strong>Warning:</strong> This draw closed at{' '}
-          {formatCloseTimeLabel(selectedDraw.closeTime)} on{' '}
-          {new Date(selectedDraw.drawDate).toLocaleDateString('en-GB')}. You are entering bookings
-          after the close time.
-        </div>
-      ) : null}
-
-      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4" aria-label="Booking details">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <label className="flex flex-col gap-1">
-            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Draw *</span>
-            <select
-              value={drawId ?? ''}
-              onChange={(event) => setDrawId(Number(event.target.value) || null)}
-              className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
-              required
-            >
-              <option value="">Select draw</option>
-              {todayOpenDraws.map((draw) => (
-                <option key={draw.id} value={draw.id}>
-                  {draw.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Book For *</span>
-            <select
-              value={buyerId ?? ''}
-              onChange={(event) => setBuyerId(Number(event.target.value) || null)}
-              className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
-              required
-            >
-              <option value="">Select buyer</option>
-              {buyers.map((buyer) => (
-                <option key={buyer.id} value={buyer.id}>
-                  {buyer.name} ({buyer.type === 'stockist' ? 'Stocker' : 'Seller'})
-                </option>
-              ))}
-            </select>
-          </label>
-          <Input
-            label="Date"
-            type="date"
-            value={entryDate}
-            onChange={(event) => setEntryDate(event.target.value)}
-          />
-          <Input label="Memo ID" value={memoId ?? ''} readOnly />
-        </div>
-      </section>
-
-      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4" aria-label="Booking tickets">
-        <div className="mb-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-content-subtle">Ticket grid</p>
-          <h2 className="font-display font-bold text-content">Ticket Numbers</h2>
-        </div>
-        <TicketNumberTable rows={rows} onChange={setRows} />
-      </section>
-
-      <div className="flex justify-end">
-        <Button type="submit" disabled={saving || companyId == null}>
-          {saving ? 'Saving…' : 'Save Booking'}
-        </Button>
-      </div>
-    </form>
+    <LegacyTransactionShell
+      formRef={formRef}
+      pageTitle="Add Booking"
+      centerTitle="Booking Entry"
+      contextLabel={
+        selectedBuyer ? `${selectedBuyer.name} (Sr ${activeRowIndex + 1})` : 'Booking Entry'
+      }
+      partyLabel="Book For *"
+      memoId={memoId}
+      entryDate={entryDate}
+      onEntryDateChange={setEntryDate}
+      buyerId={buyerId}
+      onBuyerIdChange={setBuyerId}
+      buyers={buyers}
+      drawId={drawId}
+      onDrawIdChange={setDrawId}
+      draws={todayOpenDraws}
+      alerts={
+        drawPastClose && selectedDraw ? (
+          <div
+            className="shrink-0 border-b border-[#ffcf45] bg-[#806000] px-4 py-2 text-xs font-semibold text-white"
+            role="alert"
+          >
+            Warning: This draw closed at {formatCloseTimeLabel(selectedDraw.closeTime)} on{' '}
+            {new Date(selectedDraw.drawDate).toLocaleDateString('en-GB')}. You are entering
+            bookings after the close time.
+          </div>
+        ) : null
+      }
+      rowCount={rows.length}
+      activeRowIndex={activeRowIndex}
+      totalQty={totalQty}
+      totalAmount={null}
+      saving={saving}
+      saveLabel={saving ? 'Saving…' : 'Save (F2)'}
+      disabled={companyId == null}
+      onSubmit={handleSubmit}
+      onDeleteRow={deleteActiveRow}
+      onClear={clearWorksheet}
+      onSearch={() => navigate('/transactions/ticket-search')}
+    >
+      <TicketNumberTable
+        rows={rows}
+        onChange={setRows}
+        variant="blueSpreadsheet"
+        onActiveIndexChange={setActiveRowIndex}
+      />
+    </LegacyTransactionShell>
   );
 }

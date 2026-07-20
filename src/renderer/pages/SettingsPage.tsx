@@ -5,7 +5,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import Badge, { roleBadgeColor } from '../components/Badge';
 import { FullPageLoading, InlineSpinner } from '../components/LoadingSpinner';
 import { useToast } from '../components/Toast';
-import { Button, Input } from '../components/ui';
+import { Button, Input, PageHeader } from '../components/ui';
 import { downloadCsv } from '../lib/exportCsv';
 import { useAuth } from '../lib/auth';
 import { isAdminOrOwner, isAtLeastRole, ROLE_LABELS } from '../lib/roles';
@@ -64,9 +64,9 @@ export default function SettingsPage() {
     : TABS.filter((tab) => tab.id === 'database');
 
   return (
-    <div className={!user ? 'mx-auto w-full max-w-3xl py-4 sm:py-8' : undefined}>
-      <div className={!user ? 'mb-5 flex items-center gap-4' : undefined}>
-        {!user ? (
+    <div className={!user ? 'mx-auto w-full max-w-3xl py-4 sm:py-8' : 'space-y-4'}>
+      {!user ? (
+        <div className="mb-5 flex items-center gap-4">
           <Button
             type="button"
             variant="secondary"
@@ -77,20 +77,23 @@ export default function SettingsPage() {
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Back
           </Button>
-        ) : null}
-
-        <div>
-          <h1 className="font-display text-2xl font-bold text-content">Settings</h1>
-          {!user ? (
+          <div>
+            <h1 className="font-display text-2xl font-bold text-content">Settings</h1>
             <p className="mt-1 text-sm text-content-muted">
               Configure the database connection before signing in.
             </p>
-          ) : null}
+          </div>
         </div>
-      </div>
+      ) : (
+        <PageHeader
+          eyebrow="Application"
+          title="Settings"
+          subtitle="Manage database, backups, audit, profile, and utilities."
+        />
+      )}
 
       {user ? (
-        <div className="mb-6 mt-6 flex flex-wrap gap-1 border-b border-line">
+        <div className="flex flex-wrap gap-1 border-b border-line">
           {visibleTabs.map((tab) => (
             <button
               key={tab.id}
