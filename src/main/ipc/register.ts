@@ -698,18 +698,18 @@ export function registerIpcHandlers(): void {
       ), 'manager'),
   );
   ipcMain.handle('draw-results-list', async (_e, ...args) =>
-    withSession(args, (_ctx, drawId) => listDrawResults(drawId as number)),
+    withSession(args, (ctx, drawId) => listDrawResults(drawId as number, ctx.activeCompanyId)),
   );
   ipcMain.handle('draw-results-create', async (_e, ...args) =>
     withSession(args, (ctx, drawId, results) =>
       createDrawResults(drawId as number, results as DrawResultInput[], ctx.activeCompanyId), 'supervisor'),
   );
   ipcMain.handle('winning-tickets-list', async (_e, ...args) =>
-    withSession(args, (_ctx, drawId) => listWinningTickets(drawId as number)),
+    withSession(args, (ctx, drawId) => listWinningTickets(drawId as number, ctx.activeCompanyId)),
   );
   ipcMain.handle('winning-tickets-create', async (_e, ...args) =>
-    withSession(args, (_ctx, drawId, tickets) =>
-      createWinningTickets(drawId as number, tickets as WinningTicketInput[]), 'manager'),
+    withSession(args, (ctx, drawId, tickets) =>
+      createWinningTickets(drawId as number, tickets as WinningTicketInput[], ctx.activeCompanyId), 'manager'),
   );
   ipcMain.handle('winning-tickets-delete', async (_e, ...args) =>
     withSession(args, async (ctx, id) => {

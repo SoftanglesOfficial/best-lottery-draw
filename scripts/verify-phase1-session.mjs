@@ -357,6 +357,27 @@ assert.match(
   /winning-tickets-delete[\s\S]*?requireCompanyId\(ctx\.activeCompanyId\)[\s\S]*?getDrawById\(ticket\.drawId\)/,
   'winning-tickets-delete must verify draw company before delete',
 );
+assert.match(
+  registerSource,
+  /draw-results-list[\s\S]*?listDrawResults\(drawId as number, ctx\.activeCompanyId\)/,
+  'draw-results-list must pass session active company to listDrawResults',
+);
+assert.match(
+  drawsSource,
+  /export async function listDrawResults[\s\S]*?requireCompanyId\(companyId\)[\s\S]*?draw\.companyId !== scoped\.companyId/,
+  'listDrawResults must verify draw belongs to active company',
+);
+assert.match(
+  registerSource,
+  /winning-tickets-list[\s\S]*?listWinningTickets\(drawId as number, ctx\.activeCompanyId\)/,
+  'winning-tickets-list must pass session active company to listWinningTickets',
+);
+assert.match(
+  drawsSource,
+  /export async function listWinningTickets[\s\S]*?requireCompanyId\(companyId\)[\s\S]*?draw\.companyId !== scoped\.companyId/,
+  'listWinningTickets must verify draw belongs to active company',
+);
+console.log('OK draw results and winning tickets reads scoped to active company');
 console.log('OK draw lock/unlock/results scoped to active company');
 
 const utilitiesSource = fs.readFileSync(new URL('../src/main/ipc/utilities.ts', import.meta.url), 'utf8');

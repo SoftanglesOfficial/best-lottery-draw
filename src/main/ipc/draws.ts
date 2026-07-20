@@ -377,12 +377,18 @@ export async function unlockDraw(
   }
 }
 
-export async function listDrawResults(drawId: number) {
+export async function listDrawResults(drawId: number, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
   }
   try {
+    const draw = await getDrawById(drawId);
+    if (!draw || draw.companyId !== scoped.companyId) {
+      return { success: false as const, error: 'Draw not found' };
+    }
     const db = getDb();
     const rows = await db
       .select()
@@ -450,12 +456,18 @@ export async function createDrawResults(
   }
 }
 
-export async function listWinningTickets(drawId: number) {
+export async function listWinningTickets(drawId: number, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
   }
   try {
+    const draw = await getDrawById(drawId);
+    if (!draw || draw.companyId !== scoped.companyId) {
+      return { success: false as const, error: 'Draw not found' };
+    }
     const db = getDb();
     const rows = await db
       .select({
@@ -486,7 +498,7 @@ export async function listWinningTickets(drawId: number) {
   }
 }
 
-export async function createWinningTickets(drawId: number, tickets: WinningTicketInput[]) {
+export async function createWinningTickets(drawId: number, tickets: WinningTicketInput[], companyId: number | null) {
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
@@ -509,7 +521,7 @@ export async function createWinningTickets(drawId: number, tickets: WinningTicke
       })),
     );
 
-    return listWinningTickets(drawId);
+    return listWinningTickets(drawId, companyId);
   } catch (error) {
     return {
       success: false as const,
