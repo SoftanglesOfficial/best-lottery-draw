@@ -278,3 +278,13 @@ assert.match(
   /requireActiveShiftForCompany\(ctx\.activeShiftId,\s*ctx\.activeCompanyId\)/,
   'transaction creation must validate the session shift against the active company',
 );
+
+const registerSource = fs.readFileSync(new URL('../src/main/ipc/register.ts', import.meta.url), 'utf8');
+const masterCreateScoped = registerSource.match(
+  /ipcMain\.handle\('(?:provider-groups|providers|buyer-groups|buyers|item-groups|items|itemSchemes|draws)-create'[\s\S]*?scopedCompany\(ctx,\s*input\.companyId\)/g,
+);
+assert.ok(
+  masterCreateScoped && masterCreateScoped.length >= 8,
+  'all master create handlers must call scopedCompany with input.companyId',
+);
+console.log('OK master create handlers scoped to session company');

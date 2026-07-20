@@ -495,7 +495,12 @@ export function registerIpcHandlers(): void {
     }),
   );
   ipcMain.handle('provider-groups-create', async (_e, ...args) =>
-    withSession(args, (_ctx, data) => createProviderGroup(data as ProviderGroupInput), 'manager'),
+    withSession(args, (ctx, data) => {
+      const input = data as ProviderGroupInput;
+      const denied = scopedCompany(ctx, input.companyId);
+      if (denied) return denied;
+      return createProviderGroup(input);
+    }, 'manager'),
   );
   ipcMain.handle('provider-groups-update', async (_e, ...args) =>
     withSession(args, (ctx, id, data) => updateProviderGroup(id as number, data as ProviderGroupInput, ctx.activeCompanyId), 'manager'),
@@ -511,7 +516,12 @@ export function registerIpcHandlers(): void {
     }),
   );
   ipcMain.handle('providers-create', async (_e, ...args) =>
-    withSession(args, (_ctx, data) => createProvider(data as ProviderInput), 'manager'),
+    withSession(args, (ctx, data) => {
+      const input = data as ProviderInput;
+      const denied = scopedCompany(ctx, input.companyId);
+      if (denied) return denied;
+      return createProvider(input);
+    }, 'manager'),
   );
   ipcMain.handle('providers-update', async (_e, ...args) =>
     withSession(args, (ctx, id, data) => updateProvider(id as number, data as ProviderInput, ctx.activeCompanyId), 'manager'),
@@ -528,7 +538,12 @@ export function registerIpcHandlers(): void {
     }),
   );
   ipcMain.handle('buyer-groups-create', async (_e, ...args) =>
-    withSession(args, (_ctx, data) => createBuyerGroup(data as BuyerGroupInput), 'manager'),
+    withSession(args, (ctx, data) => {
+      const input = data as BuyerGroupInput;
+      const denied = scopedCompany(ctx, input.companyId);
+      if (denied) return denied;
+      return createBuyerGroup(input);
+    }, 'manager'),
   );
   ipcMain.handle('buyer-groups-update', async (_e, ...args) =>
     withSession(args, (ctx, id, data) => updateBuyerGroup(id as number, data as BuyerGroupInput, ctx.activeCompanyId), 'manager'),
@@ -544,7 +559,12 @@ export function registerIpcHandlers(): void {
     }),
   );
   ipcMain.handle('buyers-create', async (_e, ...args) =>
-    withSession(args, (_ctx, data) => createBuyer(data as BuyerInput), 'manager'),
+    withSession(args, (ctx, data) => {
+      const input = data as BuyerInput;
+      const denied = scopedCompany(ctx, input.companyId);
+      if (denied) return denied;
+      return createBuyer(input);
+    }, 'manager'),
   );
   ipcMain.handle('buyers-update', async (_e, ...args) =>
     withSession(args, (ctx, id, data) => updateBuyer(id as number, data as BuyerInput, ctx.activeCompanyId), 'manager'),
@@ -561,7 +581,12 @@ export function registerIpcHandlers(): void {
     }),
   );
   ipcMain.handle('item-groups-create', async (_e, ...args) =>
-    withSession(args, (_ctx, data) => createItemGroup(data as ItemGroupInput), 'manager'),
+    withSession(args, (ctx, data) => {
+      const input = data as ItemGroupInput;
+      const denied = scopedCompany(ctx, input.companyId);
+      if (denied) return denied;
+      return createItemGroup(input);
+    }, 'manager'),
   );
   ipcMain.handle('item-groups-update', async (_e, ...args) =>
     withSession(args, (ctx, id, data) => updateItemGroup(id as number, data as ItemGroupInput, ctx.activeCompanyId), 'manager'),
@@ -577,7 +602,12 @@ export function registerIpcHandlers(): void {
     }),
   );
   ipcMain.handle('items-create', async (_e, ...args) =>
-    withSession(args, (_ctx, data) => createItem(data as ItemInput), 'manager'),
+    withSession(args, (ctx, data) => {
+      const input = data as ItemInput;
+      const denied = scopedCompany(ctx, input.companyId);
+      if (denied) return denied;
+      return createItem(input);
+    }, 'manager'),
   );
   ipcMain.handle('items-update', async (_e, ...args) =>
     withSession(args, (ctx, id, data) => updateItem(id as number, data as ItemInput, ctx.activeCompanyId), 'manager'),
@@ -596,7 +626,12 @@ export function registerIpcHandlers(): void {
     withSession(args, (_ctx, itemId) => listItemSchemesByItem(itemId as number)),
   );
   ipcMain.handle('itemSchemes-create', async (_e, ...args) =>
-    withSession(args, (_ctx, data) => createItemScheme(data as ItemSchemeInput), 'manager'),
+    withSession(args, (ctx, data) => {
+      const input = data as ItemSchemeInput;
+      const denied = scopedCompany(ctx, input.companyId);
+      if (denied) return denied;
+      return createItemScheme(input);
+    }, 'manager'),
   );
   ipcMain.handle('itemSchemes-get', async (_e, ...args) =>
     withSession(args, (_ctx, id) => getItemScheme(id as number)),
@@ -619,7 +654,12 @@ export function registerIpcHandlers(): void {
     }),
   );
   ipcMain.handle('draws-create', async (_e, ...args) =>
-    withSession(args, (_ctx, data) => createDraw(data as DrawInput), 'manager'),
+    withSession(args, (ctx, data) => {
+      const input = data as DrawInput;
+      const denied = scopedCompany(ctx, input.companyId);
+      if (denied) return denied;
+      return createDraw(input);
+    }, 'manager'),
   );
   ipcMain.handle('draws-update', async (_e, ...args) =>
     withSession(args, (ctx, id, data) => updateDraw(id as number, data as DrawInput, ctx.activeCompanyId), 'manager'),
