@@ -18,11 +18,6 @@ const MENU_LABELS: Record<string, string> = {
   '/transactions/bookings': 'Booking List',
 };
 
-const MENU_ARIA_LABELS: Record<string, string> = {
-  '/transactions/purchase-return': 'Create purchase return',
-  '/transactions/sale-return': 'Create sale return',
-};
-
 function withMenuLabel(item: NavItem): NavItem {
   return { ...item, label: MENU_LABELS[item.path] ?? item.label };
 }
@@ -56,7 +51,7 @@ function MenuSection({
           <Link
             key={item.path}
             to={item.path}
-            aria-label={MENU_ARIA_LABELS[item.path]}
+            aria-label={item.label}
             className="flex h-8 min-w-0 items-center rounded-cyber border border-line bg-surface-raised px-2.5 text-xs font-medium text-content transition-colors hover:border-cyber/70 hover:bg-cyber-soft focus-visible:border-cyber focus-visible:outline-none"
           >
             <span className="truncate">{item.label}</span>
