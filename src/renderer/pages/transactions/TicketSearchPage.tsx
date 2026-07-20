@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react';
+import EmptyState from '../../components/EmptyState';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
 import { Button, Input, PageHeader } from '../../components/ui';
@@ -91,9 +92,10 @@ export default function TicketSearchPage() {
       ) : searched ? (
         <Table columns={columns} data={results} rowKey={(row) => `${row.id}-${row.ticketNumber}`} />
       ) : (
-        <div className="rounded-cyber-lg border border-dashed border-line-strong bg-surface-low py-10 text-center font-mono text-xs uppercase tracking-[0.05em] text-content-subtle">
-          Search for a ticket number.
-        </div>
+        <EmptyState
+          title="Search for tickets"
+          description="Enter a ticket number above to find matching transactions."
+        />
       )}
     </div>
   );
