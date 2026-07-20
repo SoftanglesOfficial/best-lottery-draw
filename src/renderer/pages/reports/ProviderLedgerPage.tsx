@@ -222,20 +222,26 @@ export default function ProviderLedgerPage() {
             <tbody>
               {rows.map((row) => (
                 <Fragment key={row.providerId}>
-                  <tr
-                    className="cursor-pointer border-b border-line text-content-muted transition-colors hover:bg-surface-high hover:text-content"
-                    onClick={() =>
-                      setExpandedId((current) =>
-                        current === row.providerId ? null : row.providerId,
-                      )
-                    }
-                  >
+                  <tr className="border-b border-line text-content-muted transition-colors hover:bg-surface-high hover:text-content">
                     <td className="px-3 py-2">
-                      {expandedId === row.providerId ? (
-                        <ChevronDown className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
-                      )}
+                      <button
+                        type="button"
+                        className="rounded-cyber p-1 text-content-muted hover:bg-surface-high focus:outline-none focus:ring-2 focus:ring-cyber/30"
+                        onClick={() =>
+                          setExpandedId((current) =>
+                            current === row.providerId ? null : row.providerId,
+                          )
+                        }
+                        aria-expanded={expandedId === row.providerId}
+                        aria-controls={`provider-ledger-detail-${row.providerId}`}
+                        aria-label={`${expandedId === row.providerId ? 'Collapse' : 'Expand'} details for ${row.providerName}`}
+                      >
+                        {expandedId === row.providerId ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
                     </td>
                     <td className="px-3 py-2 font-medium">{row.providerName}</td>
                     <td className="px-3 py-2">{row.groupName ?? '—'}</td>
@@ -251,7 +257,11 @@ export default function ProviderLedgerPage() {
                   </tr>
                   {expandedId === row.providerId ? (
                     <tr>
-                      <td colSpan={8} className="bg-surface-low px-6 py-3">
+                      <td
+                        id={`provider-ledger-detail-${row.providerId}`}
+                        colSpan={8}
+                        className="bg-surface-low px-6 py-3"
+                      >
                         <table className="w-full text-xs">
                           <thead>
                             <tr className="text-left font-mono uppercase tracking-wide text-content-subtle">
