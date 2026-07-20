@@ -317,6 +317,16 @@ assert.match(
   'unlockDraw must verify draw belongs to active company',
 );
 assert.match(
+  drawsSource,
+  /export async function lockDraw[\s\S]*?current\.status !== 'open'[\s\S]*?Only open draws can be locked\./,
+  'lockDraw must only allow open draws',
+);
+assert.match(
+  drawsSource,
+  /export async function unlockDraw[\s\S]*?current\.status !== 'locked'[\s\S]*?Only locked draws can be unlocked\./,
+  'unlockDraw must only allow locked draws',
+);
+assert.match(
   registerSource,
   /createDrawResults\(drawId as number, results as DrawResultInput\[\], ctx\.activeCompanyId\)/,
   'draw-results-create must pass session active company',

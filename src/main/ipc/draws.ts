@@ -285,6 +285,9 @@ export async function lockDraw(
       return { success: false as const, error: 'Draw not found' };
     }
     assertDrawNotStale(current.updatedAt, clientUpdatedAt);
+    if (current.status !== 'open') {
+      return { success: false as const, error: 'Only open draws can be locked.' };
+    }
 
     const [updated] = await db
       .update(draws)
@@ -331,6 +334,9 @@ export async function unlockDraw(
       return { success: false as const, error: 'Draw not found' };
     }
     assertDrawNotStale(current.updatedAt, clientUpdatedAt);
+    if (current.status !== 'locked') {
+      return { success: false as const, error: 'Only locked draws can be unlocked.' };
+    }
 
     const [requester] = await db
       .select({ username: users.username, fullName: users.fullName })
