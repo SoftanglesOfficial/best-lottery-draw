@@ -11,6 +11,7 @@ import { useAuth } from '../../lib/auth';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
+import { LoadingSpinner } from '../../components/LoadingSpinner';
 import type { DrawRecord, ProviderRecord } from '../../../shared/types';
 
 type EntryOptions = {
@@ -37,6 +38,7 @@ export default function PurchaseEntryPage({
   const [memoId, setMemoId] = useState<number | null>(null);
   const [voucherNo, setVoucherNo] = useState('');
   const [rows, setRows] = useState<RangeRow[]>([{ from: '', to: '' }]);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [purchaseSummary, setPurchaseSummary] = useState<{
     totalPurchased: number;
@@ -76,6 +78,8 @@ export default function PurchaseEntryPage({
       await refreshMemo();
     } catch {
       showToast('Failed to load form data.', 'error');
+    } finally {
+      setLoading(false);
     }
   }, [companyId, refreshMemo, showToast]);
 
@@ -155,6 +159,7 @@ export default function PurchaseEntryPage({
   };
 
   if (!allowed) return null;
+  if (loading) return <LoadingSpinner />;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
