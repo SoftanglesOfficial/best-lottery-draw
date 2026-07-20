@@ -266,7 +266,12 @@ function assertDrawNotStale(
   }
 }
 
-export async function lockDraw(id: number, userId: number, clientUpdatedAt?: number | string | null) {
+export async function lockDraw(
+  id: number,
+  userId: number,
+  companyId: number | null,
+  clientUpdatedAt?: number | string | null,
+) {
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
@@ -274,7 +279,11 @@ export async function lockDraw(id: number, userId: number, clientUpdatedAt?: num
   try {
     const db = getDb();
     const [current] = await db.select().from(draws).where(eq(draws.id, id)).limit(1);
-    if (!current) return { success: false as const, error: 'Draw not found' };
+    const scoped = requireCompanyId(companyId);
+    if (!scoped.success) return scoped;
+    if (!current || current.companyId !== scoped.companyId) {
+      return { success: false as const, error: 'Draw not found' };
+    }
     assertDrawNotStale(current.updatedAt, clientUpdatedAt);
 
     const [updated] = await db
@@ -285,7 +294,7 @@ export async function lockDraw(id: number, userId: number, clientUpdatedAt?: num
         lockedBy: userId,
         updatedAt: new Date(),
       })
-      .where(eq(draws.id, id))
+      .where(and(eq(draws.id, id), eq(draws.companyId, scoped.companyId)))
       .returning();
 
     if (!updated) return { success: false as const, error: 'Draw not found' };
@@ -316,7 +325,11 @@ export async function unlockDraw(
   try {
     const db = getDb();
     const [current] = await db.select().from(draws).where(eq(draws.id, id)).limit(1);
-    if (!current) return { success: false as const, error: 'Draw not found' };
+    const scoped = requireCompanyId(ctx.activeCompanyId);
+    if (!scoped.success) return scoped;
+    if (!current || current.companyId !== scoped.companyId) {
+      return { success: false as const, error: 'Draw not found' };
+    }
     assertDrawNotStale(current.updatedAt, clientUpdatedAt);
 
     const [requester] = await db
@@ -336,7 +349,7 @@ export async function unlockDraw(
         lockedBy: null,
         updatedAt: new Date(),
       })
-      .where(eq(draws.id, id))
+      .where(and(eq(draws.id, id), eq(draws.companyId, scoped.companyId)))
       .returning();
 
     if (!updated) return { success: false as const, error: 'Draw not found' };
@@ -379,7 +392,13 @@ export async function listDrawResults(drawId: number) {
   }
 }
 
-export async function createDrawResults(drawId: number, results: DrawResultInput[]) {
+export async function createDrawResults(
+  drawId: number,
+  results: DrawResultInput[],
+  companyId: number | null,
+) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
@@ -390,7 +409,9 @@ export async function createDrawResults(drawId: number, results: DrawResultInput
   try {
     const db = getDb();
     const draw = await getDrawById(drawId);
-    if (!draw) return { success: false as const, error: 'Draw not found' };
+    if (!draw || draw.companyId !== scoped.companyId) {
+      return { success: false as const, error: 'Draw not found' };
+    }
 
     await db.transaction(async (tx) => {
       await tx.delete(drawResults).where(eq(drawResults.drawId, drawId));
@@ -410,7 +431,7 @@ export async function createDrawResults(drawId: number, results: DrawResultInput
           lockedAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(eq(draws.id, drawId));
+        .where(and(eq(draws.id, drawId), eq(draws.companyId, scoped.companyId)));
     });
 
     const updatedDraw = await fetchDrawRecord(drawId);
@@ -680,12 +701,18 @@ export async function extendDrawTime(
   }
 }
 
-export async function listDrawAuditLogs(drawId: number) {
+export async function listDrawAuditLogs(drawId: number, companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
   }
   try {
+    const draw = await getDrawById(drawId);
+    if (!draw || draw.companyId !== scoped.companyId) {
+      return { success: false as const, error: 'Draw not found' };
+    }
     const db = getDb();
     const rows = await db
       .select({

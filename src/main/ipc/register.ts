@@ -76,6 +76,7 @@ import {
   deleteWinningTicket,
   extendDrawTime,
   findWinners,
+  getDrawById,
   listDrawAuditLogs,
   listDrawResults,
   listDraws,
@@ -113,7 +114,10 @@ import {
   removeUserCompany,
   setActiveCompany,
 } from './users';
-import { connectDb, getStoredConfig, setupDb, getDbStatus, testDbConnection, reconnectDb } from '../db';
+import { connectDb, ensureConnected, getDb, getStoredConfig, setupDb, getDbStatus, testDbConnection, reconnectDb } from '../db';
+import { winningTickets } from '../schema';
+import { eq } from 'drizzle-orm';
+import { requireCompanyId } from './companyScope';
 import { getPreferences, setAutoBackup, setNetworkMode, type NetworkMode } from '../preferences';
 import { discoverServer, getBroadcastStatus, startBroadcast, stopBroadcast } from '../lan';
 import {
@@ -669,14 +673,19 @@ export function registerIpcHandlers(): void {
   );
   ipcMain.handle('draws-lock', async (_e, ...args) =>
     withSession(args, (ctx, id, clientUpdatedAt) =>
-      lockDraw(id as number, ctx.userId, clientUpdatedAt as number | string | null | undefined), 'supervisor'),
+      lockDraw(
+        id as number,
+        ctx.userId,
+        ctx.activeCompanyId,
+        clientUpdatedAt as number | string | null | undefined,
+      ), 'supervisor'),
   );
   ipcMain.handle('draws-unlock', async (_e, ...args) =>
     withSession(args, (ctx, id, clientUpdatedAt) =>
       unlockDraw(id as number, ctx, clientUpdatedAt as number | string | null | undefined), 'owner'),
   );
   ipcMain.handle('draws-audit-list', async (_e, ...args) =>
-    withSession(args, (_ctx, drawId) => listDrawAuditLogs(drawId as number)),
+    withSession(args, (ctx, drawId) => listDrawAuditLogs(drawId as number, ctx.activeCompanyId)),
   );
   ipcMain.handle('draws-extend-time', async (_e, ...args) =>
     withSession(args, (ctx, drawId, _userId, _userRole, newCloseTime, reason) =>
@@ -692,8 +701,8 @@ export function registerIpcHandlers(): void {
     withSession(args, (_ctx, drawId) => listDrawResults(drawId as number)),
   );
   ipcMain.handle('draw-results-create', async (_e, ...args) =>
-    withSession(args, (_ctx, drawId, results) =>
-      createDrawResults(drawId as number, results as DrawResultInput[]), 'supervisor'),
+    withSession(args, (ctx, drawId, results) =>
+      createDrawResults(drawId as number, results as DrawResultInput[], ctx.activeCompanyId), 'supervisor'),
   );
   ipcMain.handle('winning-tickets-list', async (_e, ...args) =>
     withSession(args, (_ctx, drawId) => listWinningTickets(drawId as number)),
@@ -703,7 +712,26 @@ export function registerIpcHandlers(): void {
       createWinningTickets(drawId as number, tickets as WinningTicketInput[]), 'manager'),
   );
   ipcMain.handle('winning-tickets-delete', async (_e, ...args) =>
-    withSession(args, (_ctx, id) => deleteWinningTicket(id as number), 'manager'),
+    withSession(args, async (ctx, id) => {
+      const scoped = requireCompanyId(ctx.activeCompanyId);
+      if (!scoped.success) return scoped;
+      const connection = await ensureConnected();
+      if (!connection.success) {
+        return { success: false as const, error: connection.error ?? 'Database is not connected' };
+      }
+      const db = getDb();
+      const [ticket] = await db
+        .select({ drawId: winningTickets.drawId })
+        .from(winningTickets)
+        .where(eq(winningTickets.id, id as number))
+        .limit(1);
+      if (!ticket) return { success: false as const, error: 'Winning ticket not found' };
+      const draw = await getDrawById(ticket.drawId);
+      if (!draw || draw.companyId !== scoped.companyId) {
+        return { success: false as const, error: 'Winning ticket not found' };
+      }
+      return deleteWinningTicket(id as number);
+    }, 'manager'),
   );
   ipcMain.handle('winning-tickets-find-winners', async (_e, ...args) =>
     withSession(args, (_ctx, drawId) => findWinners(drawId as number)),

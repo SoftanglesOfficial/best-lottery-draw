@@ -288,3 +288,36 @@ assert.ok(
   'all master create handlers must call scopedCompany with input.companyId',
 );
 console.log('OK master create handlers scoped to session company');
+
+const drawsSource = fs.readFileSync(new URL('../src/main/ipc/draws.ts', import.meta.url), 'utf8');
+assert.match(
+  registerSource,
+  /lockDraw\(\s*id as number,\s*ctx\.userId,\s*ctx\.activeCompanyId/,
+  'draws-lock must pass session active company',
+);
+assert.match(
+  drawsSource,
+  /export async function lockDraw[\s\S]*?requireCompanyId\(companyId\)[\s\S]*?current\.companyId !== scoped\.companyId/,
+  'lockDraw must verify draw belongs to active company',
+);
+assert.match(
+  drawsSource,
+  /export async function unlockDraw[\s\S]*?requireCompanyId\(ctx\.activeCompanyId\)[\s\S]*?current\.companyId !== scoped\.companyId/,
+  'unlockDraw must verify draw belongs to active company',
+);
+assert.match(
+  registerSource,
+  /createDrawResults\(drawId as number, results as DrawResultInput\[\], ctx\.activeCompanyId\)/,
+  'draw-results-create must pass session active company',
+);
+assert.match(
+  registerSource,
+  /listDrawAuditLogs\(drawId as number, ctx\.activeCompanyId\)/,
+  'draws-audit-list must pass session active company',
+);
+assert.match(
+  registerSource,
+  /winning-tickets-delete[\s\S]*?requireCompanyId\(ctx\.activeCompanyId\)[\s\S]*?getDrawById\(ticket\.drawId\)/,
+  'winning-tickets-delete must verify draw company before delete',
+);
+console.log('OK draw lock/unlock/results scoped to active company');
