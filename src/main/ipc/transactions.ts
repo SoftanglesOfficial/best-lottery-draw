@@ -466,6 +466,15 @@ export async function updateTransaction(
     const [existing] = await db.select().from(transactions).where(eq(transactions.id, id)).limit(1);
     if (!existing) return { success: false as const, error: 'Transaction not found' };
 
+    const [draw] = await db
+      .select({ companyId: draws.companyId })
+      .from(draws)
+      .where(eq(draws.id, existing.drawId))
+      .limit(1);
+    if (!draw) return { success: false as const, error: 'Transaction not found' };
+    const denied = assertCompanyAccess(ctx, draw.companyId);
+    if (denied) return { success: false as const, error: 'Transaction not found' };
+
     const drawId = data.drawId ?? existing.drawId;
     const ticketCount =
       data.ticketCount ??
@@ -522,6 +531,15 @@ export async function deleteTransaction(id: number, ctx: SessionContext) {
     const db = getDb();
     const [existing] = await db.select().from(transactions).where(eq(transactions.id, id)).limit(1);
     if (!existing) return { success: false as const, error: 'Transaction not found' };
+
+    const [draw] = await db
+      .select({ companyId: draws.companyId })
+      .from(draws)
+      .where(eq(draws.id, existing.drawId))
+      .limit(1);
+    if (!draw) return { success: false as const, error: 'Transaction not found' };
+    const denied = assertCompanyAccess(ctx, draw.companyId);
+    if (denied) return { success: false as const, error: 'Transaction not found' };
 
     await validateDrawOpen(existing.drawId);
 

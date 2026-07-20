@@ -278,6 +278,17 @@ assert.match(
   /requireActiveShiftForCompany\(ctx\.activeShiftId,\s*ctx\.activeCompanyId\)/,
   'transaction creation must validate the session shift against the active company',
 );
+assert.match(
+  transactionsSource,
+  /export async function updateTransaction[\s\S]*?assertCompanyAccess\(ctx,\s*draw\.companyId\)/,
+  'updateTransaction must verify draw company',
+);
+assert.match(
+  transactionsSource,
+  /export async function deleteTransaction[\s\S]*?assertCompanyAccess\(ctx,\s*draw\.companyId\)/,
+  'deleteTransaction must verify draw company',
+);
+console.log('OK transaction update/delete scoped to active company');
 
 const registerSource = fs.readFileSync(new URL('../src/main/ipc/register.ts', import.meta.url), 'utf8');
 const masterCreateScoped = registerSource.match(
