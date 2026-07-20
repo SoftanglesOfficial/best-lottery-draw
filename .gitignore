@@ -93,3 +93,15 @@ out/
 
 # Playwright
 test-results/
+
+# Cursor / agent skill tooling (local workflow, not app source)
+.agents/
+.superpowers/
+docs/superpowers/
+skills-lock.json
+
+# Local secrets and runtime config
+config.json
+db-config.json
+credentials.json
+*.pem
