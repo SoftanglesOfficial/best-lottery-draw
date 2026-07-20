@@ -24,13 +24,13 @@ export function isNavItemActive(navPath: string, pathname: string): boolean {
 
 export function buildNavigation(role: UserRole) {
   const admin: NavItem[] = [
-    ...(isAdminOrOwner(role)
+    ...(role === 'admin'
       ? [
           { label: 'Company Owners', path: '/admin/owners' },
           { label: 'Companies', path: '/admin/companies' },
-          { label: 'Backups', path: '/admin/backups' },
         ]
       : []),
+    ...(isAdminOrOwner(role) ? [{ label: 'Backups', path: '/admin/backups' }] : []),
     ...(role === 'admin' ? [{ label: 'Diagnostics', path: '/admin/diagnostics' }] : []),
     ...(isAtLeastRole(role, 'manager')
       ? [{ label: 'Audit Logs', path: '/admin/audit-logs' }]

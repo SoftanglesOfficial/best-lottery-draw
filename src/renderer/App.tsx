@@ -1,6 +1,20 @@
-import { BrowserRouter, HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect } from 'react';
+import {
+  BrowserRouter,
+  HashRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router-dom';
 import AppShell from './components/AppShell';
-import { ProtectedRoute, ActiveCompanyRoute, ActiveShiftRoute, PublicRoute } from './components/ProtectedRoute';
+import {
+  ProtectedRoute,
+  ActiveCompanyRoute,
+  CompanyAdministrationRoute,
+  ActiveShiftRoute,
+  PublicRoute,
+} from './components/ProtectedRoute';
 import { AuthProvider } from './lib/auth';
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
@@ -51,9 +65,29 @@ import SettingsPage from './pages/SettingsPage';
 
 const AppRouter = window.location.protocol === 'file:' ? HashRouter : BrowserRouter;
 
+function RouteFocusManager() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const destination =
+        document.querySelector<HTMLElement>('h1') ??
+        document.querySelector<HTMLElement>('main :is(h2, h3, h4, h5, h6)') ??
+        document.querySelector<HTMLElement>('main');
+      if (!destination) return;
+      destination.tabIndex = -1;
+      destination.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [pathname]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <AppRouter>
+      <RouteFocusManager />
       <AuthProvider>
         <ToastProvider>
         <ConnectionProvider>
@@ -71,12 +105,14 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route path="/open-company" element={<OpenCompanyPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route element={<CompanyAdministrationRoute />}>
+                <Route path="/admin/owners" element={<OwnersPage />} />
+                <Route path="/admin/companies" element={<CompaniesPage />} />
+              </Route>
 
               <Route element={<ActiveCompanyRoute />}>
               <Route path="/open-shift" element={<OpenShiftPage />} />
 
-              <Route path="/admin/owners" element={<OwnersPage />} />
-              <Route path="/admin/companies" element={<CompaniesPage />} />
               <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
               <Route path="/admin/backups" element={<BackupsPage />} />
               <Route path="/admin/diagnostics" element={<DiagnosticsPage />} />

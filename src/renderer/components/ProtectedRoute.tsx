@@ -18,6 +18,14 @@ export function ActiveCompanyRoute() {
   return <Outlet />;
 }
 
+export function CompanyAdministrationRoute() {
+  const { user } = useAuth();
+  if (user?.role !== 'admin') {
+    return <Navigate to="/open-company" replace />;
+  }
+  return <Outlet />;
+}
+
 export function ActiveShiftRoute() {
   const { activeShift } = useAuth();
   if (!activeShift) {
