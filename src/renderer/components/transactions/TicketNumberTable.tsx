@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useRef, useState, useEffect } from 'react';
 import {
   autoCompleteTicket,
   isValidTicketNumber,
@@ -13,6 +13,7 @@ type TicketNumberTableProps = {
   activeIndex?: number;
   onActiveIndexChange?: (index: number) => void;
   onF5?: (index: number) => void;
+  variant?: 'default' | 'blueSpreadsheet';
 };
 
 export default function TicketNumberTable({
@@ -21,14 +22,24 @@ export default function TicketNumberTable({
   activeIndex,
   onActiveIndexChange,
   onF5,
+  variant = 'default',
 }: TicketNumberTableProps) {
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const descriptionIdPrefix = useId();
   const [blurredRows, setBlurredRows] = useState<Set<number>>(() => new Set());
+  const [activeRowIndex, setActiveRowIndex] = useState(0);
+  const blueSpreadsheet = variant === 'blueSpreadsheet';
+  const blueField =
+    'h-7 w-full border border-[#315aa8] bg-[#f7fbff] px-1.5 font-mono text-xs text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]';
+
+  const setActiveRow = (index: number) => {
+    setActiveRowIndex(index);
+    onActiveIndexChange?.(index);
+  };
 
   const focusRow = (index: number) => {
     setTimeout(() => inputRefs.current[index]?.focus(), 0);
-    onActiveIndexChange?.(index);
+    setActiveRow(index);
   };
 
   const updateRow = (index: number, digits: string, currentRows: TicketRow[]) =>
@@ -93,9 +104,12 @@ export default function TicketNumberTable({
     onChange(next.length ? next : [{ number: '' }]);
     const focusIndex = Math.min(index, next.length - 1);
     focusRow(focusIndex);
-    onActiveIndexChange?.(focusIndex);
     onF5?.(focusIndex);
   };
+
+  useEffect(() => {
+    setActiveRowIndex((current) => Math.min(current, Math.max(0, rows.length - 1)));
+  }, [rows.length]);
 
   const duplicateSet = new Set<string>();
   const duplicateNumbers = new Set<string>();
@@ -106,19 +120,20 @@ export default function TicketNumberTable({
   }
 
   const validCount = rows.filter((row) => isValidTicketNumber(row.number)).length;
+  const currentActive = activeIndex ?? activeRowIndex;
 
   return (
-    <div>
-      <div className="max-w-full overflow-x-auto rounded-cyber border border-line">
-      <table className="min-w-[480px] w-full text-sm">
-        <thead className="bg-surface-high">
-          <tr className="border-b border-line text-left">
-            <th className="w-16 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Sr No</th>
-            <th className="px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Ticket Number</th>
-            <th className="w-24 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted">Actions</th>
+    <div className={blueSpreadsheet ? 'flex h-full min-h-0 flex-col' : undefined}>
+      <div className={blueSpreadsheet ? 'min-h-0 flex-1 overflow-auto border border-[#3f68ba] bg-[#071b5d]' : 'max-w-full overflow-x-auto rounded-cyber border border-line'}>
+      <table className={blueSpreadsheet ? 'w-full min-w-[480px] table-fixed border-collapse text-xs' : 'min-w-[480px] w-full text-sm'}>
+        <thead className={blueSpreadsheet ? 'sticky top-0 z-10 bg-white' : 'bg-surface-high'}>
+          <tr className={blueSpreadsheet ? 'border-b-2 border-[#071b4d] text-left text-[#071b4d]' : 'border-b border-line text-left'}>
+            <th className={blueSpreadsheet ? 'w-12 border-r border-[#071b4d] px-1 py-1 text-center text-[10px] font-bold uppercase' : 'w-16 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Sr</th>
+            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1 text-[10px] font-bold uppercase' : 'px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Ticket No</th>
+            <th className={blueSpreadsheet ? 'w-12 px-1 py-1 text-center text-[10px] font-bold uppercase' : 'w-24 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Del</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-line">
+        <tbody className={blueSpreadsheet ? undefined : 'divide-y divide-line'}>
           {rows.map((row, index) => {
             const isDuplicate =
               isValidTicketNumber(row.number) && duplicateNumbers.has(row.number);
@@ -132,17 +147,28 @@ export default function TicketNumberTable({
                 ? 'Ticket number must be 5 digits.'
                 : null;
             const errorId = `${descriptionIdPrefix}-row-${index}-error`;
+            const isActive = blueSpreadsheet && currentActive === index;
+            const rowBg = blueSpreadsheet
+              ? isActive
+                ? 'bg-[#e85d04] text-white'
+                : index % 2 === 0
+                  ? 'bg-[#dceaff] text-[#071b4d]'
+                  : 'bg-[#c9dcfb] text-[#071b4d]'
+              : '';
+            const activeField = isActive ? `${blueField} bg-white` : blueField;
 
             const borderClass = isDuplicate
-              ? 'border-cyber-warning bg-cyber-warning/10'
+              ? 'border-[#c2410c] bg-[#fff7ed]'
               : showInvalidError
-                ? 'border-cyber-error bg-cyber-error/10'
-                : 'border-line-control bg-canvas';
+                ? 'border-[#dc2626] bg-[#fef2f2]'
+                : blueSpreadsheet
+                  ? activeField
+                  : 'border-line-control bg-canvas';
 
             return (
-              <tr key={index} className="bg-surface-raised hover:bg-surface-high">
-                <td className="px-3 py-2 font-mono text-content-subtle">{index + 1}</td>
-                <td className="px-3 py-2">
+              <tr key={index} className={blueSpreadsheet ? `${rowBg} border-b border-[#83a5da]` : 'bg-surface-raised hover:bg-surface-high'}>
+                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-2 py-1 text-center font-mono font-bold' : 'px-3 py-2 font-mono text-content-subtle'}>{index + 1}</td>
+                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-3 py-2'}>
                   <input
                     ref={(el) => {
                       inputRefs.current[index] = el;
@@ -150,7 +176,7 @@ export default function TicketNumberTable({
                     value={row.number}
                     onChange={(event) => handleTicketInput(index, event.target.value)}
                     onFocus={() => {
-                      onActiveIndexChange?.(index);
+                      setActiveRow(index);
                       setBlurredRows((prev) => {
                         if (!prev.has(index)) return prev;
                         const next = new Set(prev);
@@ -172,7 +198,11 @@ export default function TicketNumberTable({
                         removeRow(index);
                       }
                     }}
-                    className={`w-32 rounded-cyber border px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20 ${borderClass}`}
+                    className={
+                      blueSpreadsheet
+                        ? `${borderClass} w-28`
+                        : `w-32 rounded-cyber border px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20 ${borderClass}`
+                    }
                     inputMode="numeric"
                     maxLength={TICKET_NUMBER_LENGTH}
                     aria-invalid={showInvalidError || isDuplicate}
@@ -183,31 +213,43 @@ export default function TicketNumberTable({
                     <p
                       id={errorId}
                       className={`mt-1 font-mono text-[10px] ${
-                        isDuplicate ? 'text-cyber-warning' : 'text-cyber-error'
+                        isDuplicate ? 'text-[#c2410c]' : 'text-[#dc2626]'
                       }`}
                     >
                       {errorMessage}
                     </p>
                   ) : null}
                 </td>
-                <td className="px-3 py-2">
+                <td className={blueSpreadsheet ? 'px-1.5 py-1 text-center' : 'px-3 py-2'}>
                   <button
                     type="button"
-                    className="rounded-cyber px-1.5 py-1 text-cyber-error hover:bg-cyber-error/10 focus:outline-none focus:ring-2 focus:ring-cyber-error/30"
+                    className={blueSpreadsheet ? 'cursor-pointer px-1 py-0.5 text-[10px] font-bold uppercase text-[#9e1d32] hover:text-[#c93149] focus:outline-none focus:ring-1 focus:ring-[#ffd447]' : 'rounded-cyber px-1.5 py-1 text-cyber-error hover:bg-cyber-error/10 focus:outline-none focus:ring-2 focus:ring-cyber-error/30'}
                     onClick={() => removeRow(index)}
                   >
-                    Delete
+                    ×
                   </button>
                 </td>
               </tr>
             );
           })}
         </tbody>
+        {blueSpreadsheet ? (
+          <tfoot>
+            <tr className="border-t-2 border-[#8db3f2] bg-[#123d99] font-bold text-white">
+              <td colSpan={3} className="px-2 py-2 text-right text-xs uppercase tracking-wide">
+                Valid Tickets{' '}
+                <span className="ml-2 font-mono text-[#ffe16a]">{validCount}</span>
+              </td>
+            </tr>
+          </tfoot>
+        ) : null}
       </table>
       </div>
-      <p className="mt-2 font-mono text-xs font-medium uppercase tracking-[0.05em] text-content-muted">
-        Valid tickets: <span className="text-cyber-hover">{validCount}</span>
-      </p>
+      {!blueSpreadsheet ? (
+        <p className="mt-2 font-mono text-xs font-medium uppercase tracking-[0.05em] text-content-muted">
+          Valid tickets: <span className="text-cyber-hover">{validCount}</span>
+        </p>
+      ) : null}
     </div>
   );
 }
