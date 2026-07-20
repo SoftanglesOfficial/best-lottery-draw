@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
-import { Button } from '../../components/ui';
+import { Button, PageHeader } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
@@ -101,7 +101,13 @@ export default function ReportsSummaryPage() {
 
   return (
     <div className="print-full-width mx-auto max-w-6xl text-content">
-      <h1 className="mb-4 font-display text-2xl font-bold text-content">Reports Summary</h1>
+      <div className="mb-4">
+        <PageHeader
+          eyebrow="Reports"
+          title="Reports Summary"
+          subtitle="Dashboard overview of sales, purchases, and recent activity."
+        />
+      </div>
 
       <div className="no-print mb-6 flex flex-wrap items-end gap-4 rounded-cyber-lg border border-line bg-surface-raised p-4">
         <label className="flex flex-col gap-1 text-sm">

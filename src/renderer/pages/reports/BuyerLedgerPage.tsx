@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Download, Printer } from 'lucide-react';
 import { useToast } from '../../components/Toast';
-import { Button } from '../../components/ui';
+import { Button, PageHeader } from '../../components/ui';
 import { api } from '../../lib/api';
 import { downloadCsv } from '../../lib/exportCsv';
 import { printReport } from '../../lib/exportPdf';
@@ -114,27 +114,36 @@ export default function BuyerLedgerPage() {
 
   return (
     <div className="print-full-width mx-auto max-w-6xl text-content">
-      <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-bold text-content">Buyer Ledger</h1>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-cyber border border-line-strong bg-surface-raised px-3 py-2 text-sm font-semibold text-content-muted transition-colors hover:border-cyber hover:text-cyber-hover focus:outline-none focus:ring-2 focus:ring-cyber/30"
-            onClick={() => printReport('Buyer Ledger')}
-          >
-            <Printer className="h-4 w-4" />
-            Print
-          </button>
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-cyber border border-line-strong bg-surface-raised px-3 py-2 text-sm font-semibold text-content-muted transition-colors hover:border-cyber hover:text-cyber-hover focus:outline-none focus:ring-2 focus:ring-cyber/30 disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={handleExportCsv}
-            disabled={!generated}
-          >
-            <Download className="h-4 w-4" />
-            Export CSV
-          </button>
-        </div>
+      <div className="mb-4">
+        <PageHeader
+          eyebrow="Reports"
+          title="Buyer Ledger"
+          subtitle="Buyer balances and draw breakdown."
+          actions={
+            <div className="no-print flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                allowOffline
+                className="flex items-center gap-2"
+                onClick={() => printReport('Buyer Ledger')}
+              >
+                <Printer className="h-4 w-4" />
+                Print
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex items-center gap-2"
+                onClick={handleExportCsv}
+                disabled={!generated}
+              >
+                <Download className="h-4 w-4" />
+                Export CSV
+              </Button>
+            </div>
+          }
+        />
       </div>
 
       <div className="no-print mb-6 flex flex-wrap items-end gap-4 rounded-cyber-lg border border-line bg-surface-raised p-4">

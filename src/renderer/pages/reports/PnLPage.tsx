@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { ChevronDown, ChevronUp, Printer } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../components/Toast';
-import { Button } from '../../components/ui';
+import { Button, PageHeader } from '../../components/ui';
 import { api } from '../../lib/api';
 import { printReport } from '../../lib/exportPdf';
 import { canViewPnL } from '../../lib/roles';
@@ -109,17 +109,27 @@ export default function PnLPage() {
 
   return (
     <div className="print-full-width mx-auto max-w-6xl text-content">
-      <div className="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-bold text-content">Profit & Loss</h1>
-        <button
-          type="button"
-          className="flex items-center gap-2 rounded-cyber border border-line-strong bg-surface-raised px-3 py-2 text-sm font-semibold text-content-muted transition-colors hover:border-cyber hover:text-cyber-hover focus:outline-none focus:ring-2 focus:ring-cyber/30 disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={() => printReport('Profit & Loss Report')}
-          disabled={!report}
-        >
-          <Printer className="h-4 w-4" />
-          Print
-        </button>
+      <div className="mb-4">
+        <PageHeader
+          eyebrow="Reports"
+          title="Profit & Loss"
+          subtitle="Sales, purchases, and profit by draw and buyer."
+          actions={
+            <div className="no-print flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                allowOffline
+                className="flex items-center gap-2"
+                onClick={() => printReport('Profit & Loss Report')}
+                disabled={!report}
+              >
+                <Printer className="h-4 w-4" />
+                Print
+              </Button>
+            </div>
+          }
+        />
       </div>
 
       <div className="no-print mb-6 flex flex-wrap items-end gap-4 rounded-cyber-lg border border-line bg-surface-raised p-4">
