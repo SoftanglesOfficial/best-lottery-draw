@@ -435,9 +435,10 @@ export default function DrawsPage() {
             onChange={(event) => setDateTo(event.target.value)}
             className="w-40"
           />
-          <label className="flex flex-col gap-1">
+          <label htmlFor="draws-filter-status" className="flex flex-col gap-1">
             <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Status</span>
             <select
+              id="draws-filter-status"
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
               className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
@@ -448,9 +449,10 @@ export default function DrawsPage() {
               <option value="locked">Locked</option>
             </select>
           </label>
-          <label className="flex flex-col gap-1">
+          <label htmlFor="draws-filter-item" className="flex flex-col gap-1">
             <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Item</span>
             <select
+              id="draws-filter-item"
               value={itemFilter}
               onChange={(event) => setItemFilter(event.target.value)}
               className="min-w-[160px] rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
@@ -483,9 +485,10 @@ export default function DrawsPage() {
               onChange={(event) => setForm({ ...form, name: event.target.value })}
               placeholder="Auto-generated if left blank"
             />
-            <label className="flex flex-col gap-1">
+            <label htmlFor="draw-modal-item" className="flex flex-col gap-1">
               <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Item *</span>
               <select
+                id="draw-modal-item"
                 required
                 value={form.itemId}
                 onChange={(event) => setForm({ ...form, itemId: Number(event.target.value) })}
