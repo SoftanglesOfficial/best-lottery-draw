@@ -65,6 +65,7 @@ async function resolveDrawId(data: TransactionInput): Promise<number> {
     if (draw.companyId !== data.companyId) {
       throw new Error('Draw does not belong to this company.');
     }
+    await validateDrawOpen(data.drawId);
     return data.drawId;
   }
   if (!data.itemId) {
@@ -95,6 +96,7 @@ async function resolveDrawId(data: TransactionInput): Promise<number> {
   if (!draw) {
     throw new Error('No open draw found for this item on the selected date.');
   }
+  await validateDrawOpen(draw.id);
   return draw.id;
 }
 
@@ -206,6 +208,10 @@ async function validateTransactionCreate(
   excludeTransactionId?: number,
   db = getDb(),
 ) {
+  if (data.type === 'stock_transfer') {
+    throw new Error('Stock transfer is not available.');
+  }
+
   await validateDrawOpen(drawId);
 
   if (data.type === 'purchase' || data.type === 'purchase_return') {
@@ -296,7 +302,7 @@ async function validateTransactionCreate(
       types: ['purchase'],
     });
     if (purchasedCount <= 0) {
-      throw new Error('Cannot enter return without an existing sale entry');
+      throw new Error('Cannot enter return without an existing purchase entry');
     }
 
     const returnedCount = await sumTicketCounts(drawId, {

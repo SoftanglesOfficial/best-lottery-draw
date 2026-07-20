@@ -288,7 +288,23 @@ assert.match(
   /export async function deleteTransaction[\s\S]*?assertCompanyAccess\(ctx,\s*draw\.companyId\)/,
   'deleteTransaction must verify draw company',
 );
+assert.match(
+  transactionsSource,
+  /async function validateTransactionCreate[\s\S]*?if \(data\.type === 'stock_transfer'\)[\s\S]*?Stock transfer is not available\./,
+  'validateTransactionCreate must reject stock_transfer',
+);
+assert.match(
+  transactionsSource,
+  /data\.type === 'purchase_return'[\s\S]*?Cannot enter return without an existing purchase entry/,
+  'purchase_return must reference purchase entry',
+);
+assert.match(
+  transactionsSource,
+  /async function resolveDrawId[\s\S]*?await validateDrawOpen\(/,
+  'resolveDrawId must validate draw is open',
+);
 console.log('OK transaction update/delete scoped to active company');
+console.log('OK transaction validation hardened');
 
 const registerSource = fs.readFileSync(new URL('../src/main/ipc/register.ts', import.meta.url), 'utf8');
 const masterCreateScoped = registerSource.match(
