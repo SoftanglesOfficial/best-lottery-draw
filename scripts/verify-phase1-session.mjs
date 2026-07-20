@@ -437,3 +437,44 @@ assert.match(
   'itemSchemes-get must pass session context',
 );
 console.log('OK task 4 handlers pass session context');
+
+const purchaseEntrySource = fs.readFileSync(
+  new URL('../src/renderer/pages/transactions/PurchaseEntryPage.tsx', import.meta.url),
+  'utf8',
+);
+assert.match(
+  purchaseEntrySource,
+  /htmlFor="purchase-draw"/,
+  'purchase draw label must link to purchase-draw input',
+);
+assert.match(
+  purchaseEntrySource,
+  /id="purchase-draw"/,
+  'purchase draw input id must remain purchase-draw',
+);
+
+const buyerLedgerSource = fs.readFileSync(
+  new URL('../src/renderer/pages/reports/BuyerLedgerPage.tsx', import.meta.url),
+  'utf8',
+);
+assert.match(
+  buyerLedgerSource,
+  /aria-expanded=/,
+  'buyer ledger expand controls must expose aria-expanded state',
+);
+assert.match(
+  buyerLedgerSource,
+  /PageHeader/,
+  'buyer ledger page must use shared PageHeader',
+);
+
+const reportsSummarySource = fs.readFileSync(
+  new URL('../src/renderer/pages/reports/ReportsSummaryPage.tsx', import.meta.url),
+  'utf8',
+);
+assert.match(
+  reportsSummarySource,
+  /PageHeader/,
+  'reports summary page must use shared PageHeader',
+);
+console.log('OK phase 3 UI consistency guards');
