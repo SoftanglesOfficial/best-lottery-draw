@@ -382,7 +382,7 @@ export function registerIpcHandlers(): void {
     }, 'manager'),
   );
   ipcMain.handle('audit-logs-list', async (_e, ...args) =>
-    withSession(args, (_ctx, filters) => listAuditLogs(filters as AuditLogFilters), 'manager'),
+    withSession(args, (ctx, filters) => listAuditLogs(ctx, filters as AuditLogFilters), 'manager'),
   );
   ipcMain.handle('backups-create', async (_e, ...args) =>
     withSession(args, (ctx, companyId) => {
@@ -399,11 +399,11 @@ export function registerIpcHandlers(): void {
   );
   ipcMain.handle('utilities-change-buyer-rate', async (_e, ...args) =>
     withSession(args, (ctx, buyerId, newRate) =>
-      changeBuyerRate(buyerId as number, newRate as number, ctx.userId), 'manager'),
+      changeBuyerRate(ctx, buyerId as number, newRate as number, ctx.userId), 'manager'),
   );
   ipcMain.handle('utilities-change-provider-rate', async (_e, ...args) =>
     withSession(args, (ctx, providerId, newRate) =>
-      changeProviderRate(providerId as number, newRate as number, ctx.userId), 'manager'),
+      changeProviderRate(ctx, providerId as number, newRate as number, ctx.userId), 'manager'),
   );
   ipcMain.handle('utilities-change-commission', async (_e, ...args) =>
     withSession(args, (ctx, partyType, partyId, newRate) =>
@@ -416,7 +416,7 @@ export function registerIpcHandlers(): void {
   );
   ipcMain.handle('utilities-bulk-rate-update', async (_e, ...args) =>
     withSession(args, (ctx, buyerGroupId, newRate) =>
-      bulkRateUpdate(buyerGroupId as number, newRate as number, ctx.userId), 'manager'),
+      bulkRateUpdate(ctx, buyerGroupId as number, newRate as number, ctx.userId), 'manager'),
   );
   ipcMain.handle('utilities-delete-memos', async (_e, ...args) =>
     withSession(args, (ctx, drawId, memoIds) =>
@@ -638,7 +638,7 @@ export function registerIpcHandlers(): void {
     }, 'manager'),
   );
   ipcMain.handle('itemSchemes-get', async (_e, ...args) =>
-    withSession(args, (_ctx, id) => getItemScheme(id as number)),
+    withSession(args, (ctx, id) => getItemScheme(ctx, id as number)),
   );
   ipcMain.handle('itemSchemes-getPrizes', async (_e, ...args) =>
     withSession(args, (_ctx, itemSchemeId) => getItemSchemePrizes(itemSchemeId as number)),

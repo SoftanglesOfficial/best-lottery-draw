@@ -12,6 +12,7 @@ import {
   users,
   winningTickets,
 } from '../schema';
+import { assertCompanyAccess, type SessionContext } from './sessionContext';
 import type {
   AuditLogFilters,
   AuditLogListRecord,
@@ -605,6 +606,7 @@ export async function getReportsDashboard(
 }
 
 export async function listAuditLogs(
+  ctx: SessionContext,
   filters: AuditLogFilters = {},
 ): Promise<{ success: true; logs: AuditLogListRecord[] } | { success: false; error: string }> {
   const connection = await ensureConnected();
@@ -612,20 +614,29 @@ export async function listAuditLogs(
     return { success: false, error: connection.error ?? 'Database is not connected' };
   }
   try {
+    const scopedFilters = { ...filters };
+    if (ctx.role !== 'admin') {
+      scopedFilters.companyId = ctx.activeCompanyId ?? undefined;
+    }
+    if (scopedFilters.companyId != null) {
+      const denied = assertCompanyAccess(ctx, scopedFilters.companyId);
+      if (denied) return denied;
+    }
+
     const db = getDb();
     const conditions = [];
 
-    if (filters.entity) conditions.push(eq(auditLogs.entity, filters.entity));
-    if (filters.entityId != null) conditions.push(eq(auditLogs.entityId, filters.entityId));
-    if (filters.userId != null) conditions.push(eq(auditLogs.userId, filters.userId));
-    if (filters.dateFrom) conditions.push(gte(auditLogs.timestamp, new Date(filters.dateFrom)));
-    if (filters.dateTo) conditions.push(lte(auditLogs.timestamp, endOfDay(filters.dateTo)));
+    if (scopedFilters.entity) conditions.push(eq(auditLogs.entity, scopedFilters.entity));
+    if (scopedFilters.entityId != null) conditions.push(eq(auditLogs.entityId, scopedFilters.entityId));
+    if (scopedFilters.userId != null) conditions.push(eq(auditLogs.userId, scopedFilters.userId));
+    if (scopedFilters.dateFrom) conditions.push(gte(auditLogs.timestamp, new Date(scopedFilters.dateFrom)));
+    if (scopedFilters.dateTo) conditions.push(lte(auditLogs.timestamp, endOfDay(scopedFilters.dateTo)));
 
-    if (filters.companyId != null) {
+    if (scopedFilters.companyId != null) {
       const companyDraws = await db
         .select({ id: draws.id })
         .from(draws)
-        .where(eq(draws.companyId, filters.companyId));
+        .where(eq(draws.companyId, scopedFilters.companyId));
       const drawIds = companyDraws.map((row) => row.id);
       if (drawIds.length === 0) {
         return { success: true, logs: [] };

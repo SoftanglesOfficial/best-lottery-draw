@@ -1,12 +1,13 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { ensureConnected, getDb, getPool } from '../db';
-import { buyers, providers, transactions } from '../schema';
-import { validateDrawOpen } from './drawValidation';
+import { buyerGroups, buyers, providers, transactions } from '../schema';
+import { getDrawById, validateDrawOpen } from './drawValidation';
 import { insertAuditLog } from './auditLog';
 import type { BuyerRecord, ProviderRecord } from '../../shared/types';
-import type { SessionContext } from './sessionContext';
+import { assertCompanyAccess, type SessionContext } from './sessionContext';
 
 export async function changeBuyerRate(
+  ctx: SessionContext,
   buyerId: number,
   newRate: number,
   userId: number,
@@ -17,6 +18,10 @@ export async function changeBuyerRate(
   }
   try {
     const db = getDb();
+    const [buyer] = await db.select().from(buyers).where(eq(buyers.id, buyerId)).limit(1);
+    if (!buyer) return { success: false, error: 'Buyer not found' };
+    const denied = assertCompanyAccess(ctx, buyer.companyId);
+    if (denied) return { success: false, error: 'Buyer not found' };
     const [updated] = await db
       .update(buyers)
       .set({ saleRate: String(newRate), updatedAt: new Date() })
@@ -37,6 +42,7 @@ export async function changeBuyerRate(
 }
 
 export async function changeProviderRate(
+  ctx: SessionContext,
   providerId: number,
   newRate: number,
   userId: number,
@@ -47,6 +53,10 @@ export async function changeProviderRate(
   }
   try {
     const db = getDb();
+    const [provider] = await db.select().from(providers).where(eq(providers.id, providerId)).limit(1);
+    if (!provider) return { success: false, error: 'Provider not found' };
+    const denied = assertCompanyAccess(ctx, provider.companyId);
+    if (denied) return { success: false, error: 'Provider not found' };
     const [updated] = await db
       .update(providers)
       .set({ purchaseRate: String(newRate), updatedAt: new Date() })
@@ -114,6 +124,7 @@ export async function changeCommission(
 }
 
 export async function bulkRateUpdate(
+  ctx: SessionContext,
   buyerGroupId: number,
   newRate: number,
   userId: number,
@@ -124,6 +135,14 @@ export async function bulkRateUpdate(
   }
   try {
     const db = getDb();
+    const [group] = await db
+      .select()
+      .from(buyerGroups)
+      .where(eq(buyerGroups.id, buyerGroupId))
+      .limit(1);
+    if (!group) return { success: false, error: 'Buyer group not found' };
+    const denied = assertCompanyAccess(ctx, group.companyId);
+    if (denied) return { success: false, error: 'Buyer group not found' };
     const updated = await db
       .update(buyers)
       .set({ saleRate: String(newRate), updatedAt: new Date() })
@@ -159,6 +178,10 @@ export async function deleteMemos(
     return { success: false, error: connection.error ?? 'Database is not connected' };
   }
   try {
+    const draw = await getDrawById(drawId);
+    if (!draw) return { success: false, error: 'Draw not found' };
+    const denied = assertCompanyAccess(ctx, draw.companyId);
+    if (denied) return { success: false, error: 'Draw not found' };
     await validateDrawOpen(drawId);
     const db = getDb();
     const deleted = await db

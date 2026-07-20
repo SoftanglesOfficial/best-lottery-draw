@@ -6,6 +6,7 @@ import {
   itemSchemes,
   items,
 } from '../schema';
+import { assertCompanyAccess, type SessionContext } from './sessionContext';
 import type {
   ItemGroupInput,
   ItemGroupRecord,
@@ -280,33 +281,47 @@ export async function getItemSchemePrizes(itemSchemeId: number) {
   }
 }
 
-export async function getItemScheme(id: number) {
+async function loadItemSchemeWithPrizes(id: number) {
+  const db = getDb();
+  const [scheme] = await db
+    .select({
+      id: itemSchemes.id,
+      itemId: itemSchemes.itemId,
+      itemName: items.name,
+      schemeDate: itemSchemes.schemeDate,
+      drawNo: itemSchemes.drawNo,
+      companyId: itemSchemes.companyId,
+      createdAt: itemSchemes.createdAt,
+      updatedAt: itemSchemes.updatedAt,
+    })
+    .from(itemSchemes)
+    .innerJoin(items, eq(itemSchemes.itemId, items.id))
+    .where(eq(itemSchemes.id, id))
+    .limit(1);
+  if (!scheme) return { success: false as const, error: 'Scheme not found' };
+  const prizesResult = await getItemSchemePrizes(id);
+  if (!prizesResult.success) return prizesResult;
+  return {
+    success: true as const,
+    scheme: { ...scheme, prizeCount: prizesResult.prizes.length, prizes: prizesResult.prizes } as ItemSchemeWithPrizes,
+  };
+}
+
+export async function getItemScheme(ctx: SessionContext, id: number) {
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
-    const [scheme] = await db
-      .select({
-        id: itemSchemes.id,
-        itemId: itemSchemes.itemId,
-        itemName: items.name,
-        schemeDate: itemSchemes.schemeDate,
-        drawNo: itemSchemes.drawNo,
-        companyId: itemSchemes.companyId,
-        createdAt: itemSchemes.createdAt,
-        updatedAt: itemSchemes.updatedAt,
-      })
+    const [row] = await db
+      .select({ itemCompanyId: items.companyId })
       .from(itemSchemes)
       .innerJoin(items, eq(itemSchemes.itemId, items.id))
       .where(eq(itemSchemes.id, id))
       .limit(1);
-    if (!scheme) return { success: false as const, error: 'Scheme not found' };
-    const prizesResult = await getItemSchemePrizes(id);
-    if (!prizesResult.success) return prizesResult;
-    return {
-      success: true as const,
-      scheme: { ...scheme, prizeCount: prizesResult.prizes.length, prizes: prizesResult.prizes } as ItemSchemeWithPrizes,
-    };
+    if (!row) return { success: false as const, error: 'Scheme not found' };
+    const denied = assertCompanyAccess(ctx, row.itemCompanyId);
+    if (denied) return { success: false as const, error: 'Scheme not found' };
+    return loadItemSchemeWithPrizes(id);
   } catch (error) {
     return { success: false as const, error: error instanceof Error ? error.message : 'Failed to load scheme' };
   }
@@ -338,7 +353,7 @@ export async function createItemScheme(data: ItemSchemeInput) {
       }
       return scheme;
     });
-    const full = await getItemScheme(result.id);
+    const full = await loadItemSchemeWithPrizes(result.id);
     if (!full.success) return full;
     return { success: true as const, scheme: full.scheme };
   } catch (error) {
@@ -375,7 +390,7 @@ export async function updateItemScheme(id: number, data: ItemSchemeInput, compan
         );
       }
     });
-    const full = await getItemScheme(id);
+    const full = await loadItemSchemeWithPrizes(id);
     if (!full.success) return full;
     return { success: true as const, scheme: full.scheme };
   } catch (error) {

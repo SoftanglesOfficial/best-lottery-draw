@@ -332,3 +332,82 @@ assert.match(
   'winning-tickets-delete must verify draw company before delete',
 );
 console.log('OK draw lock/unlock/results scoped to active company');
+
+const utilitiesSource = fs.readFileSync(new URL('../src/main/ipc/utilities.ts', import.meta.url), 'utf8');
+assert.match(
+  utilitiesSource,
+  /export async function changeBuyerRate[\s\S]*?assertCompanyAccess\(ctx,\s*buyer\.companyId\)/,
+  'changeBuyerRate must verify buyer company',
+);
+assert.match(
+  utilitiesSource,
+  /export async function changeProviderRate[\s\S]*?assertCompanyAccess\(ctx,\s*provider\.companyId\)/,
+  'changeProviderRate must verify provider company',
+);
+assert.match(
+  utilitiesSource,
+  /export async function bulkRateUpdate[\s\S]*?assertCompanyAccess\(ctx,\s*group\.companyId\)/,
+  'bulkRateUpdate must verify buyer group company',
+);
+assert.match(
+  utilitiesSource,
+  /export async function deleteMemos[\s\S]*?assertCompanyAccess\(ctx,\s*draw\.companyId\)/,
+  'deleteMemos must verify draw company',
+);
+console.log('OK utility rate and memo deletes scoped to session company');
+
+const backupsSource = fs.readFileSync(new URL('../src/main/ipc/backups.ts', import.meta.url), 'utf8');
+assert.match(
+  backupsSource,
+  /export async function restoreBackup[\s\S]*?assertCompanyAccess\(ctx,\s*companyId\)/,
+  'restoreBackup must verify backup company against session',
+);
+console.log('OK backup restore scoped to session company');
+
+const reportsSource = fs.readFileSync(new URL('../src/main/ipc/reports.ts', import.meta.url), 'utf8');
+assert.match(
+  reportsSource,
+  /export async function listAuditLogs[\s\S]*?ctx\.role !== 'admin'[\s\S]*?scopedFilters\.companyId = ctx\.activeCompanyId/,
+  'listAuditLogs must force active company for non-admin users',
+);
+assert.match(
+  reportsSource,
+  /export async function listAuditLogs[\s\S]*?assertCompanyAccess\(ctx,\s*scopedFilters\.companyId\)/,
+  'listAuditLogs must verify company filter against session',
+);
+console.log('OK audit log listing scoped to session company');
+
+const itemsSource = fs.readFileSync(new URL('../src/main/ipc/items.ts', import.meta.url), 'utf8');
+assert.match(
+  itemsSource,
+  /export async function getItemScheme[\s\S]*?innerJoin\(items[\s\S]*?assertCompanyAccess\(ctx,\s*row\.itemCompanyId\)/,
+  'getItemScheme must verify item company via join',
+);
+console.log('OK item scheme read scoped to session company');
+
+assert.match(
+  registerSource,
+  /utilities-change-buyer-rate[\s\S]*?changeBuyerRate\(ctx,/,
+  'utilities-change-buyer-rate must pass session context',
+);
+assert.match(
+  registerSource,
+  /utilities-change-provider-rate[\s\S]*?changeProviderRate\(ctx,/,
+  'utilities-change-provider-rate must pass session context',
+);
+assert.match(
+  registerSource,
+  /utilities-bulk-rate-update[\s\S]*?bulkRateUpdate\(ctx,/,
+  'utilities-bulk-rate-update must pass session context',
+);
+assert.match(
+  registerSource,
+  /audit-logs-list[\s\S]*?listAuditLogs\(ctx,/,
+  'audit-logs-list must pass session context',
+);
+assert.match(
+  registerSource,
+  /itemSchemes-get[\s\S]*?getItemScheme\(ctx,/,
+  'itemSchemes-get must pass session context',
+);
+console.log('OK task 4 handlers pass session context');

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { app, dialog } from 'electron';
 import { and, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
-import type { SessionContext } from './sessionContext';
+import { assertCompanyAccess, type SessionContext } from './sessionContext';
 import {
   auditLogs,
   backups,
@@ -265,6 +265,9 @@ export async function restoreBackup(ctx: SessionContext, filePath?: string) {
     }
 
     const companyId = Number(data.companyId);
+    const denied = assertCompanyAccess(ctx, companyId);
+    if (denied) return denied;
+
     const db = getDb();
 
     await db.transaction(async (tx) => {
