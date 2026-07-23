@@ -1,14 +1,14 @@
 import { FormEvent, ReactNode, RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
-import type { BuyerRecord, DrawRecord } from '../../../shared/types';
+import type { BuyerRecord, DrawRecord, ProviderRecord } from '../../../shared/types';
 
 const actionBtn =
   'cursor-pointer border border-[#ffdf63] bg-[#f1b900] px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-[#10275e] shadow-[0_2px_0_#745600] hover:bg-[#ffd447] focus:outline-none focus:ring-2 focus:ring-[#ffd447] disabled:cursor-not-allowed disabled:opacity-60';
 
 export type LegacyShellAccent = 'blue' | 'orange';
 
-type LegacyTransactionShellProps = {
+type LegacyTransactionShellBaseProps = {
   formRef: RefObject<HTMLFormElement | null>;
   pageTitle: string;
   centerTitle: string;
@@ -18,12 +18,11 @@ type LegacyTransactionShellProps = {
   memoId: number | null;
   entryDate: string;
   onEntryDateChange: (value: string) => void;
-  buyerId: number | null;
-  onBuyerIdChange: (value: number | null) => void;
-  buyers: BuyerRecord[];
   drawId: number | null;
   onDrawIdChange: (value: number | null) => void;
   draws: DrawRecord[];
+  voucherNo?: string;
+  onVoucherNoChange?: (value: string) => void;
   alerts?: ReactNode;
   statusBanner?: ReactNode;
   children: ReactNode;
@@ -43,40 +42,58 @@ type LegacyTransactionShellProps = {
   printShortcut?: string;
 };
 
-export default function LegacyTransactionShell({
-  formRef,
-  pageTitle,
-  centerTitle,
-  contextLabel,
-  partyLabel = 'Party Name *',
-  accent = 'blue',
-  memoId,
-  entryDate,
-  onEntryDateChange,
-  buyerId,
-  onBuyerIdChange,
-  buyers,
-  drawId,
-  onDrawIdChange,
-  draws,
-  alerts,
-  statusBanner,
-  children,
-  rowCount,
-  activeRowIndex,
-  totalQty,
-  totalAmount = null,
-  saving,
-  saveLabel,
-  disabled = false,
-  shortcuts,
-  extraActions = [],
-  onSubmit,
-  onDeleteRow,
-  onClear,
-  onSearch,
-  printShortcut = 'F12',
-}: LegacyTransactionShellProps) {
+type LegacyTransactionShellBuyerProps = LegacyTransactionShellBaseProps & {
+  partyKind?: 'buyer';
+  buyerId: number | null;
+  onBuyerIdChange: (value: number | null) => void;
+  buyers: BuyerRecord[];
+};
+
+type LegacyTransactionShellProviderProps = LegacyTransactionShellBaseProps & {
+  partyKind: 'provider';
+  providers: ProviderRecord[];
+  providerId: number | null;
+  onProviderIdChange: (value: number | null) => void;
+};
+
+type LegacyTransactionShellProps =
+  | LegacyTransactionShellBuyerProps
+  | LegacyTransactionShellProviderProps;
+
+export default function LegacyTransactionShell(props: LegacyTransactionShellProps) {
+  const {
+    formRef,
+    pageTitle,
+    centerTitle,
+    contextLabel,
+    partyLabel = 'Party Name *',
+    accent = 'blue',
+    memoId,
+    entryDate,
+    onEntryDateChange,
+    drawId,
+    onDrawIdChange,
+    draws,
+    voucherNo,
+    onVoucherNoChange,
+    alerts,
+    statusBanner,
+    children,
+    rowCount,
+    activeRowIndex,
+    totalQty,
+    totalAmount = null,
+    saving,
+    saveLabel,
+    disabled = false,
+    shortcuts,
+    extraActions = [],
+    onSubmit,
+    onDeleteRow,
+    onClear,
+    onSearch,
+    printShortcut = 'F12',
+  } = props;
   const navigate = useNavigate();
   const { activeShift, activeCompanyName } = useAuth();
   const now = new Date();
@@ -194,25 +211,47 @@ export default function LegacyTransactionShell({
               className="h-8 min-w-[9.5rem] flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
             />
           </label>
-          <label className="flex min-w-0 items-center gap-2">
-            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
-              {partyLabel}
-            </span>
-            <select
-              value={buyerId ?? ''}
-              onChange={(event) => onBuyerIdChange(Number(event.target.value) || null)}
-              aria-label={partyLabel}
-              className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
-              required
-            >
-              <option value="">Select buyer</option>
-              {buyers.map((buyer) => (
-                <option key={buyer.id} value={buyer.id}>
-                  {buyer.name} ({buyer.type === 'stockist' ? 'Stocker' : 'Seller'})
-                </option>
-              ))}
-            </select>
-          </label>
+          {props.partyKind === 'provider' ? (
+            <label className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
+                {partyLabel}
+              </span>
+              <select
+                value={props.providerId ?? ''}
+                onChange={(event) => props.onProviderIdChange(Number(event.target.value) || null)}
+                aria-label={partyLabel}
+                className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
+                required
+              >
+                <option value="">Select provider</option>
+                {props.providers.map((provider) => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <label className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
+                {partyLabel}
+              </span>
+              <select
+                value={props.buyerId ?? ''}
+                onChange={(event) => props.onBuyerIdChange(Number(event.target.value) || null)}
+                aria-label={partyLabel}
+                className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
+                required
+              >
+                <option value="">Select buyer</option>
+                {props.buyers.map((buyer) => (
+                  <option key={buyer.id} value={buyer.id}>
+                    {buyer.name} ({buyer.type === 'stockist' ? 'Stocker' : 'Seller'})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">Draw *</span>
             <select
@@ -231,6 +270,21 @@ export default function LegacyTransactionShell({
             </select>
           </label>
         </div>
+        {onVoucherNoChange ? (
+          <div className="mt-2 grid grid-cols-[minmax(200px,320px)] gap-3">
+            <label className="flex min-w-0 items-center gap-2">
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
+                Voucher No
+              </span>
+              <input
+                value={voucherNo ?? ''}
+                onChange={(event) => onVoucherNoChange(event.target.value)}
+                aria-label="Voucher No"
+                className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
+              />
+            </label>
+          </div>
+        ) : null}
       </section>
 
       {alerts}
