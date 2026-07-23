@@ -465,13 +465,22 @@ const purchaseEntrySource = fs.readFileSync(
 );
 assert.match(
   purchaseEntrySource,
-  /htmlFor="purchase-draw"/,
-  'purchase draw label must link to purchase-draw input',
+  /LegacyTransactionShell/,
+  'purchase entry must use excel LegacyTransactionShell',
 );
 assert.match(
   purchaseEntrySource,
-  /id="purchase-draw"/,
-  'purchase draw input id must remain purchase-draw',
+  /partyKind="provider"/,
+  'purchase entry must select provider party on shell',
+);
+const legacyShellSource = fs.readFileSync(
+  new URL('../src/renderer/components/transactions/LegacyTransactionShell.tsx', import.meta.url),
+  'utf8',
+);
+assert.match(
+  legacyShellSource,
+  /aria-label="Draw \*"/,
+  'excel shell draw select must expose aria-label',
 );
 
 const buyerLedgerSource = fs.readFileSync(

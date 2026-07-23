@@ -17,7 +17,6 @@ import { toLocalDateString } from '../../../shared/localDate';
 import type { DrawRecord, ProviderRecord } from '../../../shared/types';
 
 type EntryOptions = {
-  title?: string;
   saveLabel?: string;
   type?: 'purchase' | 'purchase_return';
 };
