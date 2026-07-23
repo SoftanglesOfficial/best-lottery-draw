@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { rangeCount } from '../../lib/transactionDisplay';
+import { padTicketDigits, sanitizeTicketInput } from '../../lib/ticketAutoComplete';
 
 export type RangeRow = { from: string; to: string };
 
@@ -8,6 +9,13 @@ type TicketRangeTableProps = {
   onChange: (rows: RangeRow[]) => void;
   onActiveRowChange?: (index: number) => void;
 };
+
+function rowCount(row: RangeRow) {
+  const from = padTicketDigits(row.from);
+  const to = padTicketDigits(row.to);
+  if (!from || !to) return 0;
+  return rangeCount(from, to);
+}
 
 export default function TicketRangeTable({ rows, onChange, onActiveRowChange }: TicketRangeTableProps) {
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -35,7 +43,7 @@ export default function TicketRangeTable({ rows, onChange, onActiveRowChange }: 
     setTimeout(() => inputRefs.current[focusIndex]?.focus(), 0);
   };
 
-  const totalCount = rows.reduce((sum, row) => sum + rangeCount(row.from, row.to), 0);
+  const totalCount = rows.reduce((sum, row) => sum + rowCount(row), 0);
 
   useEffect(() => {
     if (rows.length === 0) onChange([{ from: '', to: '' }]);
@@ -64,7 +72,11 @@ export default function TicketRangeTable({ rows, onChange, onActiveRowChange }: 
                     inputRefs.current[index * 2] = el;
                   }}
                   value={row.from}
-                  onChange={(event) => updateRow(index, { from: event.target.value.replace(/\D/g, '').slice(0, 5) })}
+                  onChange={(event) => updateRow(index, { from: sanitizeTicketInput(event.target.value) })}
+                  onBlur={() => {
+                    const padded = padTicketDigits(row.from);
+                    if (padded && padded !== row.from) updateRow(index, { from: padded });
+                  }}
                   onFocus={() => onActiveRowChange?.(index)}
                   className="w-28 rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
                   inputMode="numeric"
@@ -77,7 +89,11 @@ export default function TicketRangeTable({ rows, onChange, onActiveRowChange }: 
                     inputRefs.current[index * 2 + 1] = el;
                   }}
                   value={row.to}
-                  onChange={(event) => updateRow(index, { to: event.target.value.replace(/\D/g, '').slice(0, 5) })}
+                  onChange={(event) => updateRow(index, { to: sanitizeTicketInput(event.target.value) })}
+                  onBlur={() => {
+                    const padded = padTicketDigits(row.to);
+                    if (padded && padded !== row.to) updateRow(index, { to: padded });
+                  }}
                   onFocus={() => onActiveRowChange?.(index)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') {
@@ -94,7 +110,7 @@ export default function TicketRangeTable({ rows, onChange, onActiveRowChange }: 
                   aria-label={`Row ${index + 1} to ticket`}
                 />
               </td>
-              <td className="px-3 py-2 text-right font-mono tabular-nums text-content">{rangeCount(row.from, row.to) || '—'}</td>
+              <td className="px-3 py-2 text-right font-mono tabular-nums text-content">{rowCount(row) || '—'}</td>
               <td className="px-3 py-2">
                 <button
                   type="button"
@@ -118,12 +134,16 @@ export default function TicketRangeTable({ rows, onChange, onActiveRowChange }: 
 
 export function rangesToTicketData(rows: RangeRow[]) {
   const ranges = rows
-    .filter((row) => row.from.length === 5 && row.to.length === 5 && rangeCount(row.from, row.to) > 0)
-    .map((row) => ({
-      from: row.from.padStart(5, '0'),
-      to: row.to.padStart(5, '0'),
-      count: rangeCount(row.from, row.to),
-    }));
+    .filter((row) => rowCount(row) > 0)
+    .map((row) => {
+      const from = padTicketDigits(row.from);
+      const to = padTicketDigits(row.to);
+      return {
+        from,
+        to,
+        count: rangeCount(from, to),
+      };
+    });
   return JSON.stringify({ ranges });
 }
 
@@ -135,10 +155,12 @@ export function validateTicketRangeRows(rows: RangeRow[]): string | null {
   for (let index = 0; index < validRows.length; index += 1) {
     const row = validRows[index];
     const rowNo = index + 1;
-    if (row.from.length !== 5 || row.to.length !== 5) {
-      return `Row ${rowNo}: From and To must be 5 digits.`;
+    const from = padTicketDigits(row.from);
+    const to = padTicketDigits(row.to);
+    if (!from || !to) {
+      return `Row ${rowNo}: From and To are required.`;
     }
-    if (rangeCount(row.from, row.to) <= 0) {
+    if (rangeCount(from, to) <= 0) {
       return `Row ${rowNo}: To must be greater than or equal to From.`;
     }
   }
@@ -149,5 +171,5 @@ export function validateTicketRangeRows(rows: RangeRow[]): string | null {
 }
 
 export function totalRangeCount(rows: RangeRow[]) {
-  return rows.reduce((sum, row) => sum + rangeCount(row.from, row.to), 0);
+  return rows.reduce((sum, row) => sum + rowCount(row), 0);
 }

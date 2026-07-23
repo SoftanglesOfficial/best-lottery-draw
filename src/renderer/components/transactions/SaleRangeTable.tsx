@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { rangeCount } from '../../lib/transactionDisplay';
 import { isAtLeastRole } from '../../lib/roles';
 import { useAuth } from '../../lib/auth';
+import { padTicketDigits, sanitizeTicketInput } from '../../lib/ticketAutoComplete';
 import type { ItemRecord } from '../../../shared/types';
 
 export type SaleRangeRow = {
@@ -22,8 +23,10 @@ type SaleRangeTableProps = {
 };
 
 function rowQty(row: SaleRangeRow) {
-  if (row.from.length !== 5 || row.to.length !== 5) return 0;
-  return rangeCount(row.from, row.to);
+  const from = padTicketDigits(row.from);
+  const to = padTicketDigits(row.to);
+  if (!from || !to) return 0;
+  return rangeCount(from, to);
 }
 
 function rowAmount(row: SaleRangeRow) {
@@ -39,15 +42,17 @@ export function emptySaleRangeRow(defaultRate = ''): SaleRangeRow {
 
 export function saleRangesToTicketData(rows: SaleRangeRow[]) {
   const ranges = rows
-    .filter((row) => row.itemId != null && row.from.length === 5 && row.to.length === 5 && rowQty(row) > 0)
+    .filter((row) => row.itemId != null && rowQty(row) > 0)
     .map((row) => {
-      const qty = rowQty(row);
+      const from = padTicketDigits(row.from);
+      const to = padTicketDigits(row.to);
+      const qty = rangeCount(from, to);
       const rate = Number(row.rate) || 0;
       return {
         itemId: row.itemId,
         code: row.code,
-        from: row.from.padStart(5, '0'),
-        to: row.to.padStart(5, '0'),
+        from,
+        to,
         qty,
         rate,
         amount: qty * rate,
@@ -76,14 +81,16 @@ export function validateSaleRangeRows(rows: SaleRangeRow[]): string | null {
     if (row.itemId == null) {
       return `Row ${rowNo}: select a lottery type.`;
     }
-    if (row.from.length !== 5 || row.to.length !== 5) {
-      return `Row ${rowNo}: From and To must be 5 digits.`;
+    const from = padTicketDigits(row.from);
+    const to = padTicketDigits(row.to);
+    if (!from || !to) {
+      return `Row ${rowNo}: From and To are required.`;
     }
     const rate = Number(row.rate);
     if (Number.isNaN(rate) || rate <= 0) {
       return `Row ${rowNo}: Rate must be greater than zero.`;
     }
-    if (rowQty(row) <= 0) {
+    if (rangeCount(from, to) <= 0) {
       return `Row ${rowNo}: To must be greater than or equal to From.`;
     }
   }
@@ -172,7 +179,7 @@ export default function SaleRangeTable({
             <th className={blueSpreadsheet ? 'w-[11%] border-r border-[#071b4d] px-1 py-1 text-[10px] font-bold uppercase' : 'w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>To</th>
             <th className={blueSpreadsheet ? 'w-12 border-r border-[#071b4d] px-1 py-1 text-right text-[10px] font-bold uppercase' : 'w-16 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Qty</th>
             <th className={blueSpreadsheet ? 'w-14 border-r border-[#071b4d] px-1 py-1 text-right text-[10px] font-bold uppercase' : 'w-20 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Rate</th>
-            <th className={blueSpreadsheet ? 'w-[11%] border-r border-[#071b4d] px-1 py-1 text-right text-[10px] font-bold uppercase' : 'w-24 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Amount</th>
+            <th className={blueSpreadsheet ? 'w-[11%] border-r border-[#071b4d] px-1 py-1 text-right text-[10px] font-bold uppercase' : 'w-24 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Amt (auto)</th>
             <th className={blueSpreadsheet ? 'w-12 px-1 py-1 text-center text-[10px] font-bold uppercase' : 'w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Del</th>
           </tr>
         </thead>
@@ -229,9 +236,18 @@ export default function SaleRangeTable({
                     value={row.from}
                     onChange={(event) =>
                       updateRow(index, {
-                        from: event.target.value.replace(/\D/g, '').slice(0, 5),
+                        from: sanitizeTicketInput(event.target.value),
                       })
                     }
+                    onBlur={() => {
+                      const padded = padTicketDigits(row.from);
+                      if (!padded) return;
+                      // ponytail: single-ticket entry — copy From→To so qty/amount appear
+                      const patch: Partial<SaleRangeRow> = {};
+                      if (padded !== row.from) patch.from = padded;
+                      if (!row.to) patch.to = padded;
+                      if (Object.keys(patch).length > 0) updateRow(index, patch);
+                    }}
                     onFocus={() => setActiveRow(index)}
                     className={blueSpreadsheet ? activeField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
                     inputMode="numeric"
@@ -246,10 +262,28 @@ export default function SaleRangeTable({
                     value={row.to}
                     onChange={(event) =>
                       updateRow(index, {
-                        to: event.target.value.replace(/\D/g, '').slice(0, 5),
+                        to: sanitizeTicketInput(event.target.value),
                       })
                     }
+                    onBlur={() => {
+                      const padded = padTicketDigits(row.to);
+                      if (padded && padded !== row.to) updateRow(index, { to: padded });
+                    }}
                     onFocus={() => setActiveRow(index)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        const paddedTo = padTicketDigits(row.to) || padTicketDigits(row.from);
+                        if (paddedTo && paddedTo !== row.to) {
+                          updateRow(index, { to: paddedTo });
+                        }
+                        addRow(index);
+                      }
+                      if (event.key === 'F5') {
+                        event.preventDefault();
+                        removeRow(index);
+                      }
+                    }}
                     className={blueSpreadsheet ? activeField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
                     inputMode="numeric"
                     aria-label={`Row ${index + 1} to ticket`}
@@ -283,7 +317,7 @@ export default function SaleRangeTable({
                     ref={(el) => {
                       inputRefs.current[index * 4 + 3] = el;
                     }}
-                    value={amount ? amount.toFixed(2) : ''}
+                    value={amount > 0 ? amount.toFixed(2) : '—'}
                     readOnly
                     tabIndex={0}
                     onFocus={() => setActiveRow(index)}
@@ -297,12 +331,21 @@ export default function SaleRangeTable({
                         removeRow(index);
                       }
                     }}
+                    // ponytail: amount is always qty×rate — never typed; "—" when From/To empty
                     className={
                       blueSpreadsheet
-                        ? `${activeField} font-bold ${isActive ? 'bg-[#fff4e6]' : 'bg-[#aec7ef]'}`
-                        : 'w-full rounded-cyber border border-line bg-surface-high px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'
+                        ? `h-7 w-full cursor-default border border-[#315aa8] px-1.5 font-mono text-xs font-bold outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447] ${
+                            isActive ? 'border-[#ffd447] bg-[#c2410c]/20 text-white' : 'bg-[#8eaddc] text-[#071b4d]'
+                          }`
+                        : 'w-full cursor-default rounded-cyber border border-line bg-surface-high px-2 py-1 font-mono text-left text-content-muted outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'
                     }
-                    aria-label={`Row ${index + 1} amount`}
+                    aria-readonly="true"
+                    aria-label={`Row ${index + 1} amount (qty × rate)`}
+                    title={
+                      amount > 0
+                        ? 'Amount = Qty × Rate'
+                        : 'Fill From and To — amount calculates automatically'
+                    }
                   />
                 </td>
                 <td className={blueSpreadsheet ? 'px-1.5 py-1 text-center' : 'px-2 py-2'}>
