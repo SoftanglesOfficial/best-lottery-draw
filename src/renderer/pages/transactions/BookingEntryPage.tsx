@@ -12,13 +12,8 @@ import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
 import { formatCloseTimeLabel, isDrawPastCloseTime } from '../../lib/drawCloseTime';
+import { isSameCalendarDay, toLocalDateString } from '../../../shared/localDate';
 import type { BuyerRecord, DrawRecord } from '../../../shared/types';
-
-function isSameDay(a: Date | string, dateStr: string) {
-  const date = a instanceof Date ? a : new Date(a);
-  if (Number.isNaN(date.getTime())) return false;
-  return date.toISOString().slice(0, 10) === dateStr;
-}
 
 export default function BookingEntryPage() {
   const allowed = useRoleGuard(['admin', 'owner', 'manager', 'supervisor', 'data_entry']);
@@ -31,7 +26,7 @@ export default function BookingEntryPage() {
   const [buyers, setBuyers] = useState<BuyerRecord[]>([]);
   const [drawId, setDrawId] = useState<number | null>(null);
   const [buyerId, setBuyerId] = useState<number | null>(null);
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [entryDate, setEntryDate] = useState(() => toLocalDateString());
   const [memoId, setMemoId] = useState<number | null>(null);
   const [rows, setRows] = useState<TicketRow[]>([{ number: '' }]);
   const [saving, setSaving] = useState(false);
@@ -39,9 +34,7 @@ export default function BookingEntryPage() {
   const [activeRowIndex, setActiveRowIndex] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
 
-  const todayOpenDraws = draws.filter(
-    (draw) => draw.status === 'open' && isSameDay(draw.drawDate, entryDate),
-  );
+  const openDraws = draws.filter((draw) => draw.status === 'open');
   const selectedDraw = draws.find((draw) => draw.id === drawId) ?? null;
   const selectedBuyer = buyers.find((buyer) => buyer.id === buyerId) ?? null;
   const drawPastClose = selectedDraw != null && isDrawPastCloseTime(selectedDraw, now);
@@ -62,10 +55,10 @@ export default function BookingEntryPage() {
       ]);
       if (drawsResult.success) {
         setDraws(drawsResult.draws);
-        const openToday = drawsResult.draws.filter(
-          (draw) => draw.status === 'open' && isSameDay(draw.drawDate, entryDate),
-        );
-        setDrawId((current) => current ?? openToday[0]?.id ?? null);
+        const open = drawsResult.draws.filter((draw) => draw.status === 'open');
+        const preferred =
+          open.find((draw) => isSameCalendarDay(draw.drawDate, entryDate)) ?? open[0];
+        setDrawId((current) => current ?? preferred?.id ?? null);
       }
       if (buyersResult.success) {
         setBuyers(buyersResult.buyers);
@@ -135,10 +128,10 @@ export default function BookingEntryPage() {
 
   useEffect(() => {
     if (drawId == null) return;
-    if (!todayOpenDraws.some((draw) => draw.id === drawId)) {
-      setDrawId(todayOpenDraws[0]?.id ?? null);
+    if (!openDraws.some((draw) => draw.id === drawId)) {
+      setDrawId(openDraws[0]?.id ?? null);
     }
-  }, [drawId, todayOpenDraws]);
+  }, [drawId, openDraws]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -200,7 +193,7 @@ export default function BookingEntryPage() {
       buyers={buyers}
       drawId={drawId}
       onDrawIdChange={setDrawId}
-      draws={todayOpenDraws}
+      draws={openDraws}
       alerts={
         drawPastClose && selectedDraw ? (
           <div

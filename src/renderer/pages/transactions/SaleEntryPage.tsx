@@ -16,6 +16,7 @@ import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
 import { isDrawPastCloseTime, formatCloseTimeLabel } from '../../lib/drawCloseTime';
+import { isSameCalendarDay, toLocalDateString } from '../../../shared/localDate';
 import type { BuyerRecord, DrawRecord, ItemRecord } from '../../../shared/types';
 
 type SaleEntryOptions = {
@@ -25,12 +26,6 @@ type SaleEntryOptions = {
 };
 
 const LEGACY_TYPES = new Set<SaleEntryOptions['type']>(['sale', 'sale_return']);
-
-function isSameDay(a: Date | string, dateStr: string) {
-  const date = a instanceof Date ? a : new Date(a);
-  if (Number.isNaN(date.getTime())) return false;
-  return date.toISOString().slice(0, 10) === dateStr;
-}
 
 export default function SaleEntryPage({
   title = 'Sale Entry',
@@ -48,7 +43,7 @@ export default function SaleEntryPage({
   const [items, setItems] = useState<ItemRecord[]>([]);
   const [drawId, setDrawId] = useState<number | null>(null);
   const [buyerId, setBuyerId] = useState<number | null>(null);
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [entryDate, setEntryDate] = useState(() => toLocalDateString());
   const [memoId, setMemoId] = useState<number | null>(null);
   const [rows, setRows] = useState<SaleRangeRow[]>([emptySaleRangeRow()]);
   const [saving, setSaving] = useState(false);
@@ -67,12 +62,10 @@ export default function SaleEntryPage({
     return buyer?.saleRate ? String(buyer.saleRate) : '';
   }, [buyers, buyerId]);
 
-  const todayOpenDraws = useMemo(
-    () =>
-      draws.filter(
-        (draw) => draw.status === 'open' && isSameDay(draw.drawDate, entryDate),
-      ),
-    [draws, entryDate],
+  // ponytail: same as purchase — all open draws; same-day filter emptied the dropdown
+  const openDraws = useMemo(
+    () => draws.filter((draw) => draw.status === 'open'),
+    [draws],
   );
 
   const selectedDraw = draws.find((draw) => draw.id === drawId) ?? null;
@@ -96,10 +89,10 @@ export default function SaleEntryPage({
       ]);
       if (drawsResult.success) {
         setDraws(drawsResult.draws);
-        const openToday = drawsResult.draws.filter(
-          (draw) => draw.status === 'open' && isSameDay(draw.drawDate, entryDate),
-        );
-        setDrawId((current) => current ?? openToday[0]?.id ?? null);
+        const open = drawsResult.draws.filter((draw) => draw.status === 'open');
+        const preferred =
+          open.find((draw) => isSameCalendarDay(draw.drawDate, entryDate)) ?? open[0];
+        setDrawId((current) => current ?? preferred?.id ?? null);
       }
       if (buyersResult.success) {
         setBuyers(buyersResult.buyers);
@@ -192,10 +185,10 @@ export default function SaleEntryPage({
 
   useEffect(() => {
     if (drawId == null) return;
-    if (!todayOpenDraws.some((draw) => draw.id === drawId)) {
-      setDrawId(todayOpenDraws[0]?.id ?? null);
+    if (!openDraws.some((draw) => draw.id === drawId)) {
+      setDrawId(openDraws[0]?.id ?? null);
     }
-  }, [drawId, todayOpenDraws]);
+  }, [drawId, openDraws]);
 
   useEffect(() => {
     setRows((current) =>
@@ -290,7 +283,7 @@ export default function SaleEntryPage({
         buyers={buyers}
         drawId={drawId}
         onDrawIdChange={setDrawId}
-        draws={todayOpenDraws}
+        draws={openDraws}
         alerts={
           drawPastClose && selectedDraw ? (
             <div
@@ -393,7 +386,7 @@ export default function SaleEntryPage({
             required
           >
             <option value="">Select draw</option>
-            {todayOpenDraws.map((draw) => (
+            {openDraws.map((draw) => (
               <option key={draw.id} value={draw.id}>
                 {draw.name}
               </option>

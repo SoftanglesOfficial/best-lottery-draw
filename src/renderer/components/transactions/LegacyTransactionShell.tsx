@@ -174,7 +174,7 @@ export default function LegacyTransactionShell({
       </div>
 
       <section className="shrink-0 border-b border-[#5e8ddd] bg-[#0b2e83] px-4 py-2" aria-label="Entry details">
-        <div className="grid grid-cols-[120px_140px_minmax(200px,1fr)_minmax(220px,1.2fr)] gap-3">
+        <div className="grid grid-cols-[120px_minmax(160px,auto)_minmax(200px,1fr)_minmax(220px,1.2fr)] gap-3">
           <label className="flex items-center gap-2">
             <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">Memo No.</span>
             <input
@@ -184,14 +184,14 @@ export default function LegacyTransactionShell({
               className="h-8 min-w-0 flex-1 border border-[#6f96d7] bg-[#bcd1f1] px-2 font-mono text-xs font-bold text-[#15366f]"
             />
           </label>
-          <label className="flex items-center gap-2">
+          <label className="flex min-w-[160px] items-center gap-2">
             <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">Date</span>
             <input
               type="date"
               value={entryDate}
               onChange={(event) => onEntryDateChange(event.target.value)}
               aria-label="Date"
-              className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
+              className="h-8 min-w-[9.5rem] flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
             />
           </label>
           <label className="flex min-w-0 items-center gap-2">
