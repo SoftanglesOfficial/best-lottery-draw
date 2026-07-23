@@ -209,7 +209,9 @@ export default function AppShell() {
   const isLegacyEntryRoute =
     location.pathname === '/transactions/sale-entry' ||
     location.pathname === '/transactions/sale-return' ||
-    location.pathname === '/transactions/booking-entry';
+    location.pathname === '/transactions/booking-entry' ||
+    location.pathname === '/transactions/purchase-entry' ||
+    location.pathname === '/transactions/purchase-return';
   const isSelectionRoute =
     location.pathname === '/open-company' || location.pathname === '/open-shift';
 
