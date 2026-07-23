@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { useNavigate } from 'react-router-dom';
 import LegacyTransactionShell from '../../components/transactions/LegacyTransactionShell';
 import TicketRangeTable, {
+  emptyRangeRows,
   rangesToTicketData,
   totalRangeCount,
   validateTicketRangeRows,
@@ -38,7 +39,7 @@ export default function PurchaseEntryPage({
   const [entryDate, setEntryDate] = useState(() => toLocalDateString());
   const [memoId, setMemoId] = useState<number | null>(null);
   const [voucherNo, setVoucherNo] = useState('');
-  const [rows, setRows] = useState<RangeRow[]>([{ from: '', to: '' }]);
+  const [rows, setRows] = useState<RangeRow[]>(() => emptyRangeRows());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [purchaseSummary, setPurchaseSummary] = useState<{
@@ -102,17 +103,17 @@ export default function PurchaseEntryPage({
 
   const deleteActiveRow = useCallback(() => {
     if (rows.length <= 1) {
-      setRows([{ from: '', to: '' }]);
+      setRows(emptyRangeRows());
       setActiveRowIndex(0);
       return;
     }
     const next = rows.filter((_, index) => index !== activeRowIndex);
-    setRows(next.length ? next : [{ from: '', to: '' }]);
+    setRows(next.length ? next : emptyRangeRows());
     setActiveRowIndex(Math.max(0, activeRowIndex - 1));
   }, [activeRowIndex, rows]);
 
   const clearWorksheet = useCallback(() => {
-    setRows([{ from: '', to: '' }]);
+    setRows(emptyRangeRows());
     setActiveRowIndex(0);
   }, []);
 
@@ -195,7 +196,7 @@ export default function PurchaseEntryPage({
       });
       if (result.success) {
         showToast(`${ticketCount} tickets saved.`, 'success');
-        setRows([{ from: '', to: '' }]);
+        setRows(emptyRangeRows());
         setVoucherNo('');
         setActiveRowIndex(0);
         await refreshMemo();

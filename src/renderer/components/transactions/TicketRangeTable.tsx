@@ -4,6 +4,13 @@ import { padTicketDigits, sanitizeTicketInput } from '../../lib/ticketAutoComple
 
 export type RangeRow = { from: string; to: string };
 
+/** ponytail: BEST-10/Sale sheet density — empty rows ignored on save */
+export const SPREADSHEET_MIN_ROWS = 18;
+
+export function emptyRangeRows(count = SPREADSHEET_MIN_ROWS): RangeRow[] {
+  return Array.from({ length: count }, () => ({ from: '', to: '' }));
+}
+
 type TicketRangeTableProps = {
   rows: RangeRow[];
   onChange: (rows: RangeRow[]) => void;
@@ -48,12 +55,18 @@ export default function TicketRangeTable({
 
   const removeRow = (index: number) => {
     if (rows.length <= 1) {
-      onChange([{ from: '', to: '' }]);
+      onChange(blueSpreadsheet ? emptyRangeRows() : [{ from: '', to: '' }]);
       if (blueSpreadsheet) setActiveRow(0);
       return;
     }
     const next = rows.filter((_, i) => i !== index);
-    onChange(next);
+    const padded =
+      blueSpreadsheet && next.length < SPREADSHEET_MIN_ROWS
+        ? [...next, ...emptyRangeRows(SPREADSHEET_MIN_ROWS - next.length)]
+        : next.length
+          ? next
+          : [{ from: '', to: '' }];
+    onChange(padded);
     const focusIndex = Math.max(0, index - 1);
     if (blueSpreadsheet) setActiveRow(focusIndex);
     setTimeout(() => inputRefs.current[focusIndex]?.focus(), 0);
@@ -62,8 +75,15 @@ export default function TicketRangeTable({
   const totalCount = rows.reduce((sum, row) => sum + rowCount(row), 0);
 
   useEffect(() => {
-    if (rows.length === 0) onChange([{ from: '', to: '' }]);
-  }, [rows.length, onChange]);
+    if (rows.length === 0) {
+      onChange(blueSpreadsheet ? emptyRangeRows() : [{ from: '', to: '' }]);
+      return;
+    }
+    // Fill sheet like Sale/BEST-10 — empty trailing rows do not save
+    if (blueSpreadsheet && rows.length < SPREADSHEET_MIN_ROWS) {
+      onChange([...rows, ...emptyRangeRows(SPREADSHEET_MIN_ROWS - rows.length)]);
+    }
+  }, [rows, onChange, blueSpreadsheet]);
 
   useEffect(() => {
     if (blueSpreadsheet) {
@@ -83,11 +103,20 @@ export default function TicketRangeTable({
         <table
           className={
             blueSpreadsheet
-              ? 'w-full min-w-[520px] table-fixed border-collapse text-xs'
+              ? 'w-full table-fixed border-collapse text-xs'
               : 'min-w-[620px] w-full text-sm'
           }
         >
-          <thead className={blueSpreadsheet ? 'sticky top-0 z-10 bg-white' : 'bg-surface-high'}>
+          {blueSpreadsheet ? (
+            <colgroup>
+              <col className="w-12" />
+              <col className="w-[38%]" />
+              <col className="w-[38%]" />
+              <col className="w-16" />
+              <col className="w-14" />
+            </colgroup>
+          ) : null}
+          <thead className={blueSpreadsheet ? 'sticky top-0 z-10 bg-white shadow-sm' : 'bg-surface-high'}>
             <tr
               className={
                 blueSpreadsheet
@@ -98,7 +127,7 @@ export default function TicketRangeTable({
               <th
                 className={
                   blueSpreadsheet
-                    ? 'w-10 border-r border-[#071b4d] px-1 py-1 text-center text-[10px] font-bold uppercase'
+                    ? 'border-r border-[#071b4d] px-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide'
                     : 'w-16 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'
                 }
               >
@@ -107,7 +136,7 @@ export default function TicketRangeTable({
               <th
                 className={
                   blueSpreadsheet
-                    ? 'w-[11%] border-r border-[#071b4d] px-1 py-1 text-[10px] font-bold uppercase'
+                    ? 'border-r border-[#071b4d] px-1 py-1.5 text-[10px] font-bold uppercase tracking-wide'
                     : 'px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'
                 }
               >
@@ -116,7 +145,7 @@ export default function TicketRangeTable({
               <th
                 className={
                   blueSpreadsheet
-                    ? 'w-[11%] border-r border-[#071b4d] px-1 py-1 text-[10px] font-bold uppercase'
+                    ? 'border-r border-[#071b4d] px-1 py-1.5 text-[10px] font-bold uppercase tracking-wide'
                     : 'px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'
                 }
               >
@@ -125,7 +154,7 @@ export default function TicketRangeTable({
               <th
                 className={
                   blueSpreadsheet
-                    ? 'w-12 border-r border-[#071b4d] px-1 py-1 text-right text-[10px] font-bold uppercase'
+                    ? 'border-r border-[#071b4d] px-1 py-1.5 text-right text-[10px] font-bold uppercase tracking-wide'
                     : 'w-24 px-3 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'
                 }
               >
@@ -134,7 +163,7 @@ export default function TicketRangeTable({
               <th
                 className={
                   blueSpreadsheet
-                    ? 'w-12 px-1 py-1 text-center text-[10px] font-bold uppercase'
+                    ? 'px-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide'
                     : 'w-24 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'
                 }
               >
