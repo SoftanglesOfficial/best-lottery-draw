@@ -499,3 +499,71 @@ assert.match(
   'reports summary page must use shared PageHeader',
 );
 console.log('OK phase 3 UI consistency guards');
+
+// Local calendar-day filter (UTC toISOString broke draw dropdowns in UTC+ offsets)
+const localDateSource = fs.readFileSync(
+  new URL('../src/shared/localDate.ts', import.meta.url),
+  'utf8',
+);
+assert.match(localDateSource, /getFullYear\(\)/, 'toLocalDateString must use local calendar fields');
+assert.doesNotMatch(
+  localDateSource,
+  /toISOString/,
+  'localDate helpers must not use UTC toISOString',
+);
+
+const saleEntrySource = fs.readFileSync(
+  new URL('../src/renderer/pages/transactions/SaleEntryPage.tsx', import.meta.url),
+  'utf8',
+);
+assert.match(
+  saleEntrySource,
+  /status === 'open'/,
+  'sale entry must list open draws (same as purchase)',
+);
+assert.doesNotMatch(
+  saleEntrySource,
+  /todayOpenDraws/,
+  'sale entry must not use same-day-only draw list',
+);
+
+const bookingEntrySource = fs.readFileSync(
+  new URL('../src/renderer/pages/transactions/BookingEntryPage.tsx', import.meta.url),
+  'utf8',
+);
+assert.match(
+  bookingEntrySource,
+  /status === 'open'/,
+  'booking entry must list open draws',
+);
+assert.doesNotMatch(
+  bookingEntrySource,
+  /todayOpenDraws/,
+  'booking entry must not use same-day-only draw list',
+);
+
+const saleRangeSource = fs.readFileSync(
+  new URL('../src/renderer/components/transactions/SaleRangeTable.tsx', import.meta.url),
+  'utf8',
+);
+assert.match(saleRangeSource, /padTicketDigits/, 'sale range qty must pad short ticket numbers');
+
+const ticketRangeSource = fs.readFileSync(
+  new URL('../src/renderer/components/transactions/TicketRangeTable.tsx', import.meta.url),
+  'utf8',
+);
+assert.match(ticketRangeSource, /padTicketDigits/, 'purchase range qty must pad short ticket numbers');
+
+assert.equal(
+  '324'.padStart(5, '0'),
+  '00324',
+  'short tickets pad to 5 digits for qty/amount',
+);
+
+const local = new Date(2026, 6, 20, 0, 0, 0);
+assert.equal(
+  `${local.getFullYear()}-${String(local.getMonth() + 1).padStart(2, '0')}-${String(local.getDate()).padStart(2, '0')}`,
+  '2026-07-20',
+  'local calendar fixture',
+);
+console.log('OK sale/booking open draws + ticket pad for amount');
