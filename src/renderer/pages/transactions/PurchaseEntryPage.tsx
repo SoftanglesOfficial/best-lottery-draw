@@ -1,4 +1,6 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import LegacyTransactionShell from '../../components/transactions/LegacyTransactionShell';
 import TicketRangeTable, {
   rangesToTicketData,
   totalRangeCount,
@@ -6,7 +8,6 @@ import TicketRangeTable, {
   type RangeRow,
 } from '../../components/transactions/TicketRangeTable';
 import { useToast } from '../../components/Toast';
-import { Button, Input, PageHeader } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
@@ -22,7 +23,6 @@ type EntryOptions = {
 };
 
 export default function PurchaseEntryPage({
-  title = 'Purchase Entry',
   saveLabel = 'Save Purchase',
   type = 'purchase',
 }: EntryOptions = {}) {
@@ -30,6 +30,7 @@ export default function PurchaseEntryPage({
   const { user } = useAuth();
   const { companyId } = useActiveCompany();
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   const [draws, setDraws] = useState<DrawRecord[]>([]);
   const [providers, setProviders] = useState<ProviderRecord[]>([]);
@@ -46,6 +47,8 @@ export default function PurchaseEntryPage({
     totalReturned: number;
     net: number;
   } | null>(null);
+  const [activeRowIndex, setActiveRowIndex] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const openDraws = useMemo(
     () => draws.filter((draw) => draw.status === 'open'),
@@ -98,6 +101,53 @@ export default function PurchaseEntryPage({
     });
   }, [type, drawId, providerId]);
 
+  const deleteActiveRow = useCallback(() => {
+    if (rows.length <= 1) {
+      setRows([{ from: '', to: '' }]);
+      setActiveRowIndex(0);
+      return;
+    }
+    const next = rows.filter((_, index) => index !== activeRowIndex);
+    setRows(next.length ? next : [{ from: '', to: '' }]);
+    setActiveRowIndex(Math.max(0, activeRowIndex - 1));
+  }, [activeRowIndex, rows]);
+
+  const clearWorksheet = useCallback(() => {
+    setRows([{ from: '', to: '' }]);
+    setActiveRowIndex(0);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'F2') {
+        event.preventDefault();
+        formRef.current?.requestSubmit();
+      }
+      if (event.key === 'F3') {
+        event.preventDefault();
+        deleteActiveRow();
+      }
+      if (event.key === 'F7') {
+        event.preventDefault();
+        navigate('/transactions/ticket-search');
+      }
+      if (event.key === 'F8') {
+        event.preventDefault();
+        clearWorksheet();
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        navigate(-1);
+      }
+      if (event.key === 'F12') {
+        event.preventDefault();
+        window.print();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [deleteActiveRow, clearWorksheet, navigate]);
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (companyId == null || user == null || drawId == null || providerId == null || memoId == null) {
@@ -148,6 +198,7 @@ export default function PurchaseEntryPage({
         showToast(`${ticketCount} tickets saved.`, 'success');
         setRows([{ from: '', to: '' }]);
         setVoucherNo('');
+        setActiveRowIndex(0);
         await refreshMemo();
       } else {
         showToast(result.error, 'error');
@@ -162,87 +213,67 @@ export default function PurchaseEntryPage({
   if (!allowed) return null;
   if (loading) return <LoadingSpinner />;
 
+  const isReturn = type === 'purchase_return';
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <PageHeader
-        eyebrow="Purchase workflow"
-        title={title}
-        subtitle="Enter provider, draw, and ticket range details."
+    <LegacyTransactionShell
+      formRef={formRef}
+      pageTitle={isReturn ? 'Purchase Return' : 'Add Purchase'}
+      centerTitle={isReturn ? 'Purchase Return' : 'Purchase Entry'}
+      contextLabel={
+        selectedProvider
+          ? `${selectedProvider.name} (Sr ${activeRowIndex + 1})`
+          : isReturn
+            ? 'Return Entry'
+            : 'Purchase Entry'
+      }
+      partyLabel="Provider *"
+      partyKind="provider"
+      accent={isReturn ? 'orange' : 'blue'}
+      memoId={memoId}
+      entryDate={entryDate}
+      onEntryDateChange={setEntryDate}
+      providers={providers}
+      providerId={providerId}
+      onProviderIdChange={setProviderId}
+      drawId={drawId}
+      onDrawIdChange={setDrawId}
+      draws={openDraws}
+      voucherNo={voucherNo}
+      onVoucherNoChange={setVoucherNo}
+      statusBanner={
+        isReturn && purchaseSummary ? (
+          <div
+            className="shrink-0 border-b border-[#ff8f63] bg-[#7c2d12] px-4 py-2 font-mono text-xs text-[#ffedd5]"
+            role="status"
+          >
+            Purchased: {purchaseSummary.totalPurchased} | Already Returned:{' '}
+            {purchaseSummary.totalReturned} | Available to Return: {purchaseSummary.net}
+          </div>
+        ) : null
+      }
+      rowCount={rows.length}
+      activeRowIndex={activeRowIndex}
+      totalQty={totalRangeCount(rows)}
+      totalAmount={
+        selectedProvider?.purchaseRate
+          ? totalRangeCount(rows) * Number(selectedProvider.purchaseRate)
+          : null
+      }
+      saving={saving}
+      saveLabel={saving ? 'Saving…' : `${saveLabel} (F2)`}
+      disabled={companyId == null}
+      onSubmit={handleSubmit}
+      onDeleteRow={deleteActiveRow}
+      onClear={clearWorksheet}
+      onSearch={() => navigate('/transactions/ticket-search')}
+    >
+      <TicketRangeTable
+        rows={rows}
+        onChange={setRows}
+        onActiveRowChange={setActiveRowIndex}
+        variant="blueSpreadsheet"
       />
-
-      {type === 'purchase_return' && purchaseSummary ? (
-        <div className="rounded-cyber border border-cyber-info/40 bg-cyber-info/10 px-4 py-3 font-mono text-xs text-cyber-info" role="status">
-          Purchased: {purchaseSummary.totalPurchased} | Already Returned:{' '}
-          {purchaseSummary.totalReturned} | Available to Return: {purchaseSummary.net}
-        </div>
-      ) : null}
-
-      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4" aria-label="Purchase details">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-        <label htmlFor="purchase-draw" className="flex flex-col gap-1">
-          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Draw *</span>
-          <select
-            id="purchase-draw"
-            value={drawId ?? ''}
-            onChange={(event) => setDrawId(Number(event.target.value) || null)}
-            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
-            required
-          >
-            <option value="">Select draw</option>
-            {openDraws.map((draw) => (
-              <option key={draw.id} value={draw.id}>
-                {draw.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label htmlFor="purchase-provider" className="flex flex-col gap-1">
-          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.05em] text-content-muted">Provider *</span>
-          <select
-            id="purchase-provider"
-            value={providerId ?? ''}
-            onChange={(event) => setProviderId(Number(event.target.value) || null)}
-            className="rounded-cyber border border-line-control bg-canvas px-3 py-2 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20"
-            required
-          >
-            <option value="">Select provider</option>
-            {providers.map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Input
-          label="Date"
-          type="date"
-          value={entryDate}
-          onChange={(event) => setEntryDate(event.target.value)}
-        />
-        <Input label="Memo ID" value={memoId ?? ''} readOnly />
-        </div>
-        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
-        <Input
-          label="Voucher No"
-          value={voucherNo}
-          onChange={(event) => setVoucherNo(event.target.value)}
-        />
-        </div>
-      </section>
-
-      <section className="rounded-cyber-lg border border-line bg-surface-raised p-4" aria-label="Ticket ranges">
-        <div className="mb-3">
-          <p className="font-mono text-[10px] uppercase tracking-[0.08em] text-content-subtle">Ticket grid</p>
-          <h2 className="font-display font-bold text-content">Purchase Ranges</h2>
-        </div>
-        <TicketRangeTable rows={rows} onChange={setRows} />
-      </section>
-
-      <div className="flex justify-end">
-        <Button type="submit" disabled={saving || companyId == null}>
-          {saving ? 'Saving…' : saveLabel}
-        </Button>
-      </div>
-    </form>
+    </LegacyTransactionShell>
   );
 }
