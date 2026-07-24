@@ -9,8 +9,17 @@ import {
   validateSession,
 } from '../sessionStore';
 import { companies, userCompanies, users } from '../schema';
+import {
+  assertAssignableRole,
+  assertCompanyAccess,
+  isAtLeastRole,
+  type SessionContext,
+} from './sessionContext';
 
 export type { AuthUser };
+
+/** Seed / documented default — must be changed after first login. */
+export const DEFAULT_SEED_PASSWORD = 'admin123';
 
 function toUserRecord(user: {
   id: number;
@@ -79,7 +88,12 @@ export async function login(username: string, password: string): Promise<LoginRe
       updatedAt: user.updatedAt,
     };
     const sessionToken = createSession(user.id, user.role);
-    return { success: true, user: authUser, sessionToken };
+    return {
+      success: true,
+      user: authUser,
+      sessionToken,
+      mustChangePassword: trimmedPassword === DEFAULT_SEED_PASSWORD,
+    };
   } catch (error) {
     return {
       success: false,
@@ -169,7 +183,13 @@ export async function restoreSession(): Promise<
       updatedAt: user.updatedAt,
     };
 
-    return { success: true, user: authUser, sessionToken: token, companyName };
+    return {
+      success: true,
+      user: authUser,
+      sessionToken: token,
+      companyName,
+      mustChangePassword: verifyPassword(DEFAULT_SEED_PASSWORD, user.passwordHash),
+    };
   } catch (error) {
     return {
       success: false,
@@ -178,12 +198,20 @@ export async function restoreSession(): Promise<
   }
 }
 
-async function syncUserCompanies(userId: number, companyIds: number[]): Promise<void> {
+async function syncUserCompanies(
+  ctx: SessionContext,
+  userId: number,
+  companyIds: number[],
+): Promise<{ success: false; error: string } | null> {
+  for (const companyId of companyIds) {
+    const denied = assertCompanyAccess(ctx, companyId);
+    if (denied) return denied;
+  }
   const db = getDb();
   await db.delete(userCompanies).where(eq(userCompanies.userId, userId));
 
   if (companyIds.length === 0) {
-    return;
+    return null;
   }
 
   await db.insert(userCompanies).values(
@@ -192,9 +220,11 @@ async function syncUserCompanies(userId: number, companyIds: number[]): Promise<
       companyId,
     })),
   );
+  return null;
 }
 
 export async function createUser(
+  ctx: SessionContext,
   data: UserInput,
 ): Promise<{ success: true; user: UserRecord } | { success: false; error: string }> {
   const connection = await ensureConnected();
@@ -205,6 +235,12 @@ export async function createUser(
   if (!data.password) {
     return { success: false, error: 'Password is required' };
   }
+  if (data.password === DEFAULT_SEED_PASSWORD) {
+    return { success: false, error: 'Choose a password other than the default seed password.' };
+  }
+
+  const roleDenied = assertAssignableRole(ctx.role, data.role);
+  if (roleDenied) return roleDenied;
 
   try {
     const db = getDb();
@@ -232,7 +268,8 @@ export async function createUser(
     }
 
     if (data.companyIds?.length) {
-      await syncUserCompanies(created.id, data.companyIds);
+      const syncDenied = await syncUserCompanies(ctx, created.id, data.companyIds);
+      if (syncDenied) return syncDenied;
     }
 
     return { success: true, user: toUserRecord(created) };
@@ -382,6 +419,7 @@ export async function getOwnerAdminUsers(): Promise<
 }
 
 export async function updateUser(
+  ctx: SessionContext,
   id: number,
   data: Partial<UserInput>,
 ): Promise<{ success: true; user: UserRecord } | { success: false; error: string }> {
@@ -392,6 +430,19 @@ export async function updateUser(
 
   try {
     const db = getDb();
+    const [existing] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!existing) {
+      return { success: false, error: 'User not found' };
+    }
+    if (!isAtLeastRole(ctx.role, existing.role)) {
+      return { success: false, error: 'Cannot modify a user with a higher role.' };
+    }
+
+    if (data.role !== undefined) {
+      const roleDenied = assertAssignableRole(ctx.role, data.role);
+      if (roleDenied) return roleDenied;
+    }
+
     const updateData: {
       fullName?: string;
       username?: string;
@@ -403,7 +454,12 @@ export async function updateUser(
     if (data.fullName !== undefined) updateData.fullName = data.fullName.trim();
     if (data.username !== undefined) updateData.username = data.username.trim();
     if (data.role !== undefined) updateData.role = data.role;
-    if (data.password) updateData.passwordHash = hashPassword(data.password);
+    if (data.password) {
+      if (data.password === DEFAULT_SEED_PASSWORD) {
+        return { success: false, error: 'Choose a password other than the default seed password.' };
+      }
+      updateData.passwordHash = hashPassword(data.password);
+    }
 
     const [updated] = await db
       .update(users)
@@ -425,7 +481,8 @@ export async function updateUser(
     }
 
     if (data.companyIds !== undefined) {
-      await syncUserCompanies(id, data.companyIds);
+      const syncDenied = await syncUserCompanies(ctx, id, data.companyIds);
+      if (syncDenied) return syncDenied;
     }
 
     return { success: true, user: toUserRecord(updated) };
@@ -439,20 +496,27 @@ export async function updateUser(
 }
 
 export async function deleteUser(
+  ctx: SessionContext,
   id: number,
-  currentUserId: number,
 ): Promise<{ success: true } | { success: false; error: string }> {
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false, error: connection.error ?? 'Database is not connected' };
   }
 
-  if (id === currentUserId) {
+  if (id === ctx.userId) {
     return { success: false, error: 'You cannot delete your own account' };
   }
 
   try {
     const db = getDb();
+    const [target] = await db.select({ id: users.id, role: users.role }).from(users).where(eq(users.id, id)).limit(1);
+    if (!target) {
+      return { success: false, error: 'User not found' };
+    }
+    if (!isAtLeastRole(ctx.role, target.role)) {
+      return { success: false, error: 'Cannot delete a user with a higher role.' };
+    }
     const [deleted] = await db.delete(users).where(eq(users.id, id)).returning({ id: users.id });
     if (!deleted) {
       return { success: false, error: 'User not found' };
@@ -502,6 +566,9 @@ export async function changePassword(
 
   if (newPassword.length < 6) {
     return { success: false, error: 'New password must be at least 6 characters' };
+  }
+  if (newPassword === DEFAULT_SEED_PASSWORD) {
+    return { success: false, error: 'Choose a password other than the default seed password.' };
   }
 
   try {

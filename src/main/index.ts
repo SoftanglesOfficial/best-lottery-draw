@@ -10,7 +10,7 @@ import {
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { registerIpcHandlers } from './ipc/register';
-import { ensureConnected, getDbStatus, getStoredConfig } from './db';
+import { ensureConnected, getDbStatus, getStoredConfig, migrateStoredDbPasswordIfNeeded } from './db';
 import { runScheduledAutoBackup } from './ipc/backups';
 import { startBroadcast, stopBroadcast } from './lan';
 import {
@@ -160,11 +160,21 @@ const createWindow = () => {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
       devTools: !app.isPackaged,
     },
   });
 
   registerWindowHandlers(mainWindow);
+
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const allowed =
+      (MAIN_WINDOW_VITE_DEV_SERVER_URL != null && url.startsWith(MAIN_WINDOW_VITE_DEV_SERVER_URL)) ||
+      url.startsWith('file:');
+    if (!allowed) event.preventDefault();
+  });
 
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
     console.error('Failed to load renderer:', errorCode, errorDescription, validatedURL);
@@ -211,12 +221,19 @@ ipcMain.handle('window-set-title', (_event, title: string) => {
 ipcMain.handle('app-get-version', () => app.getVersion());
 
 ipcMain.handle('app-open-external', (_event, url: string) => {
-  void shell.openExternal(url);
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return;
+    void shell.openExternal(parsed.toString());
+  } catch {
+    // ignore invalid URLs
+  }
 });
 
 app.whenReady().then(async () => {
   registerIpcHandlers();
   buildMenu();
+  migrateStoredDbPasswordIfNeeded();
   await ensureConnected().catch(() => undefined);
 
   if (getNetworkMode() === 'server') {

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, safeStorage } from 'electron';
 import { getConfigValue, setConfigValue } from './configStore';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
@@ -16,11 +16,35 @@ const DEFAULT_CONFIG: DbConfig = {
   database: 'best12_dev',
 };
 
+const DB_PASSWORD_ENC_PREFIX = 'enc:v1:';
+
 function normalizeDbConfig(config: DbConfig): DbConfig {
   return {
     ...config,
     password: typeof config.password === 'string' ? config.password : '',
   };
+}
+
+function encryptDbPassword(plain: string): string {
+  if (!plain) return '';
+  if (!safeStorage.isEncryptionAvailable()) return plain;
+  try {
+    return `${DB_PASSWORD_ENC_PREFIX}${safeStorage.encryptString(plain).toString('base64')}`;
+  } catch {
+    return plain;
+  }
+}
+
+function decryptDbPassword(stored: string): string {
+  if (!stored.startsWith(DB_PASSWORD_ENC_PREFIX)) return stored;
+  if (!safeStorage.isEncryptionAvailable()) return '';
+  try {
+    return safeStorage.decryptString(
+      Buffer.from(stored.slice(DB_PASSWORD_ENC_PREFIX.length), 'base64'),
+    );
+  } catch {
+    return '';
+  }
 }
 
 let pool: Pool | null = null;
@@ -312,11 +336,26 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 `;
 
 export function getStoredConfig(): DbConfig {
-  return normalizeDbConfig(getConfigValue('db', DEFAULT_CONFIG));
+  const raw = normalizeDbConfig(getConfigValue('db', DEFAULT_CONFIG));
+  return { ...raw, password: decryptDbPassword(raw.password) };
 }
 
 export function saveConfig(config: DbConfig): void {
-  setConfigValue('db', normalizeDbConfig(config));
+  const normalized = normalizeDbConfig(config);
+  setConfigValue('db', {
+    ...normalized,
+    password: encryptDbPassword(normalized.password),
+  });
+}
+
+/** Re-encrypt plaintext passwords left from older installs. */
+export function migrateStoredDbPasswordIfNeeded(): void {
+  const raw = getConfigValue('db', DEFAULT_CONFIG) as DbConfig;
+  if (!raw || typeof raw !== 'object') return;
+  const password = typeof raw.password === 'string' ? raw.password : '';
+  if (!password || password.startsWith(DB_PASSWORD_ENC_PREFIX)) return;
+  if (!safeStorage.isEncryptionAvailable()) return;
+  saveConfig(normalizeDbConfig(raw));
 }
 
 export function hashPassword(password: string): string {
@@ -753,13 +792,11 @@ export async function setupDb(): Promise<{ success: boolean; error?: string }> {
 
   try {
     const adminHash = hashPassword('admin123');
+    // Seed admin once; never reset an existing password (db-setup is public IPC).
     await pool!.query(
       `INSERT INTO users (username, password_hash, full_name, role)
        VALUES ($1, $2, $3, $4)
-       ON CONFLICT (username) DO UPDATE SET
-         password_hash = EXCLUDED.password_hash,
-         full_name = EXCLUDED.full_name,
-         role = EXCLUDED.role`,
+       ON CONFLICT (username) DO NOTHING`,
       ['admin', adminHash, 'System Administrator', 'admin'],
     );
 
@@ -895,6 +932,7 @@ export async function getDbStatus(): Promise<{
   version?: string;
   config?: DbConfig;
 }> {
+  // Password redacted at IPC boundary (register.ts); never return secrets on public channels.
   if (!connected) {
     return { connected: false, config: getStoredConfig() };
   }

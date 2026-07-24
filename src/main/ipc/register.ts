@@ -205,7 +205,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('db-get-config', () => redactDbConfig(getStoredConfig()));
   ipcMain.handle('db-connect', async (_e, config: DbConfig) => connectDb(config));
   ipcMain.handle('db-setup', async () => setupDb());
-  ipcMain.handle('db-get-status', async () => getDbStatus());
+  ipcMain.handle('db-get-status', async () => {
+    const status = await getDbStatus();
+    return status.config
+      ? { ...status, config: redactDbConfig(status.config) }
+      : status;
+  });
   ipcMain.handle('db-test-connection', async (_e, config: DbConfig) => testDbConnection(config));
   ipcMain.handle('prefs-get', () => getPreferences());
   ipcMain.handle('prefs-set-auto-backup', async (_e, ...args) =>
@@ -222,17 +227,24 @@ export function registerIpcHandlers(): void {
     }, 'manager'),
   );
   ipcMain.handle('lan-get-status', () => getBroadcastStatus());
-  ipcMain.handle('lan-set-mode', (_e, mode: NetworkMode) => {
-    setNetworkMode(mode);
-    if (mode === 'server') return startBroadcast();
-    stopBroadcast();
-    return { success: true };
-  });
-  ipcMain.handle('lan-start-broadcast', () => startBroadcast());
-  ipcMain.handle('lan-stop-broadcast', () => {
-    stopBroadcast();
-    return { success: true };
-  });
+  // Mutating LAN ops require session (manager+). Discover + status stay public for pre-login setup.
+  ipcMain.handle('lan-set-mode', async (_e, ...args) =>
+    withSession(args, (_ctx, mode: NetworkMode) => {
+      setNetworkMode(mode);
+      if (mode === 'server') return startBroadcast();
+      stopBroadcast();
+      return { success: true as const };
+    }, 'manager'),
+  );
+  ipcMain.handle('lan-start-broadcast', async (_e, ...args) =>
+    withSession(args, () => startBroadcast(), 'manager'),
+  );
+  ipcMain.handle('lan-stop-broadcast', async (_e, ...args) =>
+    withSession(args, () => {
+      stopBroadcast();
+      return { success: true as const };
+    }, 'manager'),
+  );
   ipcMain.handle('lan-discover-server', async () => discoverServer());
   ipcMain.handle('auth-login', async (_e, u: string, p: string) => login(u, p));
   ipcMain.handle('auth-restore', async () => restoreSession());
@@ -270,7 +282,7 @@ export function registerIpcHandlers(): void {
     ),
   );
   ipcMain.handle('auth-create-user', async (_e, ...args) =>
-    withSession(args, (_ctx, data) => createUser(data as UserInput), 'owner'),
+    withSession(args, (ctx, data) => createUser(ctx, data as UserInput), 'owner'),
   );
   ipcMain.handle('auth-get-users', async (_e, ...args) =>
     withSession(args, (ctx, companyId) => {
@@ -292,10 +304,10 @@ export function registerIpcHandlers(): void {
     withSession(args, (_ctx, userId) => getUserCompanyIds(userId as number), 'manager'),
   );
   ipcMain.handle('auth-update-user', async (_e, ...args) =>
-    withSession(args, (_ctx, id, data) => updateUser(id as number, data as Partial<UserInput>), 'owner'),
+    withSession(args, (ctx, id, data) => updateUser(ctx, id as number, data as Partial<UserInput>), 'owner'),
   );
   ipcMain.handle('auth-delete-user', async (_e, ...args) =>
-    withSession(args, (ctx, id) => deleteUser(id as number, ctx.userId), 'owner'),
+    withSession(args, (ctx, id) => deleteUser(ctx, id as number), 'owner'),
   );
   ipcMain.handle('user-get-companies', async (_e, ...args) =>
     withSession(args, (ctx, _userId) => getUserCompanies(ctx.userId)),
@@ -312,18 +324,24 @@ export function registerIpcHandlers(): void {
     return result;
   });
   ipcMain.handle('user-companies-assign', async (_e, ...args) =>
-    withSession(args, (_ctx, userId, companyId) =>
-      assignUserCompany(userId as number, companyId as number), 'owner'),
+    withSession(args, (ctx, userId, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return assignUserCompany(userId as number, companyId as number);
+    }, 'owner'),
   );
   ipcMain.handle('user-companies-remove', async (_e, ...args) =>
-    withSession(args, (_ctx, userId, companyId) =>
-      removeUserCompany(userId as number, companyId as number), 'owner'),
+    withSession(args, (ctx, userId, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return removeUserCompany(userId as number, companyId as number);
+    }, 'owner'),
   );
   ipcMain.handle('user-companies-list', async (_e, ...args) =>
     withSession(args, (_ctx, userId) => listUserCompanies(userId as number), 'manager'),
   );
   ipcMain.handle('companies-get-all', async (_e, ...args) =>
-    withSession(args, () => getAllCompanies()),
+    withSession(args, () => getAllCompanies(), 'manager'),
   );
   ipcMain.handle('companies-create', async (_e, ...args) =>
     withSession(args, (_ctx, data) => createCompany(data as CompanyInput), 'admin'),
@@ -408,6 +426,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('utilities-change-commission', async (_e, ...args) =>
     withSession(args, (ctx, partyType, partyId, newRate) =>
       changeCommission(
+        ctx,
         partyType as 'buyer' | 'provider',
         partyId as number,
         newRate as number,
@@ -627,21 +646,21 @@ export function registerIpcHandlers(): void {
     }),
   );
   ipcMain.handle('itemSchemes-listByItem', async (_e, ...args) =>
-    withSession(args, (_ctx, itemId) => listItemSchemesByItem(itemId as number)),
+    withSession(args, (ctx, itemId) => listItemSchemesByItem(ctx, itemId as number)),
   );
   ipcMain.handle('itemSchemes-create', async (_e, ...args) =>
     withSession(args, (ctx, data) => {
       const input = data as ItemSchemeInput;
       const denied = scopedCompany(ctx, input.companyId);
       if (denied) return denied;
-      return createItemScheme(input);
+      return createItemScheme(ctx, input);
     }, 'manager'),
   );
   ipcMain.handle('itemSchemes-get', async (_e, ...args) =>
     withSession(args, (ctx, id) => getItemScheme(ctx, id as number)),
   );
   ipcMain.handle('itemSchemes-getPrizes', async (_e, ...args) =>
-    withSession(args, (_ctx, itemSchemeId) => getItemSchemePrizes(itemSchemeId as number)),
+    withSession(args, (ctx, itemSchemeId) => getItemSchemePrizes(ctx, itemSchemeId as number)),
   );
   ipcMain.handle('itemSchemes-update', async (_e, ...args) =>
     withSession(args, (ctx, id, data) => updateItemScheme(id as number, data as ItemSchemeInput, ctx.activeCompanyId), 'manager'),
@@ -734,7 +753,7 @@ export function registerIpcHandlers(): void {
     }, 'manager'),
   );
   ipcMain.handle('winning-tickets-find-winners', async (_e, ...args) =>
-    withSession(args, (_ctx, drawId) => findWinners(drawId as number)),
+    withSession(args, (ctx, drawId) => findWinners(ctx, drawId as number)),
   );
   ipcMain.handle('transactions-search-ticket', async (_e, ...args) =>
     withSession(args, (ctx, companyId, ticketNumber) => {
@@ -772,15 +791,15 @@ export function registerIpcHandlers(): void {
     withSession(args, (ctx, id) => deleteTransaction(id as number, ctx), 'supervisor'),
   );
   ipcMain.handle('transactions-validate-tickets-sold', async (_e, ...args) =>
-    withSession(args, (_ctx, drawId, ticketNumbers) =>
-      validateTicketsSold(drawId as number, ticketNumbers as string[])),
+    withSession(args, (ctx, drawId, ticketNumbers) =>
+      validateTicketsSold(ctx, drawId as number, ticketNumbers as string[])),
   );
   ipcMain.handle('transactions-get-buyer-sale-summary', async (_e, ...args) =>
-    withSession(args, (_ctx, buyerId, drawId) =>
-      getBuyerSaleSummary(buyerId as number, drawId as number)),
+    withSession(args, (ctx, buyerId, drawId) =>
+      getBuyerSaleSummary(ctx, buyerId as number, drawId as number)),
   );
   ipcMain.handle('transactions-get-provider-purchase-summary', async (_e, ...args) =>
-    withSession(args, (_ctx, providerId, drawId) =>
-      getProviderPurchaseSummary(providerId as number, drawId as number)),
+    withSession(args, (ctx, providerId, drawId) =>
+      getProviderPurchaseSummary(ctx, providerId as number, drawId as number)),
   );
 }

@@ -25,6 +25,8 @@ export type LoginSuccess = {
   user: AuthUser;
   sessionToken: string;
   companyName?: string | null;
+  /** True when login used the well-known default seed password. */
+  mustChangePassword?: boolean;
 };
 
 export type LoginFailure = {

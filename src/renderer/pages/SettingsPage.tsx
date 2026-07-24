@@ -127,6 +127,7 @@ export default function SettingsPage() {
 function DatabaseTab({ userRole }: { userRole?: string }) {
   const { showToast } = useToast();
   const canRunSetup = !userRole || userRole === 'admin';
+  const canMutateLan = Boolean(userRole && isAtLeastRole(userRole as UserRole, 'manager'));
   const [config, setConfig] = useState<DbConfig>({
     host: 'localhost',
     port: 5432,
@@ -148,7 +149,17 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
       const [status, prefs, lan] = await Promise.all([api.dbGetStatus(), api.prefsGet(), api.lanGetStatus()]);
       setConnected(status.connected);
       setVersion(status.version ?? null);
-      if (status.config) setConfig((c) => ({ ...c, ...status.config }));
+      if (status.config) {
+        setConfig((c) => ({
+          ...c,
+          ...status.config,
+          // Redacted status must not wipe a typed password.
+          password:
+            status.config.password === '********'
+              ? c.password
+              : (status.config.password ?? c.password),
+        }));
+      }
       setNetworkMode(prefs.networkMode);
       setBroadcasting(lan.isBroadcasting);
     } catch {
@@ -215,7 +226,10 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
       }
       const setupResult = await api.dbSetup();
       if (setupResult.success) {
-        showToast('Setup complete. Admin: admin / admin123', 'success');
+        showToast(
+          'Setup complete. New installs: admin / admin123 (existing admin password unchanged).',
+          'success',
+        );
         await refreshStatus();
       } else {
         showToast(setupResult.error ?? 'Setup failed', 'error');
@@ -246,6 +260,10 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
   };
 
   const handleNetworkMode = async (mode: 'server' | 'client') => {
+    if (!canMutateLan) {
+      showToast('Sign in as manager or higher to change LAN mode.', 'warning');
+      return;
+    }
     const result = await api.lanSetMode(mode);
     if (result.success) {
       setNetworkMode(mode);
@@ -257,6 +275,10 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
   };
 
   const handleStartBroadcast = async () => {
+    if (!canMutateLan) {
+      showToast('Sign in as manager or higher to control broadcast.', 'warning');
+      return;
+    }
     const result = await api.lanStartBroadcast();
     if (result.success) {
       setBroadcasting(true);
@@ -267,9 +289,17 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
   };
 
   const handleStopBroadcast = async () => {
-    await api.lanStopBroadcast();
-    setBroadcasting(false);
-    showToast('Broadcasting stopped', 'info');
+    if (!canMutateLan) {
+      showToast('Sign in as manager or higher to control broadcast.', 'warning');
+      return;
+    }
+    const result = await api.lanStopBroadcast();
+    if (result.success) {
+      setBroadcasting(false);
+      showToast('Broadcasting stopped', 'info');
+    } else if ('error' in result && result.error) {
+      showToast(result.error, 'error');
+    }
   };
 
   return (
@@ -323,12 +353,19 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
         <h3 className="mb-3 font-mono text-xs font-medium uppercase tracking-[0.05em] text-content-muted">
           LAN Mode
         </h3>
+        {!canMutateLan ? (
+          <p className="mb-3 text-sm text-content-subtle">
+            Sign in as manager or higher to change server/client mode or broadcast.
+            Auto-Discover remains available without login.
+          </p>
+        ) : null}
         <div className="mb-3 flex flex-wrap gap-3">
           <label className="flex items-center gap-2 text-sm text-content-muted">
             <input
               type="radio"
               name="networkMode"
               checked={networkMode === 'server'}
+              disabled={!canMutateLan}
               onChange={() => void handleNetworkMode('server')}
               className="accent-cyber"
             />
@@ -339,6 +376,7 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
               type="radio"
               name="networkMode"
               checked={networkMode === 'client'}
+              disabled={!canMutateLan}
               onChange={() => void handleNetworkMode('client')}
               className="accent-cyber"
             />
@@ -350,15 +388,17 @@ function DatabaseTab({ userRole }: { userRole?: string }) {
             <span className="text-sm text-content-muted">
               Broadcast: {broadcasting ? 'Active (UDP 41234)' : 'Stopped'}
             </span>
-            {broadcasting ? (
-              <Button type="button" variant="secondary" allowOffline onClick={() => void handleStopBroadcast()}>
-                Stop Broadcasting
-              </Button>
-            ) : (
-              <Button type="button" allowOffline onClick={() => void handleStartBroadcast()}>
-                Start Broadcasting
-              </Button>
-            )}
+            {canMutateLan ? (
+              broadcasting ? (
+                <Button type="button" variant="secondary" allowOffline onClick={() => void handleStopBroadcast()}>
+                  Stop Broadcasting
+                </Button>
+              ) : (
+                <Button type="button" allowOffline onClick={() => void handleStartBroadcast()}>
+                  Start Broadcasting
+                </Button>
+              )
+            ) : null}
           </div>
         ) : (
           <p className="text-sm text-content-subtle">

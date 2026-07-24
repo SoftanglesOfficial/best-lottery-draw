@@ -38,17 +38,21 @@ export default function SessionTimeout() {
     };
   }, [user, resetTimer]);
 
+  useEffect(() => {
+    if (expired && user) void logout();
+  }, [expired, user, logout]);
+
   if (!expired || !user) return null;
 
   return (
-    <Modal title="Session Expired" onClose={() => setExpired(false)}>
+    <Modal title="Session Expired" onClose={() => void logout()}>
       <div className="mb-5 flex items-start gap-3 rounded-cyber border border-cyber-warning/40 bg-cyber-warning/10 p-4">
         <Clock3 className="mt-0.5 h-5 w-5 shrink-0 text-cyber-warning" aria-hidden="true" />
         <p className="text-sm text-content-muted">
           Your session has expired due to inactivity. Please login again.
         </p>
       </div>
-      <Button type="button" className="w-full" onClick={logout}>
+      <Button type="button" className="w-full" onClick={() => void logout()}>
         Login Again
       </Button>
     </Modal>
