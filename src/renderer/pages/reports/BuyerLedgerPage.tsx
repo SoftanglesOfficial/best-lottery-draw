@@ -7,6 +7,7 @@ import { downloadCsv } from '../../lib/exportCsv';
 import { printReport } from '../../lib/exportPdf';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
+import { toLocalDateString } from '../../../shared/localDate';
 import type { BuyerLedgerRow, BuyerRecord } from '../../../shared/types';
 
 function formatCurrency(value: number) {
@@ -20,7 +21,7 @@ function formatDate(value: Date | string | null | undefined) {
 }
 
 function toDateInputValue(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return toLocalDateString(date);
 }
 
 function balanceClass(value: number) {

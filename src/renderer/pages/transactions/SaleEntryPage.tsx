@@ -20,6 +20,7 @@ import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
 import { isDrawPastCloseTime, formatCloseTimeLabel } from '../../lib/drawCloseTime';
 import { findDuplicatePrefixCodeIndex } from '../../../shared/ticketMath';
+import { toLocalDateString } from '../../../shared/localDate';
 import type { BuyerRecord, DrawRecord, ItemRecord } from '../../../shared/types';
 
 type SaleEntryOptions = {
@@ -33,12 +34,6 @@ type ConfirmState =
   | { kind: 'dup'; message: string; resolve: (ok: boolean) => void };
 
 const LEGACY_TYPES = new Set<SaleEntryOptions['type']>(['sale', 'sale_return']);
-
-function isSameDay(a: Date | string, dateStr: string) {
-  const date = a instanceof Date ? a : new Date(a);
-  if (Number.isNaN(date.getTime())) return false;
-  return date.toISOString().slice(0, 10) === dateStr;
-}
 
 function drawDateParts(draw: DrawRecord | null) {
   if (!draw) return { dateLabel: '—', dayLabel: '—' };
@@ -81,7 +76,7 @@ export default function SaleEntryPage({
   const [items, setItems] = useState<ItemRecord[]>([]);
   const [drawId, setDrawId] = useState<number | null>(null);
   const [buyerId, setBuyerId] = useState<number | null>(null);
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [entryDate, setEntryDate] = useState(() => toLocalDateString());
   const [memoId, setMemoId] = useState<number | null>(null);
   const [rows, setRows] = useState<SaleRangeRow[]>([emptySaleRangeRow()]);
   const [saving, setSaving] = useState(false);
@@ -107,12 +102,9 @@ export default function SaleEntryPage({
     return buyer?.saleRate ? String(buyer.saleRate) : '';
   }, [buyers, buyerId]);
 
-  const todayOpenDraws = useMemo(
-    () =>
-      draws.filter(
-        (draw) => draw.status === 'open' && isSameDay(draw.drawDate, entryDate),
-      ),
-    [draws, entryDate],
+  const openDraws = useMemo(
+    () => draws.filter((draw) => draw.status === 'open'),
+    [draws],
   );
 
   const selectedDraw = draws.find((draw) => draw.id === drawId) ?? null;
@@ -137,10 +129,8 @@ export default function SaleEntryPage({
       ]);
       if (drawsResult.success) {
         setDraws(drawsResult.draws);
-        const openToday = drawsResult.draws.filter(
-          (draw) => draw.status === 'open' && isSameDay(draw.drawDate, entryDate),
-        );
-        setDrawId((current) => current ?? openToday[0]?.id ?? null);
+        const open = drawsResult.draws.filter((draw) => draw.status === 'open');
+        setDrawId((current) => current ?? open[0]?.id ?? null);
       }
       if (buyersResult.success) {
         setBuyers(buyersResult.buyers);
@@ -153,7 +143,7 @@ export default function SaleEntryPage({
     } catch {
       showToast('Failed to load form data.', 'error');
     }
-  }, [companyId, entryDate, refreshMemo, showToast]);
+  }, [companyId, refreshMemo, showToast]);
 
   const refreshBuyerSummary = useCallback(async () => {
     if (type !== 'sale_return' || drawId == null || buyerId == null) {
@@ -331,10 +321,10 @@ export default function SaleEntryPage({
 
   useEffect(() => {
     if (drawId == null) return;
-    if (!todayOpenDraws.some((draw) => draw.id === drawId)) {
-      setDrawId(todayOpenDraws[0]?.id ?? null);
+    if (!openDraws.some((draw) => draw.id === drawId)) {
+      setDrawId(openDraws[0]?.id ?? null);
     }
-  }, [drawId, todayOpenDraws]);
+  }, [drawId, openDraws]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -440,7 +430,7 @@ export default function SaleEntryPage({
         buyers={buyers}
         drawId={drawId}
         onDrawIdChange={setDrawId}
-        draws={todayOpenDraws}
+        draws={openDraws}
         partyFocusRequest={partyFocusRequest}
         partyListOpenRef={partyListOpenRef}
         alerts={
@@ -562,7 +552,7 @@ export default function SaleEntryPage({
             required
           >
             <option value="">Select draw</option>
-            {todayOpenDraws.map((draw) => (
+            {openDraws.map((draw) => (
               <option key={draw.id} value={draw.id}>
                 {draw.name}
               </option>

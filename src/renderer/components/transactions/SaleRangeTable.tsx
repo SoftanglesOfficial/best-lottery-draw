@@ -5,6 +5,7 @@ import {
   resolveTo,
   validateRange,
 } from '../../../shared/ticketMath';
+import { padTicketDigits } from '../../lib/ticketAutoComplete';
 import { isAtLeastRole } from '../../lib/roles';
 import { useAuth } from '../../lib/auth';
 import type { ItemRecord } from '../../../shared/types';
@@ -57,7 +58,7 @@ const salesTokenStyle = {
 } as const;
 
 function rowQty(row: SaleRangeRow) {
-  return calculateQuantity(row.from, row.to);
+  return calculateQuantity(padTicketDigits(row.from), padTicketDigits(row.to));
 }
 
 function rowAmount(row: SaleRangeRow) {
@@ -80,15 +81,17 @@ export function saleRangesToTicketData(rows: SaleRangeRow[]) {
   const ranges = rows
     .filter((row) => row.itemId != null && rowQty(row) > 0)
     .map((row) => {
-      const qty = rowQty(row);
+      const from = padTicketDigits(row.from);
+      const to = padTicketDigits(row.to);
+      const qty = calculateQuantity(from, to);
       const rate = Number(row.rate) || 0;
       return {
         itemId: row.itemId,
         code: row.code || undefined,
         prefix: row.prefix || undefined,
         series: row.series || undefined,
-        from: row.from,
-        to: row.to,
+        from,
+        to,
         qty,
         rate,
         amount: qty * rate,
@@ -112,7 +115,12 @@ export function validateSaleRangeRows(rows: SaleRangeRow[]): string | null {
   }
 
   for (let index = 0; index < validRows.length; index += 1) {
-    const error = validateRange(validRows[index]);
+    const row = validRows[index];
+    const error = validateRange({
+      ...row,
+      from: padTicketDigits(row.from),
+      to: padTicketDigits(row.to),
+    });
     if (error) return `Row ${index + 1}: ${error}`;
   }
 
@@ -500,6 +508,10 @@ export default function SaleRangeTable({
                           from: event.target.value.replace(/\D/g, '').slice(0, 5),
                         })
                       }
+                      onBlur={() => {
+                        const padded = padTicketDigits(row.from);
+                        if (padded && padded !== row.from) updateRow(index, { from: padded });
+                      }}
                       onFocus={() => setActiveRow(index)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
