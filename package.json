@@ -13,7 +13,7 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
-    "test": "node scripts/verify-schema-sync.mjs && node scripts/verify-phase1-session.mjs",
+    "test": "node scripts/verify-schema-sync.mjs && node scripts/verify-phase1-session.mjs && node scripts/verify-ticket-math.mjs",
     "test:phase1-session": "node scripts/verify-phase1-session.mjs",
     "test:e2e:install": "playwright install chromium",
     "test:e2e": "playwright test"

@@ -122,6 +122,7 @@ export async function listItems(companyId: number) {
         length: items.length,
         ratePer100: items.ratePer100,
         defaultSeries: items.defaultSeries,
+        prefix: items.prefix,
         createdAt: items.createdAt,
         updatedAt: items.updatedAt,
       })
@@ -150,6 +151,7 @@ function itemValues(data: ItemInput) {
     length: data.length ?? null,
     ratePer100: data.ratePer100 != null ? String(data.ratePer100) : null,
     defaultSeries: data.defaultSeries ?? null,
+    prefix: data.prefix ?? null,
   };
 }
 

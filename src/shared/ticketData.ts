@@ -5,6 +5,8 @@ export type TicketRange = {
   qty?: number;
   itemId?: number;
   code?: string;
+  prefix?: string;
+  series?: string;
   rate?: number;
   amount?: number;
 };

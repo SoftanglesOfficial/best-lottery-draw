@@ -1,11 +1,14 @@
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
-import { buyers, companies, draws, providers, transactions, users } from '../schema';
+import { buyers, companies, draws, items, providers, transactions, users } from '../schema';
 import { formatDbError } from './ipcUtils';
 import { validateDrawOpen } from './drawValidation';
 import { assertCompanyAccess, type SessionContext } from './sessionContext';
 import { requireActiveShiftForCompany } from './shifts';
 import { countFromTicketData, extractTicketNumbers, parseTicketData } from '../../shared/ticketData';
+import {
+  validateSaleTicketSnapshot,
+} from '../../shared/ticketMath';
 import type {
   BuyerSaleSummary,
   ProviderPurchaseSummary,
@@ -17,6 +20,16 @@ import type {
 } from '../../shared/types';
 
 export { validateDrawOpen } from './drawValidation';
+
+/** Re-validate sale/return range payload — do not trust the renderer. */
+export function assertSaleTicketDataIntegrity(
+  ticketData: string | null | undefined,
+  itemById: Map<number, { code: string | null; prefix: string | null; defaultSeries: string | null }>,
+) {
+  const { ranges } = parseTicketData(ticketData);
+  const error = validateSaleTicketSnapshot(ranges, itemById);
+  if (error) throw new Error(error);
+}
 
 async function fetchTransactionRecord(id: number): Promise<TransactionRecord | null> {
   const db = getDb();
@@ -224,6 +237,39 @@ async function validateTransactionCreate(
     if (data.buyerId == null) {
       throw new Error('Buyer is required for sale/booking entries.');
     }
+  }
+
+  if (data.type === 'sale' || data.type === 'sale_return') {
+    const itemIds = [
+      ...new Set(
+        parseTicketData(data.ticketData)
+          .ranges.map((range) => range.itemId)
+          .filter((id): id is number => id != null),
+      ),
+    ];
+    const itemById = new Map<
+      number,
+      { code: string | null; prefix: string | null; defaultSeries: string | null }
+    >();
+    if (itemIds.length > 0) {
+      const rows = await db
+        .select({
+          id: items.id,
+          code: items.code,
+          prefix: items.prefix,
+          defaultSeries: items.defaultSeries,
+        })
+        .from(items)
+        .where(inArray(items.id, itemIds));
+      for (const row of rows) {
+        itemById.set(row.id, {
+          code: row.code,
+          prefix: row.prefix,
+          defaultSeries: row.defaultSeries,
+        });
+      }
+    }
+    assertSaleTicketDataIntegrity(data.ticketData, itemById);
   }
 
   const ticketCount =

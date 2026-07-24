@@ -233,6 +233,7 @@ export interface ItemRecord {
   length: number | null;
   ratePer100: string | null;
   defaultSeries: string | null;
+  prefix: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 }
@@ -251,6 +252,7 @@ export interface ItemInput {
   length?: number | null;
   ratePer100?: number | null;
   defaultSeries?: string | null;
+  prefix?: string | null;
 }
 
 export interface ItemSchemePrizeInput {

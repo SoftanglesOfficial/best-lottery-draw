@@ -27,6 +27,13 @@ export function isValidTicketNumber(value: string, length = TICKET_LENGTH): bool
   return new RegExp(`^\\d{${length}}$`).test(value);
 }
 
+/** Pad short ticket input to full length (e.g. "324" → "00324"). Empty stays empty. */
+export function padTicketDigits(value: string, length = TICKET_LENGTH): string {
+  const digits = value.replace(/\D/g, '').slice(0, length);
+  if (!digits) return '';
+  return digits.padStart(length, '0');
+}
+
 export function sanitizeTicketInput(value: string, maxLength = TICKET_LENGTH): string {
   return value.replace(/\D/g, '').slice(0, maxLength);
 }

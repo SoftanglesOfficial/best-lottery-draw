@@ -12,6 +12,7 @@ import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
+import { toLocalDateString } from '../../../shared/localDate';
 import type { DrawRecord, ProviderRecord } from '../../../shared/types';
 
 type EntryOptions = {
@@ -34,7 +35,7 @@ export default function PurchaseEntryPage({
   const [providers, setProviders] = useState<ProviderRecord[]>([]);
   const [drawId, setDrawId] = useState<number | null>(null);
   const [providerId, setProviderId] = useState<number | null>(null);
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [entryDate, setEntryDate] = useState(() => toLocalDateString());
   const [memoId, setMemoId] = useState<number | null>(null);
   const [voucherNo, setVoucherNo] = useState('');
   const [rows, setRows] = useState<RangeRow[]>([{ from: '', to: '' }]);

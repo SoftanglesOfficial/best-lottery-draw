@@ -1,4 +1,5 @@
 import { extractTicketNumbers, parseTicketData } from '../../shared/ticketData';
+import { calculateQuantity } from '../../shared/ticketMath';
 
 export { extractTicketNumbers, parseTicketData };
 
@@ -29,8 +30,5 @@ export function formatRanges(ticketData: string | null | undefined) {
 }
 
 export function rangeCount(from: string, to: string) {
-  const start = Number(from);
-  const end = Number(to);
-  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return 0;
-  return end - start + 1;
+  return calculateQuantity(from, to);
 }
