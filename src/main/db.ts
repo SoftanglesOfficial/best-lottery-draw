@@ -189,6 +189,7 @@ CREATE TABLE IF NOT EXISTS items (
   length INTEGER,
   rate_per_100 NUMERIC(12,2),
   default_series TEXT,
+  prefix TEXT,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -668,6 +669,15 @@ WHERE NOT EXISTS (SELECT 1 FROM item_groups g WHERE g.company_id = c.id);
 CREATE UNIQUE INDEX IF NOT EXISTS transactions_company_memo_unique
   ON transactions (company_id, memo_id)
   WHERE memo_id IS NOT NULL;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'items' AND column_name = 'prefix'
+  ) THEN
+    ALTER TABLE items ADD COLUMN prefix TEXT;
+  END IF;
+END $$;
 `;
 
 async function ensureSchema(client: Pool): Promise<void> {
