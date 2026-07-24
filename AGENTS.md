@@ -1,6 +1,6 @@
 # Best-12 (best-lottery-draw)
 
-Desktop lottery app for morning/daily draw booking (**Best-12 — Morning Booking**). Multi-company draws, purchases, sales, bookings, ledgers over shared PostgreSQL on a LAN.
+Desktop lottery app morning/daily draw booking (**Best-12 — Morning Booking**). Multi-company draws, purchases, sales, bookings, ledgers over shared PostgreSQL on LAN.
 
 ## Stack
 
@@ -19,7 +19,7 @@ src/
   shared/     types.ts, ticketData.ts, parseDrawResults.ts, drawCloseTime.ts
 ```
 
-**IPC**: `window.api` → preload `invokeIpc` → `withSession` in `register.ts` → handler → `getDb()`. **Public channels** (no token): DB connect/setup/status/test/reconnect, `prefs-get`, LAN, `auth-login`/`auth-logout`/`auth-restore`, `window-set-title` — `PUBLIC_CHANNELS` in `preload/index.ts`. **Preload rules**: `invokeIpc` must call `ipcRenderer.invoke` (never recurse); do not Proxy-wrap frozen `window.api`.
+**IPC**: `window.api` → preload `invokeIpc` → `withSession` in `register.ts` → handler → `getDb()`. **Public channels** (no token): DB connect/setup/status/test/reconnect, `prefs-get`, LAN **status + discover only**, `auth-login`/`auth-logout`/`auth-restore`, `window-set-title` — `PUBLIC_CHANNELS` in `preload/index.ts`. LAN set-mode / broadcast require manager+ session. **Preload rules**: `invokeIpc` must call `ipcRenderer.invoke` (never recurse); do not Proxy-wrap frozen `window.api`.
 
 `HashRouter` when `file:` protocol (packaged); else `BrowserRouter`.
 
@@ -37,16 +37,17 @@ Key entities: Company, User, ShiftGroup/Shift, ProviderGroup/Provider, BuyerGrou
 
 - Default: `best12_dev` @ `localhost:5432`; schema via inline SQL in `db.ts` (`ENUM_SQL`, `TABLES_SQL`, `MIGRATION_SQL`)
 - `setupDb()` seeds admin, default company, admin `user_companies`, shift groups, today's draws
-- Login: `admin` / `admin123` (scrypt hash; legacy SHA-256 auto-migrates on login)
+- Login: `admin` / `admin123` (scrypt; legacy SHA-256 migrates on login). `db-setup` seeds admin once — **no** overwrite existing password. Login with `admin123` forces password change UI.
 - Health check 30s; events `db-connection-lost` / `db-connection-restored`
-- Server PC runs PostgreSQL + UDP 41234 broadcast; clients use `lan-discover-server`. Firewall: 5432 TCP, 41234 UDP
+- Server PC: PostgreSQL + UDP 41234 broadcast; clients: `lan-discover-server`. Firewall: 5432 TCP, 41234 UDP
 
 ## IPC & Auth
 
 - Channels: kebab-case; legacy exception `itemSchemes-*`
 - Returns `{ success: true, ... }` or `{ success: false, error: string }`
-- Privileged handlers: `withSession` + `requireRole` / `assertCompanyAccess`; list in `register.ts` `IPC_CHANNELS`
-- `lib/api.ts`: thin re-exports (`export const api = window.api`) — no wrapper
+- Privileged: `withSession` + `requireRole` / `assertCompanyAccess`; list in `register.ts` `IPC_CHANNELS`
+- `lib/api.ts`: `export const api = window.api` — no wrapper
+- Role ceiling: cannot assign/modify role above caller (`assertAssignableRole`)
 
 | Capability | Min role |
 |------------|----------|
@@ -59,7 +60,7 @@ Key entities: Company, User, ShiftGroup/Shift, ProviderGroup/Provider, BuyerGrou
 | Diagnostics | admin |
 | Audit logs | manager+ |
 
-**Session**: token in preload closure + `sessionStore.ts` (8h TTL, persisted to `config.json` for restart). Renderer: `user` + `activeCompanyName` in `auth.tsx`; `auth-restore` on mount. `user-set-active-company` syncs DB + session. Heartbeat: `sessions-heartbeat`. Idle logout: `SessionTimeout` (30 min). IPC auth-fail: preload `invokeIpc` fires `onAppLogout` listeners. HMR can desync token — re-login may be needed.
+**Session**: token in preload closure + `sessionStore.ts` (8h TTL; token + payload encrypted via `safeStorage` in `config.json`). Renderer: `user` + `activeCompanyName` in `auth.tsx`; `auth-restore` on mount. `user-set-active-company` syncs DB + session. Heartbeat: `sessions-heartbeat`. Idle logout: `SessionTimeout` (30 min). IPC auth-fail: preload `invokeIpc` → `onAppLogout`. HMR can desync token — re-login.
 
 ## Routes
 
@@ -68,13 +69,13 @@ Key entities: Company, User, ShiftGroup/Shift, ProviderGroup/Provider, BuyerGrou
 | `/`, `/open-company`, `/dashboard`, `/settings` | Login, company picker, dashboard, settings |
 | `/master/*`, `/draws`, `/transactions/*`, `/reports/*`, `/admin/*` | Master data, draws, txns, reports, admin |
 
-Pre-login `/settings`: Ctrl+, or Database Setup on login; database tab uses public IPC only.
+Pre-login `/settings`: Ctrl+, or Database Setup on login; database tab public IPC only.
 
 ## UI & Conventions
 
 - Reuse: `GroupCrudPage`, `Table`, `ui.tsx` (`Input`, `Button`, `Card`), `useActiveCompany`, `useToast`
 - IPC one file per domain; types in `shared/types.ts`; pages match route segments
-- Txn entry: `TicketRangeTable` / `TicketNumberTable` (booking entry uses individual tickets)
+- Txn entry: `TicketRangeTable` / `TicketNumberTable` (booking = individual tickets)
 - Export: `exportCsv.ts`, `exportPdf.ts`; indigo nav accent
 
 ## Development
@@ -91,7 +92,7 @@ Local config: `configStore.ts` (DB creds, window bounds). Prefs: auto-backup 23:
 ## Agent Guidelines
 
 1. Minimize scope — one IPC file per domain; match existing patterns
-2. Company scoping on almost every query/mutation (`assertCompanyAccess`)
+2. Company scoping almost every query/mutation (`assertCompanyAccess`)
 3. Schema changes: update `schema.ts` + `TABLES_SQL` + `MIGRATION_SQL` in `db.ts`
 4. New IPC: handler + `register.ts` + preload `Api` + `electron.d.ts` + `lib/api.ts`; `PUBLIC_CHANNELS` only if pre-login
 5. Roles: `useRoleGuard` / `isAtLeastRole` in UI; `requireRole` in main
@@ -102,11 +103,11 @@ Local config: `configStore.ts` (DB creds, window bounds). Prefs: auto-backup 23:
 
 ## Remaining Work
 
-**Blocked on product spec**: `stock_transfer` UI — `txn_type` enum exists in DB/schema/types; no IPC validation, no page, no documented business rules (parties, ledger impact). Do not implement until spec exists.
+**Blocked on product spec**: `stock_transfer` UI — `txn_type` enum in DB/schema/types; create path rejects until spec (parties, ledger). No UI until spec.
 
-**Deferred**: triple schema *merge* (Drizzle + inline SQL stays; `npm test` runs `scripts/verify-schema-sync.mjs` drift guard). Linux DEB/RPM makers configured in `forge.config.ts` but not validated on Linux CI.
+**Deferred**: triple schema *merge* (Drizzle + inline SQL stays; `npm test` → `scripts/verify-schema-sync.mjs` enum drift). Linux DEB/RPM in `forge.config.ts` untested on Linux CI.
 
-**Done this cycle**: `lib/api.ts` collapsed to `export const api = window.api`; renderer uses `api.*` directly.
-[PHASE 1] [COMPLETE] [2026-07-17] — Login, company, and server-authorized shift flow
-[PHASE 2] [COMPLETE] [2026-07-17] — Role-aware full-width menu and dashboard routing
-[PHASE 3] [COMPLETE] [2026-07-17] — Blue spreadsheet Sales Entry with preserved transaction behavior
+**Done this cycle**: `lib/api.ts` = `export const api = window.api`; renderer uses `api.*` directly.
+[PHASE 1] [COMPLETE] [2026-07-17] — Login, company, server-authorized shift flow
+[PHASE 2] [COMPLETE] [2026-07-17] — Role-aware full-width menu + dashboard routing
+[PHASE 3] [COMPLETE] [2026-07-17] — Blue spreadsheet Sales Entry, transaction behavior preserved
