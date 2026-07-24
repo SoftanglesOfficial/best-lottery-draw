@@ -33,9 +33,13 @@ type SaleRangeTableProps = {
   onAbsoluteToConsumed?: () => void;
   onRowError?: (message: string) => void;
   focusItemRequest?: number;
+  /** Return false to abort new-row advance (e.g. dup cancel). */
+  onBeforeAddRow?: (index: number) => boolean | Promise<boolean>;
 };
 
-const FOCUS_COLS = 4; // item, from, to, rate
+/** code, item, prefix, series, from, to, rate */
+const FOCUS_COLS = 7;
+const COL = { code: 0, item: 1, prefix: 2, series: 3, from: 4, to: 5, rate: 6 } as const;
 
 const salesTokenStyle = {
   ['--sales-header' as string]: '#f1b900',
@@ -137,6 +141,7 @@ export default function SaleRangeTable({
   onAbsoluteToConsumed,
   onRowError,
   focusItemRequest = 0,
+  onBeforeAddRow,
 }: SaleRangeTableProps) {
   const inputRefs = useRef<Array<HTMLInputElement | HTMLSelectElement | null>>([]);
   const [activeRowIndex, setActiveRowIndex] = useState(0);
@@ -165,17 +170,37 @@ export default function SaleRangeTable({
     setTimeout(() => inputRefs.current[rowIndex * FOCUS_COLS + col]?.focus(), 0);
   };
 
+  const nextTypingCol = (fromCol: number): number | 'add' => {
+    for (let col = fromCol + 1; col < FOCUS_COLS; col += 1) {
+      if ((col === COL.prefix || col === COL.series) && !fieldsUnlocked) continue;
+      if (col === COL.rate && !canEditRate) return 'add';
+      return col;
+    }
+    return 'add';
+  };
+
+  const advanceFrom = (rowIndex: number, fromCol: number) => {
+    const next = nextTypingCol(fromCol);
+    if (next === 'add') {
+      void tryAdvanceFromRate(rowIndex);
+      return;
+    }
+    focusCell(rowIndex, next);
+  };
+
   const updateRow = (index: number, patch: Partial<SaleRangeRow>) => {
     const next = rows.map((row, i) => (i === index ? { ...row, ...patch } : row));
     onChange(next);
   };
 
   const addRow = (afterIndex: number) => {
+    const stickyCode = rows[afterIndex]?.code ?? '';
+    const blank = { ...emptySaleRangeRow(defaultRate), code: stickyCode };
     const next = [...rows];
-    next.splice(afterIndex + 1, 0, emptySaleRangeRow(defaultRate));
+    next.splice(afterIndex + 1, 0, blank);
     onChange(next);
     setActiveRow(afterIndex + 1);
-    focusCell(afterIndex + 1, 0);
+    focusCell(afterIndex + 1, COL.code);
   };
 
   const handleItemChange = (index: number, itemId: number | null) => {
@@ -212,7 +237,7 @@ export default function SaleRangeTable({
     return true;
   };
 
-  const tryAdvanceFromRate = (index: number) => {
+  const tryAdvanceFromRate = async (index: number) => {
     const row = rows[index];
     const error = validateRange(row);
     if (error) {
@@ -221,6 +246,13 @@ export default function SaleRangeTable({
       return;
     }
     setInvalidCell(null);
+    if (onBeforeAddRow) {
+      const ok = await onBeforeAddRow(index);
+      if (!ok) {
+        focusCell(index, fieldsUnlocked ? COL.prefix : COL.code);
+        return;
+      }
+    }
     addRow(index);
   };
 
@@ -236,7 +268,7 @@ export default function SaleRangeTable({
   }, [rows.length]);
 
   useEffect(() => {
-    if (focusItemRequest > 0) focusCell(0, 0);
+    if (focusItemRequest > 0) focusCell(0, COL.item);
   }, [focusItemRequest]);
 
   return (
@@ -332,12 +364,19 @@ export default function SaleRangeTable({
                     }
                   >
                     <input
+                      ref={(el) => {
+                        inputRefs.current[index * FOCUS_COLS + COL.code] = el;
+                      }}
                       value={row.code}
-                      readOnly={!fieldsUnlocked}
-                      tabIndex={fieldsUnlocked ? 0 : -1}
                       onChange={(event) => updateRow(index, { code: event.target.value })}
                       onFocus={() => setActiveRow(index)}
-                      className={fieldsUnlocked ? fieldClass : lockedClass}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          advanceFrom(index, COL.code);
+                        }
+                      }}
+                      className={fieldClass}
                       aria-label={`Row ${index + 1} code`}
                     />
                   </td>
@@ -350,7 +389,7 @@ export default function SaleRangeTable({
                   >
                     <select
                       ref={(el) => {
-                        inputRefs.current[index * FOCUS_COLS] = el;
+                        inputRefs.current[index * FOCUS_COLS + COL.item] = el;
                       }}
                       value={row.itemId ?? ''}
                       onChange={(event) =>
@@ -360,7 +399,7 @@ export default function SaleRangeTable({
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
                           event.preventDefault();
-                          focusCell(index, 1);
+                          advanceFrom(index, COL.item);
                         }
                       }}
                       className={`${fieldClass} ${cellErr('item')}`}
@@ -400,11 +439,20 @@ export default function SaleRangeTable({
                     }
                   >
                     <input
+                      ref={(el) => {
+                        inputRefs.current[index * FOCUS_COLS + COL.prefix] = el;
+                      }}
                       value={row.prefix}
                       readOnly={!fieldsUnlocked}
                       tabIndex={fieldsUnlocked ? 0 : -1}
                       onChange={(event) => updateRow(index, { prefix: event.target.value })}
                       onFocus={() => setActiveRow(index)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && fieldsUnlocked) {
+                          event.preventDefault();
+                          advanceFrom(index, COL.prefix);
+                        }
+                      }}
                       className={fieldsUnlocked ? fieldClass : lockedClass}
                       aria-label={`Row ${index + 1} prefix`}
                     />
@@ -417,11 +465,20 @@ export default function SaleRangeTable({
                     }
                   >
                     <input
+                      ref={(el) => {
+                        inputRefs.current[index * FOCUS_COLS + COL.series] = el;
+                      }}
                       value={row.series}
                       readOnly={!fieldsUnlocked}
                       tabIndex={fieldsUnlocked ? 0 : -1}
                       onChange={(event) => updateRow(index, { series: event.target.value })}
                       onFocus={() => setActiveRow(index)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && fieldsUnlocked) {
+                          event.preventDefault();
+                          advanceFrom(index, COL.series);
+                        }
+                      }}
                       className={fieldsUnlocked ? fieldClass : lockedClass}
                       aria-label={`Row ${index + 1} series`}
                     />
@@ -435,7 +492,7 @@ export default function SaleRangeTable({
                   >
                     <input
                       ref={(el) => {
-                        inputRefs.current[index * FOCUS_COLS + 1] = el;
+                        inputRefs.current[index * FOCUS_COLS + COL.from] = el;
                       }}
                       value={row.from}
                       onChange={(event) =>
@@ -447,7 +504,7 @@ export default function SaleRangeTable({
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
                           event.preventDefault();
-                          focusCell(index, 2);
+                          advanceFrom(index, COL.from);
                         }
                       }}
                       className={`${fieldClass} ${cellErr('from')}`}
@@ -464,7 +521,7 @@ export default function SaleRangeTable({
                   >
                     <input
                       ref={(el) => {
-                        inputRefs.current[index * FOCUS_COLS + 2] = el;
+                        inputRefs.current[index * FOCUS_COLS + COL.to] = el;
                       }}
                       value={toDisplay}
                       onChange={(event) => {
@@ -484,8 +541,7 @@ export default function SaleRangeTable({
                         if (event.key === 'Enter') {
                           event.preventDefault();
                           if (toDraft?.index === index && !commitTo(index, toDraft.value)) return;
-                          if (canEditRate) focusCell(index, 3);
-                          else tryAdvanceFromRate(index);
+                          advanceFrom(index, COL.to);
                         }
                       }}
                       className={`${fieldClass} ${cellErr('to')}`}
@@ -512,7 +568,7 @@ export default function SaleRangeTable({
                   >
                     <input
                       ref={(el) => {
-                        inputRefs.current[index * FOCUS_COLS + 3] = el;
+                        inputRefs.current[index * FOCUS_COLS + COL.rate] = el;
                       }}
                       value={row.rate}
                       onChange={(event) =>
@@ -526,7 +582,7 @@ export default function SaleRangeTable({
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') {
                           event.preventDefault();
-                          tryAdvanceFromRate(index);
+                          void tryAdvanceFromRate(index);
                         }
                       }}
                       className={`${canEditRate ? fieldClass : lockedClass} ${cellErr('rate')}`}

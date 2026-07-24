@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import LegacyTransactionShell from '../../components/transactions/LegacyTransactionShell';
 import SaleRangeTable, {
   emptySaleRangeRow,
@@ -18,6 +19,7 @@ import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
 import { isDrawPastCloseTime, formatCloseTimeLabel } from '../../lib/drawCloseTime';
+import { findDuplicatePrefixCodeIndex } from '../../../shared/ticketMath';
 import type { BuyerRecord, DrawRecord, ItemRecord } from '../../../shared/types';
 
 type SaleEntryOptions = {
@@ -25,6 +27,10 @@ type SaleEntryOptions = {
   saveLabel?: string;
   type?: 'sale' | 'sale_return' | 'booking';
 };
+
+type ConfirmState =
+  | { kind: 'delete' | 'clear'; message: string }
+  | { kind: 'dup'; message: string; resolve: (ok: boolean) => void };
 
 const LEGACY_TYPES = new Set<SaleEntryOptions['type']>(['sale', 'sale_return']);
 
@@ -51,7 +57,7 @@ function drawDateParts(draw: DrawRecord | null) {
 /** Intentional unlock — structured for future audit logging. */
 function requestManagerUnlock(
   userRole: string | undefined,
-  fields: Array<'code' | 'prefix' | 'series' | 'absoluteTo'>,
+  fields: Array<'prefix' | 'series' | 'absoluteTo'>,
 ): boolean {
   if (!userRole || !isAtLeastRole(userRole, 'manager')) return false;
   // ponytail: audit hook point — log unlock(fields) when audit exists
@@ -90,6 +96,7 @@ export default function SaleEntryPage({
   const [absoluteToArmed, setAbsoluteToArmed] = useState(false);
   const [partyFocusRequest, setPartyFocusRequest] = useState(0);
   const [focusItemRequest, setFocusItemRequest] = useState(0);
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const partyListOpenRef = useRef(false);
 
@@ -170,41 +177,85 @@ export default function SaleEntryPage({
 
   const deleteActiveRow = useCallback(() => {
     const row = rows[activeRowIndex];
+    const doDelete = () => {
+      if (rows.length <= 1) {
+        setRows([emptySaleRangeRow(defaultRate)]);
+        setActiveRowIndex(0);
+        return;
+      }
+      const next = rows.filter((_, index) => index !== activeRowIndex);
+      setRows(next);
+      setActiveRowIndex(Math.max(0, activeRowIndex - 1));
+    };
     if (row && rowHasSaleData(row)) {
-      const ok = window.confirm(`Delete row ${activeRowIndex + 1}?`);
-      if (!ok) return;
-    }
-    if (rows.length <= 1) {
-      setRows([emptySaleRangeRow(defaultRate)]);
-      setActiveRowIndex(0);
+      setConfirm({ kind: 'delete', message: `Delete row ${activeRowIndex + 1}?` });
       return;
     }
-    const next = rows.filter((_, index) => index !== activeRowIndex);
-    setRows(next);
-    setActiveRowIndex(Math.max(0, activeRowIndex - 1));
+    doDelete();
   }, [activeRowIndex, defaultRate, rows]);
 
   const clearWorksheet = useCallback(() => {
     const dirty = rows.some(rowHasSaleData);
     if (dirty) {
-      const ok = window.confirm('Clear all sales data in this worksheet?');
-      if (!ok) return;
+      setConfirm({ kind: 'clear', message: 'Clear all sales data in this worksheet?' });
+      return;
     }
     setRows([emptySaleRangeRow(defaultRate)]);
     setActiveRowIndex(0);
   }, [defaultRate, rows]);
+
+  const applyConfirm = useCallback(() => {
+    if (!confirm) return;
+    if (confirm.kind === 'delete') {
+      if (rows.length <= 1) {
+        setRows([emptySaleRangeRow(defaultRate)]);
+        setActiveRowIndex(0);
+      } else {
+        const next = rows.filter((_, index) => index !== activeRowIndex);
+        setRows(next);
+        setActiveRowIndex(Math.max(0, activeRowIndex - 1));
+      }
+    } else if (confirm.kind === 'clear') {
+      setRows([emptySaleRangeRow(defaultRate)]);
+      setActiveRowIndex(0);
+    } else if (confirm.kind === 'dup') {
+      confirm.resolve(true);
+    }
+    setConfirm(null);
+  }, [activeRowIndex, confirm, defaultRate, rows]);
+
+  const cancelConfirm = useCallback(() => {
+    if (confirm?.kind === 'dup') confirm.resolve(false);
+    setConfirm(null);
+  }, [confirm]);
+
+  const onBeforeAddRow = useCallback(
+    (index: number) => {
+      const dupAt = findDuplicatePrefixCodeIndex(rows, index);
+      if (dupAt < 0) return true;
+      const code = rows[index]?.code?.trim() || '(blank)';
+      return new Promise<boolean>((resolve) => {
+        setConfirm({
+          kind: 'dup',
+          message: `Duplicate prefix for code ${code} (also on row ${dupAt + 1}). Continue?`,
+          resolve,
+        });
+      });
+    },
+    [rows],
+  );
 
   const toggleFieldUnlock = useCallback(() => {
     if (fieldsUnlocked) {
       setFieldsUnlocked(false);
       return;
     }
-    if (!requestManagerUnlock(user?.role, ['code', 'prefix', 'series'])) {
+    if (!requestManagerUnlock(user?.role, ['prefix', 'series'])) {
       showToast('Manager unlock required', 'error');
       return;
     }
     setFieldsUnlocked(true);
-    showToast('Code / Prefix / Series unlocked', 'success');
+    showToast('Prefix / Series unlocked', 'success');
   }, [fieldsUnlocked, showToast, user?.role]);
 
   const armAbsoluteTo = useCallback(() => {
@@ -228,6 +279,10 @@ export default function SaleEntryPage({
         if (!saving) formRef.current?.requestSubmit();
       }
       if (event.key === 'Delete' && event.ctrlKey) {
+        event.preventDefault();
+        deleteActiveRow();
+      }
+      if (event.key === 'F5') {
         event.preventDefault();
         deleteActiveRow();
       }
@@ -364,6 +419,7 @@ export default function SaleEntryPage({
       : [];
 
     return (
+      <>
       <LegacyTransactionShell
         formRef={formRef}
         pageTitle={isReturn ? 'Sale Return' : 'Add Sale'}
@@ -422,7 +478,7 @@ export default function SaleEntryPage({
           isReturn
             ? [
                 'F2 Save',
-                'Ctrl+Del Delete Row',
+                'F5 Delete Row',
                 'F6 Make Sale',
                 'F7 Search',
                 'F8 Clear',
@@ -456,8 +512,18 @@ export default function SaleEntryPage({
           onAbsoluteToConsumed={() => setAbsoluteToArmed(false)}
           onRowError={(message) => showToast(message, 'error')}
           focusItemRequest={focusItemRequest}
+          onBeforeAddRow={onBeforeAddRow}
         />
       </LegacyTransactionShell>
+      {confirm ? (
+        <ConfirmDialog
+          message={confirm.message}
+          onConfirm={applyConfirm}
+          onCancel={cancelConfirm}
+          confirmLabel={confirm.kind === 'dup' ? 'Continue' : 'Confirm'}
+        />
+      ) : null}
+      </>
     );
   }
 

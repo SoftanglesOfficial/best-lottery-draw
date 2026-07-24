@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import LegacyTransactionShell from '../../components/transactions/LegacyTransactionShell';
 import TicketNumberTable, {
   ticketsToTicketData,
@@ -32,6 +33,7 @@ export default function BookingEntryPage() {
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [activeRowIndex, setActiveRowIndex] = useState(0);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   const openDraws = draws.filter((draw) => draw.status === 'open');
@@ -70,7 +72,7 @@ export default function BookingEntryPage() {
     }
   }, [companyId, entryDate, refreshMemo, showToast]);
 
-  const deleteActiveRow = useCallback(() => {
+  const doDeleteActiveRow = useCallback(() => {
     if (rows.length <= 1) {
       setRows([{ number: '' }]);
       setActiveRowIndex(0);
@@ -80,6 +82,15 @@ export default function BookingEntryPage() {
     setRows(next.length ? next : [{ number: '' }]);
     setActiveRowIndex(Math.max(0, activeRowIndex - 1));
   }, [activeRowIndex, rows]);
+
+  const deleteActiveRow = useCallback(() => {
+    const row = rows[activeRowIndex];
+    if (row?.number?.trim()) {
+      setConfirmDelete(true);
+      return;
+    }
+    doDeleteActiveRow();
+  }, [activeRowIndex, doDeleteActiveRow, rows]);
 
   const clearWorksheet = useCallback(() => {
     setRows([{ number: '' }]);
@@ -101,7 +112,7 @@ export default function BookingEntryPage() {
         event.preventDefault();
         formRef.current?.requestSubmit();
       }
-      if (event.key === 'F3') {
+      if (event.key === 'F3' || event.key === 'F5') {
         event.preventDefault();
         deleteActiveRow();
       }
@@ -177,6 +188,7 @@ export default function BookingEntryPage() {
   if (!allowed) return null;
 
   return (
+    <>
     <LegacyTransactionShell
       formRef={formRef}
       pageTitle="Add Booking"
@@ -223,7 +235,33 @@ export default function BookingEntryPage() {
         onChange={setRows}
         variant="blueSpreadsheet"
         onActiveIndexChange={setActiveRowIndex}
+        onRequestDelete={(index) => {
+          setActiveRowIndex(index);
+          if (rows[index]?.number?.trim()) {
+            setConfirmDelete(true);
+            return;
+          }
+          if (rows.length <= 1) {
+            setRows([{ number: '' }]);
+            setActiveRowIndex(0);
+            return;
+          }
+          const next = rows.filter((_, i) => i !== index);
+          setRows(next.length ? next : [{ number: '' }]);
+          setActiveRowIndex(Math.max(0, Math.min(index, next.length - 1)));
+        }}
       />
     </LegacyTransactionShell>
+    {confirmDelete ? (
+      <ConfirmDialog
+        message={`Delete row ${activeRowIndex + 1}?`}
+        onConfirm={() => {
+          doDeleteActiveRow();
+          setConfirmDelete(false);
+        }}
+        onCancel={() => setConfirmDelete(false)}
+      />
+    ) : null}
+    </>
   );
 }

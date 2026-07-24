@@ -4,7 +4,7 @@ import { useAuth } from '../../lib/auth';
 import type { BuyerRecord, DrawRecord } from '../../../shared/types';
 
 const actionBtn =
-  'cursor-pointer border border-[#ffdf63] bg-[#f1b900] px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-[#10275e] shadow-[0_2px_0_#745600] hover:bg-[#ffd447] focus:outline-none focus:ring-2 focus:ring-[#ffd447] disabled:cursor-not-allowed disabled:opacity-60';
+  'cursor-pointer border border-[#ffdf63] bg-[#f1b900] px-4 py-2 text-[11px] font-extrabold uppercase tracking-wide text-[#10275e] shadow-[0_2px_0_#745600] hover:bg-[#ffd447] focus:outline-none focus:ring-2 focus:ring-[#ffd447] disabled:cursor-not-allowed disabled:opacity-60';
 
 export type LegacyShellAccent = 'blue' | 'orange';
 
@@ -149,7 +149,7 @@ export default function LegacyTransactionShell({
       : 'px-4 text-sm font-extrabold uppercase tracking-[0.08em] text-white';
   const defaultShortcuts = [
     'F2 Save',
-    'Ctrl+Del Delete Row',
+    'F5 Delete Row',
     'F7 Search',
     'F8 Clear',
     'Enter Add Row',
@@ -365,13 +365,13 @@ export default function LegacyTransactionShell({
             </p>
           ) : null}
         </div>
-        <div className="flex h-11 items-center justify-between gap-2 bg-[#0e3b99] px-3">
-          <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex min-h-11 items-center justify-between gap-3 bg-[#0e3b99] px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button type="submit" disabled={saving || disabled} className={actionBtn}>
               {saving ? 'Saving…' : saveLabel}
             </button>
             <button type="button" onClick={onDeleteRow} className={actionBtn}>
-              Delete Row (Ctrl+Del)
+              Delete (F5)
             </button>
             <button type="button" onClick={onClear} className={actionBtn}>
               Clear (F8)
