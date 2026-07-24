@@ -118,6 +118,9 @@ const authRequireMock = (id) => {
   if (id === '../db') {
     return {
       ensureConnected: async () => ({ success: true }),
+      verifyPassword: () => false,
+      hashPassword: (value) => `hash:${value}`,
+      isLegacyPasswordHash: () => false,
       getDb: () => ({
         select: () => ({
           from: () => ({
@@ -132,6 +135,7 @@ const authRequireMock = (id) => {
                     role: 'manager',
                     companyId: null,
                     activeCompanyId: 99,
+                    passwordHash: 'hash:changed',
                     createdAt: null,
                     updatedAt: null,
                   }];
@@ -169,6 +173,13 @@ const authRequireMock = (id) => {
         companyId: 'user_companies.company_id',
       },
       users: { id: 'users.id' },
+    };
+  }
+  if (id === './sessionContext') {
+    return {
+      assertAssignableRole: () => null,
+      assertCompanyAccess: () => null,
+      isAtLeastRole: () => true,
     };
   }
   throw new Error(`Unexpected auth import: ${id}`);

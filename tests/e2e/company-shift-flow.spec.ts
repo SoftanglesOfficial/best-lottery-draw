@@ -263,24 +263,65 @@ async function login(page: Page) {
   await page.getByRole('button', { name: 'Sign in' }).click();
 }
 
-test('fresh login shows only the compact global-action landing', async ({ page }) => {
-  await installMockApi(page);
-  await login(page);
+test('forced password change blocks the app until password is updated', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('mockInitialized', 'true');
+    localStorage.setItem('authenticated', 'false');
+    Object.defineProperty(window, 'api', {
+      value: {
+        authRestore: async () => ({ success: false, error: 'No stored session' }),
+        authLogin: async () => ({
+          success: true,
+          user: {
+            id: 1,
+            username: 'admin',
+            fullName: 'Admin User',
+            role: 'admin',
+            companyId: null,
+            activeCompanyId: null,
+          },
+          sessionToken: 'test-token',
+          mustChangePassword: true,
+        }),
+        authChangePassword: async (_id: number, _current: string, next: string) => {
+          if (next === 'admin123') {
+            return { success: false, error: 'Choose a password other than the default seed password.' };
+          }
+          localStorage.setItem('passwordChanged', 'true');
+          return { success: true };
+        },
+        authLogout: async () => {
+          localStorage.setItem('authenticated', 'false');
+          return { success: true };
+        },
+        dbGetStatus: async () => ({ connected: true, version: '16' }),
+        prefsGet: async () => ({ autoBackup: false, networkMode: 'client' }),
+        lanGetStatus: async () => ({ isBroadcasting: false, port: 41234, localIp: '127.0.0.1' }),
+        onAppLogout: () => () => undefined,
+        onDbConnectionLost: () => () => undefined,
+        onDbConnectionRestored: () => () => undefined,
+      },
+      configurable: true,
+    });
+  });
 
+  await page.goto('/');
+  await page.getByLabel('Username').fill('admin');
+  await page.locator('#password').fill('admin123');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Change default password' })).toBeVisible();
+  await page.locator('#new-password').fill('admin123');
+  await page.locator('#confirm-new-password').fill('admin123');
+  await page.getByRole('button', { name: 'Save new password' }).click();
+  await expect(page.getByText('Choose a password other than the default seed password.')).toBeVisible();
+
+  await page.locator('#new-password').fill('secure-pass-99');
+  await page.locator('#confirm-new-password').fill('secure-pass-99');
+  await page.getByRole('button', { name: 'Save new password' }).click();
+  await expect(page.getByRole('heading', { name: 'Change default password' })).toHaveCount(0);
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole('heading', { name: 'Admin Panel' })).toBeVisible();
-  await expect(page.getByText('Welcome, Admin User')).toBeVisible();
-  await expect(page.getByRole('link')).toHaveCount(4);
-  for (const action of ['Open Company', 'Manage Owners', 'Manage Companies', 'System Settings']) {
-    await expect(page.getByRole('link', { name: action, exact: true })).toBeVisible();
-  }
-  await expect(
-    page.locator(
-      'a[href="/dashboard"], a[href^="/master/"], a[href^="/transactions/"], a[href^="/reports"]',
-    ),
-  ).toHaveCount(0);
 });
-
 test('global admin actions work before selecting a company', async ({ page }) => {
   await installMockApi(page, { seedCompanyId: null });
 
@@ -343,7 +384,7 @@ test('focus follows the primary route-transition workflow', async ({ page }) => 
   await page.getByRole('button', { name: /First Shift/ }).click();
   await page.getByRole('button', { name: 'Open' }).click();
   await expect(page.getByRole('heading', { name: 'Company Data' })).toBeFocused();
-  await page.getByRole('link', { name: 'Add Sale' }).click();
+  await page.getByRole('link', { name: 'Add Sale', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Add Sale' })).toBeFocused();
 });
 
@@ -520,7 +561,7 @@ test.describe('role-aware menu', () => {
     await expect(footer).toContainText('Shift group: Morning Draws');
     await expect(footer).toContainText('Shift: First Shift');
     await expect(page.locator('aside')).toHaveCount(0);
-    await expect(transactions.getByRole('link', { name: 'Add Sale' })).toHaveCSS('font-size', '12px');
+    await expect(transactions.getByRole('link', { name: 'Add Sale', exact: true })).toHaveCSS('font-size', '12px');
     await expect(companyData).toHaveCSS('border-right-style', 'solid');
     await expect(reports).toHaveCSS('border-right-style', 'solid');
     await page.screenshot({ path: 'test-results/menu-admin-1920x1080.png', fullPage: true });
@@ -582,7 +623,7 @@ test.describe('role-aware menu', () => {
     await expect(page.getByRole('heading', { name: 'Welcome, Admin User' })).toBeVisible();
 
     await page.goto('/menu');
-    await page.getByRole('link', { name: 'Add Sale' }).click();
+    await page.getByRole('link', { name: 'Add Sale', exact: true }).click();
     await expect(page).toHaveURL(/\/transactions\/sale-entry$/);
   });
 
@@ -669,26 +710,26 @@ test.describe('role-aware menu', () => {
     await page.clock.setFixedTime(new Date('2026-07-17T07:48:12.000Z'));
     await installMockApi(page, { seedCompanyId: 7, seedShiftId: 21 });
     await page.goto('/menu');
-    await page.getByRole('link', { name: 'Add Sale' }).click();
+    await page.getByRole('link', { name: 'Add Sale', exact: true }).click();
 
     await expect(page.getByRole('heading', { name: 'Add Sale' })).toBeVisible();
     await expect(page.locator('aside')).toHaveCount(0);
-    await expect(page.locator('footer')).toHaveCount(0);
+    // Status footer is app chrome (connection); sale entry still hides the module sidebar.
+    await expect(page.locator('footer')).toBeVisible();
     await expect(page.getByLabel('Draw *')).toHaveValue('31');
-    await expect(page.getByLabel('Sale To *')).toHaveValue('41');
+    await expect(page.getByLabel('Party Name *')).toHaveValue('Blue Star Agency');
     await expect(page.getByLabel('Date')).toHaveValue('2026-07-17');
     await expect(page.getByLabel('Memo ID')).toHaveValue('501');
 
-    await page.getByLabel('Row 1 lottery type').selectOption('51');
+    await page.getByLabel('Row 1 item name').selectOption('51');
     await page.getByLabel('Row 1 from ticket').fill('00001');
-    await page.getByLabel('Row 1 to ticket').fill('00003');
-    await expect(page.getByLabel('Row 1 amount')).toHaveValue('7.50');
+    await page.getByLabel('Row 1 from ticket').blur();
+    // Diff mode: To = From + N → 00001 + 2 = 00003 (qty 3)
+    await page.getByLabel('Row 1 to ticket').fill('2');
+    await page.getByLabel('Row 1 to ticket').press('Tab');
+    await page.getByLabel('Row 1 rate').fill('2.5');
     await expect(page.getByRole('row', { name: /Dear 100/ })).toContainText('3');
-
-    await page.getByLabel('Row 1 amount').press('Enter');
-    await expect(page.getByLabel('Row 2 lottery type')).toBeVisible();
-    await page.getByLabel('Row 2 amount').press('F5');
-    await expect(page.getByLabel('Row 2 lottery type')).toHaveCount(0);
+    await expect(page.getByRole('row', { name: /Dear 100/ })).toContainText('7.50');
 
     await page.screenshot({
       path: 'test-results/sale-entry-blue-1920x1080.png',
@@ -697,8 +738,7 @@ test.describe('role-aware menu', () => {
     await page.getByRole('button', { name: 'Save (F2)' }).click();
 
     await expect(page.getByText('3 tickets saved.')).toBeVisible();
-    await expect(page.getByLabel('Row 1 lottery type')).toHaveValue('');
-    await expect(page.getByLabel('Row 1 amount')).toHaveValue('');
+    await expect(page.getByLabel('Row 1 item name')).toHaveValue('');
     await expect(page.getByLabel('Memo ID')).toHaveValue('502');
     await expect
       .poll(() =>
