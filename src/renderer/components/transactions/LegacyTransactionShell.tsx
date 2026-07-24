@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, RefObject } from 'react';
+import { FormEvent, ReactNode, RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
 import type { BuyerRecord, DrawRecord } from '../../../shared/types';
@@ -41,7 +41,20 @@ type LegacyTransactionShellProps = {
   onClear: () => void;
   onSearch?: () => void;
   printShortcut?: string;
+  partyFocusRequest?: number;
+  partyListOpenRef?: RefObject<boolean>;
 };
+
+function filterBuyers(buyers: BuyerRecord[], query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return buyers;
+  const starts = buyers.filter((buyer) => buyer.name.toLowerCase().startsWith(q));
+  const contains = buyers.filter(
+    (buyer) =>
+      !buyer.name.toLowerCase().startsWith(q) && buyer.name.toLowerCase().includes(q),
+  );
+  return [...starts, ...contains];
+}
 
 export default function LegacyTransactionShell({
   formRef,
@@ -76,9 +89,37 @@ export default function LegacyTransactionShell({
   onClear,
   onSearch,
   printShortcut = 'F12',
+  partyFocusRequest = 0,
+  partyListOpenRef,
 }: LegacyTransactionShellProps) {
   const navigate = useNavigate();
   const { activeShift, activeCompanyName } = useAuth();
+  const partyInputRef = useRef<HTMLInputElement>(null);
+  const [partyQuery, setPartyQuery] = useState('');
+  const [partyOpen, setPartyOpen] = useState(false);
+  const [partyHighlight, setPartyHighlight] = useState(0);
+
+  const selectedBuyer = buyers.find((buyer) => buyer.id === buyerId) ?? null;
+  const filteredBuyers = useMemo(
+    () => filterBuyers(buyers, partyQuery),
+    [buyers, partyQuery],
+  );
+
+  useEffect(() => {
+    if (selectedBuyer) setPartyQuery(selectedBuyer.name);
+  }, [selectedBuyer?.id, selectedBuyer?.name]);
+
+  useEffect(() => {
+    if (partyListOpenRef) partyListOpenRef.current = partyOpen;
+  }, [partyOpen, partyListOpenRef]);
+
+  useEffect(() => {
+    if (partyFocusRequest > 0) {
+      partyInputRef.current?.focus();
+      partyInputRef.current?.select();
+    }
+  }, [partyFocusRequest]);
+
   const now = new Date();
   const clockLabel = now.toLocaleTimeString('en-US', {
     hour: '2-digit',
@@ -108,8 +149,7 @@ export default function LegacyTransactionShell({
       : 'px-4 text-sm font-extrabold uppercase tracking-[0.08em] text-white';
   const defaultShortcuts = [
     'F2 Save',
-    'F3 Delete Row',
-    'F5 Delete Row',
+    'Ctrl+Del Delete Row',
     'F7 Search',
     'F8 Clear',
     'Enter Add Row',
@@ -117,10 +157,22 @@ export default function LegacyTransactionShell({
     `${printShortcut} Print`,
   ];
 
+  const pickBuyer = (buyer: BuyerRecord) => {
+    onBuyerIdChange(buyer.id);
+    setPartyQuery(buyer.name);
+    setPartyOpen(false);
+  };
+
   return (
     <form
       ref={formRef}
-      onSubmit={onSubmit}
+      onSubmit={(event) => {
+        if (partyOpen) {
+          event.preventDefault();
+          return;
+        }
+        onSubmit(event);
+      }}
       className="flex h-full min-h-[720px] flex-col overflow-hidden bg-[#06154d] font-sans text-white"
     >
       <header className="flex h-14 shrink-0 items-center justify-between border-b-2 border-[#78a5f2] bg-gradient-to-b from-[#2462d4] to-[#0e3d9e] px-4 shadow-[inset_0_-1px_0_#082969]">
@@ -194,24 +246,79 @@ export default function LegacyTransactionShell({
               className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
             />
           </label>
-          <label className="flex min-w-0 items-center gap-2">
+          <label className="relative flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
               {partyLabel}
             </span>
-            <select
-              value={buyerId ?? ''}
-              onChange={(event) => onBuyerIdChange(Number(event.target.value) || null)}
+            <input
+              ref={partyInputRef}
+              value={partyQuery}
+              onChange={(event) => {
+                setPartyQuery(event.target.value);
+                setPartyOpen(true);
+                setPartyHighlight(0);
+                if (!event.target.value.trim()) onBuyerIdChange(null);
+              }}
+              onFocus={() => setPartyOpen(true)}
+              onBlur={() => {
+                window.setTimeout(() => setPartyOpen(false), 150);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'ArrowDown') {
+                  event.preventDefault();
+                  setPartyOpen(true);
+                  setPartyHighlight((current) =>
+                    Math.min(current + 1, Math.max(0, filteredBuyers.length - 1)),
+                  );
+                } else if (event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  setPartyHighlight((current) => Math.max(0, current - 1));
+                } else if (event.key === 'Enter' && partyOpen && filteredBuyers[partyHighlight]) {
+                  event.preventDefault();
+                  pickBuyer(filteredBuyers[partyHighlight]);
+                } else if (event.key === 'Escape' && partyOpen) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setPartyOpen(false);
+                }
+              }}
               aria-label={partyLabel}
+              aria-expanded={partyOpen}
+              aria-autocomplete="list"
+              role="combobox"
               className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
-              required
-            >
-              <option value="">Select buyer</option>
-              {buyers.map((buyer) => (
-                <option key={buyer.id} value={buyer.id}>
-                  {buyer.name} ({buyer.type === 'stockist' ? 'Stocker' : 'Seller'})
-                </option>
-              ))}
-            </select>
+              required={!buyerId}
+              autoComplete="off"
+            />
+            {partyOpen ? (
+              <ul
+                role="listbox"
+                className="absolute left-[88px] right-0 top-full z-30 mt-1 max-h-48 overflow-auto border border-[#8fb3ec] bg-white text-[#071b4d] shadow-lg"
+              >
+                {filteredBuyers.length === 0 ? (
+                  <li className="px-2 py-1.5 text-xs text-[#6b7280]">No matches</li>
+                ) : (
+                  filteredBuyers.map((buyer, index) => (
+                    <li key={buyer.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={index === partyHighlight}
+                        className={`flex w-full cursor-pointer px-2 py-1.5 text-left text-xs font-semibold ${
+                          index === partyHighlight ? 'bg-[#ffd447] text-[#071b4d]' : 'hover:bg-[#e8f0ff]'
+                        }`}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          pickBuyer(buyer);
+                        }}
+                      >
+                        {buyer.name} ({buyer.type === 'stockist' ? 'Stocker' : 'Seller'})
+                      </button>
+                    </li>
+                  ))
+                )}
+              </ul>
+            ) : null}
           </label>
           <label className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">Draw *</span>
@@ -264,7 +371,7 @@ export default function LegacyTransactionShell({
               {saving ? 'Saving…' : saveLabel}
             </button>
             <button type="button" onClick={onDeleteRow} className={actionBtn}>
-              Delete (F3)
+              Delete Row (Ctrl+Del)
             </button>
             <button type="button" onClick={onClear} className={actionBtn}>
               Clear (F8)

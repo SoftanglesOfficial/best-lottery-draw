@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import LegacyTransactionShell from '../../components/transactions/LegacyTransactionShell';
 import SaleRangeTable, {
   emptySaleRangeRow,
+  rowHasSaleData,
   saleRangesToTicketData,
   totalSaleRangeAmount,
   totalSaleRangeQty,
@@ -12,6 +13,7 @@ import SaleRangeTable, {
 import { useToast } from '../../components/Toast';
 import { Button, Input, PageHeader } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
+import { isAtLeastRole } from '../../lib/roles';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
@@ -30,6 +32,31 @@ function isSameDay(a: Date | string, dateStr: string) {
   const date = a instanceof Date ? a : new Date(a);
   if (Number.isNaN(date.getTime())) return false;
   return date.toISOString().slice(0, 10) === dateStr;
+}
+
+function drawDateParts(draw: DrawRecord | null) {
+  if (!draw) return { dateLabel: '—', dayLabel: '—' };
+  const date = draw.drawDate instanceof Date ? draw.drawDate : new Date(draw.drawDate);
+  if (Number.isNaN(date.getTime())) return { dateLabel: '—', dayLabel: '—' };
+  return {
+    dateLabel: date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+    }),
+    dayLabel: date.toLocaleDateString('en-GB', { weekday: 'short' }),
+  };
+}
+
+/** Intentional unlock — structured for future audit logging. */
+function requestManagerUnlock(
+  userRole: string | undefined,
+  fields: Array<'code' | 'prefix' | 'series' | 'absoluteTo'>,
+): boolean {
+  if (!userRole || !isAtLeastRole(userRole, 'manager')) return false;
+  // ponytail: audit hook point — log unlock(fields) when audit exists
+  void fields;
+  return true;
 }
 
 export default function SaleEntryPage({
@@ -59,9 +86,15 @@ export default function SaleEntryPage({
   } | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [activeRowIndex, setActiveRowIndex] = useState(0);
+  const [fieldsUnlocked, setFieldsUnlocked] = useState(false);
+  const [absoluteToArmed, setAbsoluteToArmed] = useState(false);
+  const [partyFocusRequest, setPartyFocusRequest] = useState(0);
+  const [focusItemRequest, setFocusItemRequest] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
+  const partyListOpenRef = useRef(false);
 
   const useLegacyShell = LEGACY_TYPES.has(type);
+  const canManageUnlock = user ? isAtLeastRole(user.role, 'manager') : false;
   const defaultRate = useMemo(() => {
     const buyer = buyers.find((entry) => entry.id === buyerId);
     return buyer?.saleRate ? String(buyer.saleRate) : '';
@@ -77,6 +110,7 @@ export default function SaleEntryPage({
 
   const selectedDraw = draws.find((draw) => draw.id === drawId) ?? null;
   const selectedBuyer = buyers.find((buyer) => buyer.id === buyerId) ?? null;
+  const { dateLabel: drawDateLabel, dayLabel: drawDayLabel } = drawDateParts(selectedDraw);
   const drawPastClose =
     type === 'sale' && selectedDraw != null && isDrawPastCloseTime(selectedDraw, now);
 
@@ -135,6 +169,11 @@ export default function SaleEntryPage({
   }, [useLegacyShell]);
 
   const deleteActiveRow = useCallback(() => {
+    const row = rows[activeRowIndex];
+    if (row && rowHasSaleData(row)) {
+      const ok = window.confirm(`Delete row ${activeRowIndex + 1}?`);
+      if (!ok) return;
+    }
     if (rows.length <= 1) {
       setRows([emptySaleRangeRow(defaultRate)]);
       setActiveRowIndex(0);
@@ -146,18 +185,49 @@ export default function SaleEntryPage({
   }, [activeRowIndex, defaultRate, rows]);
 
   const clearWorksheet = useCallback(() => {
+    const dirty = rows.some(rowHasSaleData);
+    if (dirty) {
+      const ok = window.confirm('Clear all sales data in this worksheet?');
+      if (!ok) return;
+    }
     setRows([emptySaleRangeRow(defaultRate)]);
     setActiveRowIndex(0);
-  }, [defaultRate]);
+  }, [defaultRate, rows]);
+
+  const toggleFieldUnlock = useCallback(() => {
+    if (fieldsUnlocked) {
+      setFieldsUnlocked(false);
+      return;
+    }
+    if (!requestManagerUnlock(user?.role, ['code', 'prefix', 'series'])) {
+      showToast('Manager unlock required', 'error');
+      return;
+    }
+    setFieldsUnlocked(true);
+    showToast('Code / Prefix / Series unlocked', 'success');
+  }, [fieldsUnlocked, showToast, user?.role]);
+
+  const armAbsoluteTo = useCallback(() => {
+    if (!requestManagerUnlock(user?.role, ['absoluteTo'])) {
+      showToast('Manager unlock required', 'error');
+      return;
+    }
+    setAbsoluteToArmed(true);
+    showToast('Absolute To armed for one edit', 'success');
+  }, [showToast, user?.role]);
 
   useEffect(() => {
     if (!useLegacyShell) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'F2') {
+        if (partyListOpenRef.current) {
+          event.preventDefault();
+          return;
+        }
         event.preventDefault();
-        formRef.current?.requestSubmit();
+        if (!saving) formRef.current?.requestSubmit();
       }
-      if (event.key === 'F3') {
+      if (event.key === 'Delete' && event.ctrlKey) {
         event.preventDefault();
         deleteActiveRow();
       }
@@ -174,6 +244,7 @@ export default function SaleEntryPage({
         clearWorksheet();
       }
       if (event.key === 'Escape') {
+        if (partyListOpenRef.current) return;
         event.preventDefault();
         navigate(-1);
       }
@@ -181,10 +252,23 @@ export default function SaleEntryPage({
         event.preventDefault();
         window.print();
       }
+      if (event.key === 'u' && event.ctrlKey && canManageUnlock) {
+        event.preventDefault();
+        toggleFieldUnlock();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [useLegacyShell, type, deleteActiveRow, clearWorksheet, navigate]);
+  }, [
+    useLegacyShell,
+    type,
+    deleteActiveRow,
+    clearWorksheet,
+    navigate,
+    saving,
+    canManageUnlock,
+    toggleFieldUnlock,
+  ]);
 
   useEffect(() => {
     void refreshBuyerSummary();
@@ -197,17 +281,9 @@ export default function SaleEntryPage({
     }
   }, [drawId, todayOpenDraws]);
 
-  useEffect(() => {
-    setRows((current) =>
-      current.map((row) => ({
-        ...row,
-        rate: row.rate || defaultRate,
-      })),
-    );
-  }, [defaultRate]);
-
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (saving) return;
     if (companyId == null || user == null || drawId == null || buyerId == null || memoId == null) {
       showToast('Complete all required fields.', 'error');
       return;
@@ -250,10 +326,15 @@ export default function SaleEntryPage({
       if (result.success) {
         showToast(`${ticketCount} tickets saved.`, 'success');
         setRows([emptySaleRangeRow(defaultRate)]);
+        setActiveRowIndex(0);
+        setFieldsUnlocked(false);
+        setAbsoluteToArmed(false);
+        setPartyFocusRequest((n) => n + 1);
         await refreshMemo();
         await refreshBuyerSummary();
       } else {
         showToast(result.error, 'error');
+        setFocusItemRequest((n) => n + 1);
       }
     } catch {
       showToast('Failed to save.', 'error');
@@ -268,6 +349,19 @@ export default function SaleEntryPage({
     const totalQty = totalSaleRangeQty(rows);
     const totalAmount = totalSaleRangeAmount(rows);
     const isReturn = type === 'sale_return';
+
+    const unlockActions = canManageUnlock
+      ? [
+          {
+            label: fieldsUnlocked ? 'Lock Fields' : 'Unlock Fields',
+            onClick: toggleFieldUnlock,
+          },
+          {
+            label: absoluteToArmed ? 'Absolute To Armed' : 'Arm Absolute To',
+            onClick: armAbsoluteTo,
+          },
+        ]
+      : [];
 
     return (
       <LegacyTransactionShell
@@ -291,6 +385,8 @@ export default function SaleEntryPage({
         drawId={drawId}
         onDrawIdChange={setDrawId}
         draws={todayOpenDraws}
+        partyFocusRequest={partyFocusRequest}
+        partyListOpenRef={partyListOpenRef}
         alerts={
           drawPastClose && selectedDraw ? (
             <div
@@ -326,8 +422,7 @@ export default function SaleEntryPage({
           isReturn
             ? [
                 'F2 Save',
-                'F3 Delete Row',
-                'F5 Delete Row',
+                'Ctrl+Del Delete Row',
                 'F6 Make Sale',
                 'F7 Search',
                 'F8 Clear',
@@ -336,11 +431,12 @@ export default function SaleEntryPage({
               ]
             : undefined
         }
-        extraActions={
-          isReturn
+        extraActions={[
+          ...unlockActions,
+          ...(isReturn
             ? [{ label: 'Make Sale (F6)', onClick: () => navigate('/transactions/sale-entry') }]
-            : []
-        }
+            : []),
+        ]}
         onSubmit={handleSubmit}
         onDeleteRow={deleteActiveRow}
         onClear={clearWorksheet}
@@ -353,6 +449,13 @@ export default function SaleEntryPage({
           defaultRate={defaultRate}
           variant="blueSpreadsheet"
           onActiveRowChange={setActiveRowIndex}
+          drawDateLabel={drawDateLabel}
+          drawDayLabel={drawDayLabel}
+          fieldsUnlocked={fieldsUnlocked}
+          absoluteToArmed={absoluteToArmed}
+          onAbsoluteToConsumed={() => setAbsoluteToArmed(false)}
+          onRowError={(message) => showToast(message, 'error')}
+          focusItemRequest={focusItemRequest}
         />
       </LegacyTransactionShell>
     );
@@ -436,6 +539,12 @@ export default function SaleEntryPage({
           onChange={setRows}
           items={items}
           defaultRate={defaultRate}
+          drawDateLabel={drawDateLabel}
+          drawDayLabel={drawDayLabel}
+          fieldsUnlocked={fieldsUnlocked}
+          absoluteToArmed={absoluteToArmed}
+          onAbsoluteToConsumed={() => setAbsoluteToArmed(false)}
+          onRowError={(message) => showToast(message, 'error')}
         />
       </section>
 
