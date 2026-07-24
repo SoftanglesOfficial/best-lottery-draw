@@ -35,6 +35,22 @@ export function calculateAmount(qty: number, rate: string | number): number {
   return qty * rateNum;
 }
 
+/** First other row with same prefix+code (trim, case-insensitive). Empty prefix → -1. */
+export function findDuplicatePrefixCodeIndex(
+  rows: Array<{ code: string; prefix: string }>,
+  index: number,
+): number {
+  const prefix = rows[index]?.prefix?.trim().toLowerCase() ?? '';
+  const code = rows[index]?.code?.trim().toLowerCase() ?? '';
+  if (!prefix) return -1;
+  return rows.findIndex(
+    (row, i) =>
+      i !== index &&
+      (row.prefix?.trim().toLowerCase() ?? '') === prefix &&
+      (row.code?.trim().toLowerCase() ?? '') === code,
+  );
+}
+
 /**
  * Resolve To from From + input.
  * - diff: To = From + Number(input); output padded to 5 digits
