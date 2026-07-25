@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import {
   calculateAmount,
   calculateQuantity,
+  matchItemByCode,
   resolveTo,
   validateRange,
+  isFiveDigitTicket,
 } from '../../../shared/ticketMath';
 import { padTicketDigits } from '../../lib/ticketAutoComplete';
 import { isAtLeastRole } from '../../lib/roles';
@@ -385,10 +387,20 @@ export default function SaleRangeTable({
                       onChange={(event) => updateRow(index, { code: event.target.value })}
                       onFocus={() => setActiveRow(index)}
                       onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault();
-                          advanceFrom(index, COL.code);
+                        if (event.key !== 'Enter') return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const match = matchItemByCode(items, row.code);
+                        if (match.status === 'none') {
+                          onRowError?.(row.code.trim() ? 'No item matches this code.' : 'Enter an item code.');
+                          return;
                         }
+                        if (match.status === 'ambiguous') {
+                          onRowError?.('Multiple items share this code. Pick the item from the list.');
+                          return;
+                        }
+                        handleItemChange(index, match.item.id);
+                        focusCell(index, COL.from);
                       }}
                       className={fieldClass}
                       aria-label={`Row ${index + 1} code`}
