@@ -16,11 +16,14 @@ export default function Modal({ title, children, onClose, wide }: ModalProps) {
 
   useEffect(() => {
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const firstField = dialogRef.current?.querySelector<HTMLElement>(
+    const root = dialogRef.current;
+    // Prefer explicit primary (ConfirmDialog) over header Close / Cancel.
+    const primary = root?.querySelector<HTMLElement>('[data-modal-primary]:not(:disabled)');
+    const firstField = root?.querySelector<HTMLElement>(
       'input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled)',
     );
-    const firstButton = dialogRef.current?.querySelector<HTMLElement>('button:not(:disabled)');
-    (firstField ?? firstButton ?? dialogRef.current)?.focus();
+    const firstButton = root?.querySelector<HTMLElement>('button:not(:disabled)');
+    (primary ?? firstField ?? firstButton ?? root)?.focus();
 
     return () => {
       if (previouslyFocused?.isConnected) {

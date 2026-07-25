@@ -8,8 +8,6 @@ import {
   isFiveDigitTicket,
 } from '../../../shared/ticketMath';
 import { padTicketDigits } from '../../lib/ticketAutoComplete';
-import { isAtLeastRole } from '../../lib/roles';
-import { useAuth } from '../../lib/auth';
 import type { ItemRecord } from '../../../shared/types';
 
 export type SaleRangeRow = {
@@ -157,8 +155,8 @@ export default function SaleRangeTable({
   const [activeRowIndex, setActiveRowIndex] = useState(0);
   const [toDraft, setToDraft] = useState<{ index: number; value: string } | null>(null);
   const [invalidCell, setInvalidCell] = useState<string | null>(null);
-  const { user } = useAuth();
-  const canEditRate = user ? isAtLeastRole(user.role, 'manager') : false;
+  // Spec: Rate on sale fast path for all roles that can open Add Sale
+  const canEditRate = true;
   const dense = variant === 'blueSpreadsheet';
 
   /** # ponytail: 350ms settle; bump if operators clip multi-digit diffs */
@@ -279,12 +277,11 @@ export default function SaleRangeTable({
     return true;
   };
 
-  /** Atomic: commit To + validate + add-row in one update (fix: stale rows) */
-  const commitToAndAdvance = async (index: number, rawInput: string) => {
+  /** Commit To then focus Rate (same row). Add-row happens on Rate Enter. */
+  const commitToAndAdvance = (index: number, rawInput: string) => {
     clearToSettleTimer();
     const row = rows[index];
 
-    // 1. Resolve To
     if (rawInput.trim() === '') {
       setToDraft(null);
       setInvalidCell(null);
@@ -300,56 +297,18 @@ export default function SaleRangeTable({
       return;
     }
 
-    // 2. Build committed row (with rate fallback if empty/invalid)
-    let finalRate = row.rate;
-    const rateNum = Number(finalRate);
-    if (!finalRate || Number.isNaN(rateNum) || rateNum <= 0) {
-      finalRate = defaultRate;
-    }
-    const committed = { ...row, to: result.to, rate: finalRate };
+    updateRow(index, { to: result.to });
+    setToDraft(null);
+    if (absoluteToArmed) onAbsoluteToConsumed?.();
 
-    // 3. Validate
-    const error = validateRange(committed);
-    if (error) {
-      setInvalidCell(`${index}:rate`);
-      onRowError?.(error);
-      // Write the committed to but do not advance
-      updateRow(index, { to: result.to });
-      setToDraft(null);
-      if (absoluteToArmed) onAbsoluteToConsumed?.();
+    if (row.itemId == null) {
+      setInvalidCell(`${index}:item`);
+      onRowError?.('Select a lottery type.');
       return;
     }
 
-    // 4. Clear state
-    setToDraft(null);
     setInvalidCell(null);
-    if (absoluteToArmed) onAbsoluteToConsumed?.();
-
-    // 5. Build next with committed row
-    const next = rows.map((r, i) => (i === index ? committed : r));
-
-    // 6. Check dup
-    if (onBeforeAddRow) {
-      const ok = await onBeforeAddRow(index);
-      if (!ok) {
-        onChange(next);
-        focusCell(index, fieldsUnlocked ? COL.prefix : COL.code);
-        return;
-      }
-    }
-
-    // 7. Splice blank row + single onChange
-    const blank = {
-      ...emptySaleRangeRow(defaultRate),
-      code: committed.code,
-      itemId: committed.itemId,
-      prefix: committed.prefix,
-      series: committed.series,
-    };
-    next.splice(index + 1, 0, blank);
-    onChange(next);
-    setActiveRow(index + 1);
-    focusCell(index + 1, COL.from);
+    focusCell(index, COL.rate);
   };
 
   const tryAdvanceFromRate = async (index: number) => {
@@ -602,10 +561,19 @@ export default function SaleRangeTable({
                         inputRefs.current[index * FOCUS_COLS + COL.item] = el;
                       }}
                       value={row.itemId ?? ''}
-                      onChange={(event) =>
-                        handleItemChange(index, Number(event.target.value) || null)
-                      }
-                      onFocus={() => setActiveRow(index)}
+                      onChange={(event) => {
+                        handleItemChange(index, Number(event.target.value) || null);
+                        advanceFrom(index, COL.item);
+                      }}
+                      onFocus={(event) => {
+                        setActiveRow(index);
+                        const el = event.currentTarget;
+                        try {
+                          if (typeof el.showPicker === 'function') el.showPicker();
+                        } catch {
+                          // # ponytail: showPicker may throw; native focus still works
+                        }
+                      }}
                       onKeyDown={(event) => {
                         handleCellArrow(index, COL.item, event);
                         if (event.key === 'Enter') {

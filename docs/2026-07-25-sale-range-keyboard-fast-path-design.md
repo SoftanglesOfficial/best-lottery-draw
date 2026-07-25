@@ -2,6 +2,7 @@
 
 **Date:** 2026-07-25  
 **Status:** implemented (pending human manual smoke — see Manual smoke script below)  
+**Superseded (To/Rate):** §1.5–1.6 and diagram “To → … → addRow → From” replaced by `docs/2026-07-25-add-sale-item-party-rate-design.md` (To → Rate → next From; Rate on fast path). Code/From/To-settle rules below still apply.  
 **Scope:** `SaleRangeTable` only (Add Sale / Sale Return)  
 **Approach:** Patch table in place — no new hook, no shared settle util, no purchase/`TicketRangeTable` changes
 

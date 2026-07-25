@@ -21,7 +21,7 @@ export default function ConfirmDialog({
         <Button type="button" variant="secondary" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="button" variant="danger" onClick={onConfirm}>
+        <Button type="button" variant="danger" data-modal-primary onClick={onConfirm}>
           {confirmLabel}
         </Button>
       </div>

@@ -31,7 +31,8 @@ type SaleEntryOptions = {
 
 type ConfirmState =
   | { kind: 'delete' | 'clear'; message: string }
-  | { kind: 'dup'; message: string; resolve: (ok: boolean) => void };
+  | { kind: 'dup'; message: string; resolve: (ok: boolean) => void }
+  | { kind: 'createParty'; name: string; message: string };
 
 const LEGACY_TYPES = new Set<SaleEntryOptions['type']>(['sale', 'sale_return']);
 
@@ -90,6 +91,7 @@ export default function SaleEntryPage({
   const [fieldsUnlocked, setFieldsUnlocked] = useState(false);
   const [absoluteToArmed, setAbsoluteToArmed] = useState(false);
   const [partyFocusRequest, setPartyFocusRequest] = useState(0);
+  const [drawFocusRequest, setDrawFocusRequest] = useState(0);
   const [focusItemRequest, setFocusItemRequest] = useState(0);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -194,7 +196,7 @@ export default function SaleEntryPage({
     setActiveRowIndex(0);
   }, [defaultRate, rows]);
 
-  const applyConfirm = useCallback(() => {
+  const applyConfirm = useCallback(async () => {
     if (!confirm) return;
     if (confirm.kind === 'delete') {
       if (rows.length <= 1) {
@@ -205,19 +207,64 @@ export default function SaleEntryPage({
         setRows(next);
         setActiveRowIndex(Math.max(0, activeRowIndex - 1));
       }
+      setConfirm(null);
     } else if (confirm.kind === 'clear') {
       setRows([emptySaleRangeRow(defaultRate)]);
       setActiveRowIndex(0);
+      setConfirm(null);
     } else if (confirm.kind === 'dup') {
       confirm.resolve(true);
+      setConfirm(null);
+    } else if (confirm.kind === 'createParty') {
+      const name = confirm.name;
+      setConfirm(null);
+      if (companyId == null) {
+        showToast('No active company.', 'error');
+        setPartyFocusRequest((n) => n + 1);
+        return;
+      }
+      const groupsResult = await api.buyerGroupsList(companyId);
+      if (!groupsResult.success || groupsResult.groups.length === 0) {
+        showToast(
+          groupsResult.success
+            ? 'No buyer group — create one in Master first.'
+            : groupsResult.error,
+          'error',
+        );
+        setPartyFocusRequest((n) => n + 1);
+        return;
+      }
+      const createResult = await api.buyersCreate({
+        name,
+        companyId,
+        buyerGroupId: groupsResult.groups[0].id,
+        type: 'stockist',
+      });
+      if (!createResult.success || !createResult.buyer) {
+        showToast(createResult.success ? 'Failed to create party.' : createResult.error, 'error');
+        setPartyFocusRequest((n) => n + 1);
+        return;
+      }
+      const listResult = await api.buyersList(companyId);
+      if (listResult.success) setBuyers(listResult.buyers);
+      setBuyerId(createResult.buyer.id);
+      setDrawFocusRequest((n) => n + 1);
     }
-    setConfirm(null);
-  }, [activeRowIndex, confirm, defaultRate, rows]);
+  }, [activeRowIndex, companyId, confirm, defaultRate, rows, showToast]);
 
   const cancelConfirm = useCallback(() => {
     if (confirm?.kind === 'dup') confirm.resolve(false);
+    if (confirm?.kind === 'createParty') setPartyFocusRequest((n) => n + 1);
     setConfirm(null);
   }, [confirm]);
+
+  const onRequestCreateParty = useCallback((name: string) => {
+    setConfirm({
+      kind: 'createParty',
+      name,
+      message: `Create party "${name}" as stockist?`,
+    });
+  }, []);
 
   const onBeforeAddRow = useCallback(
     (index: number) => {
@@ -436,7 +483,9 @@ export default function SaleEntryPage({
         onDrawIdChange={setDrawId}
         draws={openDraws}
         partyFocusRequest={partyFocusRequest}
+        drawFocusRequest={drawFocusRequest}
         partyListOpenRef={partyListOpenRef}
+        onRequestCreateParty={onRequestCreateParty}
         alerts={
           drawPastClose && selectedDraw ? (
             <div
@@ -514,7 +563,9 @@ export default function SaleEntryPage({
           message={confirm.message}
           onConfirm={applyConfirm}
           onCancel={cancelConfirm}
-          confirmLabel={confirm.kind === 'dup' ? 'Continue' : 'Confirm'}
+          confirmLabel={
+            confirm.kind === 'dup' ? 'Continue' : confirm.kind === 'createParty' ? 'Create' : 'Confirm'
+          }
         />
       ) : null}
       </>
