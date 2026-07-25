@@ -425,9 +425,13 @@ export default function SaleEntryPage({
         memoId={memoId}
         entryDate={entryDate}
         onEntryDateChange={setEntryDate}
-        buyerId={buyerId}
-        onBuyerIdChange={setBuyerId}
-        buyers={buyers}
+        parties={buyers.map((b) => ({
+          id: b.id,
+          name: b.name,
+          detail: b.type === 'stockist' ? 'Stocker' : 'Seller',
+        }))}
+        partyId={buyerId}
+        onPartyIdChange={setBuyerId}
         drawId={drawId}
         onDrawIdChange={setDrawId}
         draws={openDraws}

@@ -1,7 +1,9 @@
 import { FormEvent, ReactNode, RefObject, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth';
-import type { BuyerRecord, DrawRecord } from '../../../shared/types';
+import type { DrawRecord } from '../../../shared/types';
+
+export type LegacyPartyOption = { id: number; name: string; detail?: string };
 
 const actionBtn =
   'cursor-pointer border border-[#ffdf63] bg-[#f1b900] px-4 py-2 text-[11px] font-extrabold uppercase tracking-wide text-[#10275e] shadow-[0_2px_0_#745600] hover:bg-[#ffd447] focus:outline-none focus:ring-2 focus:ring-[#ffd447] disabled:cursor-not-allowed disabled:opacity-60';
@@ -18,9 +20,11 @@ type LegacyTransactionShellProps = {
   memoId: number | null;
   entryDate: string;
   onEntryDateChange: (value: string) => void;
-  buyerId: number | null;
-  onBuyerIdChange: (value: number | null) => void;
-  buyers: BuyerRecord[];
+  voucherNo?: string;
+  onVoucherNoChange?: (value: string) => void;
+  partyId: number | null;
+  onPartyIdChange: (value: number | null) => void;
+  parties: LegacyPartyOption[];
   drawId: number | null;
   onDrawIdChange: (value: number | null) => void;
   draws: DrawRecord[];
@@ -43,15 +47,17 @@ type LegacyTransactionShellProps = {
   printShortcut?: string;
   partyFocusRequest?: number;
   partyListOpenRef?: RefObject<boolean>;
+  drawFocusRequest?: number;
+  onRequestCreateParty?: (name: string) => void;
 };
 
-function filterBuyers(buyers: BuyerRecord[], query: string) {
+function filterParties(parties: LegacyPartyOption[], query: string) {
   const q = query.trim().toLowerCase();
-  if (!q) return buyers;
-  const starts = buyers.filter((buyer) => buyer.name.toLowerCase().startsWith(q));
-  const contains = buyers.filter(
-    (buyer) =>
-      !buyer.name.toLowerCase().startsWith(q) && buyer.name.toLowerCase().includes(q),
+  if (!q) return parties;
+  const starts = parties.filter((party) => party.name.toLowerCase().startsWith(q));
+  const contains = parties.filter(
+    (party) =>
+      !party.name.toLowerCase().startsWith(q) && party.name.toLowerCase().includes(q),
   );
   return [...starts, ...contains];
 }
@@ -66,9 +72,11 @@ export default function LegacyTransactionShell({
   memoId,
   entryDate,
   onEntryDateChange,
-  buyerId,
-  onBuyerIdChange,
-  buyers,
+  voucherNo,
+  onVoucherNoChange,
+  partyId,
+  onPartyIdChange,
+  parties,
   drawId,
   onDrawIdChange,
   draws,
@@ -91,23 +99,26 @@ export default function LegacyTransactionShell({
   printShortcut = 'F12',
   partyFocusRequest = 0,
   partyListOpenRef,
+  drawFocusRequest = 0,
+  onRequestCreateParty,
 }: LegacyTransactionShellProps) {
   const navigate = useNavigate();
   const { activeShift, activeCompanyName } = useAuth();
   const partyInputRef = useRef<HTMLInputElement>(null);
+  const drawSelectRef = useRef<HTMLSelectElement>(null);
   const [partyQuery, setPartyQuery] = useState('');
   const [partyOpen, setPartyOpen] = useState(false);
   const [partyHighlight, setPartyHighlight] = useState(0);
 
-  const selectedBuyer = buyers.find((buyer) => buyer.id === buyerId) ?? null;
-  const filteredBuyers = useMemo(
-    () => filterBuyers(buyers, partyQuery),
-    [buyers, partyQuery],
+  const selectedParty = parties.find((party) => party.id === partyId) ?? null;
+  const filteredParties = useMemo(
+    () => filterParties(parties, partyQuery),
+    [parties, partyQuery],
   );
 
   useEffect(() => {
-    if (selectedBuyer) setPartyQuery(selectedBuyer.name);
-  }, [selectedBuyer?.id, selectedBuyer?.name]);
+    if (selectedParty) setPartyQuery(selectedParty.name);
+  }, [selectedParty?.id, selectedParty?.name]);
 
   useEffect(() => {
     if (partyListOpenRef) partyListOpenRef.current = partyOpen;
@@ -119,6 +130,12 @@ export default function LegacyTransactionShell({
       partyInputRef.current?.select();
     }
   }, [partyFocusRequest]);
+
+  useEffect(() => {
+    if (drawFocusRequest > 0) {
+      drawSelectRef.current?.focus();
+    }
+  }, [drawFocusRequest]);
 
   const now = new Date();
   const clockLabel = now.toLocaleTimeString('en-US', {
@@ -157,10 +174,18 @@ export default function LegacyTransactionShell({
     `${printShortcut} Print`,
   ];
 
-  const pickBuyer = (buyer: BuyerRecord) => {
-    onBuyerIdChange(buyer.id);
-    setPartyQuery(buyer.name);
+  const pickParty = (party: LegacyPartyOption) => {
+    onPartyIdChange(party.id);
+    setPartyQuery(party.name);
     setPartyOpen(false);
+  };
+
+  const requestCreateIfUnmatched = () => {
+    const name = partyQuery.trim();
+    if (!name || partyId != null || filteredParties.length > 0) return false;
+    setPartyOpen(false);
+    onRequestCreateParty?.(name);
+    return true;
   };
 
   return (
@@ -226,7 +251,13 @@ export default function LegacyTransactionShell({
       </div>
 
       <section className="shrink-0 border-b border-[#5e8ddd] bg-[#0b2e83] px-4 py-2" aria-label="Entry details">
-        <div className="grid grid-cols-[120px_minmax(160px,auto)_minmax(200px,1fr)_minmax(220px,1.2fr)] gap-3">
+        <div
+          className={`grid gap-3 ${
+            onVoucherNoChange
+              ? 'grid-cols-[120px_minmax(160px,auto)_minmax(140px,auto)_minmax(200px,1fr)_minmax(220px,1.2fr)]'
+              : 'grid-cols-[120px_minmax(160px,auto)_minmax(200px,1fr)_minmax(220px,1.2fr)]'
+          }`}
+        >
           <label className="flex items-center gap-2">
             <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">Memo No.</span>
             <input
@@ -246,6 +277,19 @@ export default function LegacyTransactionShell({
               className="h-8 min-w-[9.5rem] flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
             />
           </label>
+          {onVoucherNoChange ? (
+            <label className="flex min-w-[140px] items-center gap-2">
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
+                Voucher No
+              </span>
+              <input
+                value={voucherNo ?? ''}
+                onChange={(event) => onVoucherNoChange(event.target.value)}
+                aria-label="Voucher No"
+                className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
+              />
+            </label>
+          ) : null}
           <label className="relative flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">
               {partyLabel}
@@ -257,7 +301,7 @@ export default function LegacyTransactionShell({
                 setPartyQuery(event.target.value);
                 setPartyOpen(true);
                 setPartyHighlight(0);
-                if (!event.target.value.trim()) onBuyerIdChange(null);
+                if (!event.target.value.trim()) onPartyIdChange(null);
               }}
               onFocus={() => setPartyOpen(true)}
               onBlur={() => {
@@ -268,14 +312,24 @@ export default function LegacyTransactionShell({
                   event.preventDefault();
                   setPartyOpen(true);
                   setPartyHighlight((current) =>
-                    Math.min(current + 1, Math.max(0, filteredBuyers.length - 1)),
+                    Math.min(current + 1, Math.max(0, filteredParties.length - 1)),
                   );
                 } else if (event.key === 'ArrowUp') {
                   event.preventDefault();
                   setPartyHighlight((current) => Math.max(0, current - 1));
-                } else if (event.key === 'Enter' && partyOpen && filteredBuyers[partyHighlight]) {
-                  event.preventDefault();
-                  pickBuyer(filteredBuyers[partyHighlight]);
+                } else if (event.key === 'Enter') {
+                  if (partyOpen && filteredParties[partyHighlight]) {
+                    event.preventDefault();
+                    pickParty(filteredParties[partyHighlight]);
+                    return;
+                  }
+                  if (requestCreateIfUnmatched()) {
+                    event.preventDefault();
+                  }
+                } else if (event.key === 'Tab') {
+                  if (requestCreateIfUnmatched()) {
+                    event.preventDefault();
+                  }
                 } else if (event.key === 'Escape' && partyOpen) {
                   event.preventDefault();
                   event.stopPropagation();
@@ -287,7 +341,7 @@ export default function LegacyTransactionShell({
               aria-autocomplete="list"
               role="combobox"
               className="h-8 min-w-0 flex-1 border border-[#8fb3ec] bg-[#f6faff] px-2 text-xs font-semibold text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]"
-              required={!buyerId}
+              required={!partyId}
               autoComplete="off"
             />
             {partyOpen ? (
@@ -295,11 +349,11 @@ export default function LegacyTransactionShell({
                 role="listbox"
                 className="absolute left-[88px] right-0 top-full z-30 mt-1 max-h-48 overflow-auto border border-[#8fb3ec] bg-white text-[#071b4d] shadow-lg"
               >
-                {filteredBuyers.length === 0 ? (
+                {filteredParties.length === 0 ? (
                   <li className="px-2 py-1.5 text-xs text-[#6b7280]">No matches</li>
                 ) : (
-                  filteredBuyers.map((buyer, index) => (
-                    <li key={buyer.id}>
+                  filteredParties.map((party, index) => (
+                    <li key={party.id}>
                       <button
                         type="button"
                         role="option"
@@ -309,10 +363,11 @@ export default function LegacyTransactionShell({
                         }`}
                         onMouseDown={(event) => {
                           event.preventDefault();
-                          pickBuyer(buyer);
+                          pickParty(party);
                         }}
                       >
-                        {buyer.name} ({buyer.type === 'stockist' ? 'Stocker' : 'Seller'})
+                        {party.name}
+                        {party.detail ? ` (${party.detail})` : ''}
                       </button>
                     </li>
                   ))
@@ -323,6 +378,7 @@ export default function LegacyTransactionShell({
           <label className="flex min-w-0 items-center gap-2">
             <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[#c7dcff]">Draw *</span>
             <select
+              ref={drawSelectRef}
               value={drawId ?? ''}
               onChange={(event) => onDrawIdChange(Number(event.target.value) || null)}
               aria-label="Draw *"
