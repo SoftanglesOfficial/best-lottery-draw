@@ -200,6 +200,21 @@ export default function SaleRangeTable({
     return 'add';
   };
 
+  const editableColOrder = (): number[] =>
+    fieldsUnlocked ? [0, 1, 2, 3, 4, 5, 6] : [0, 1, 4, 5, 6];
+
+  const nextEditableCol = (col: number): number | null => {
+    const order = editableColOrder();
+    const i = order.indexOf(col);
+    return i >= 0 && i < order.length - 1 ? order[i + 1] : null;
+  };
+
+  const prevEditableCol = (col: number): number | null => {
+    const order = editableColOrder();
+    const i = order.indexOf(col);
+    return i > 0 ? order[i - 1] : null;
+  };
+
   const advanceFrom = (rowIndex: number, fromCol: number) => {
     const next = nextTypingCol(fromCol);
     if (next === 'add') {
@@ -367,6 +382,73 @@ export default function SaleRangeTable({
     addRow(index);
   };
 
+  const settleToBeforeLeave = (rowIndex: number, fromCol: number) => {
+    if (fromCol !== COL.to) return;
+    clearToSettleTimer();
+    if (toDraft?.index === rowIndex) {
+      commitTo(rowIndex, toDraft.value);
+    }
+  };
+
+  const handleCellArrow = (
+    index: number,
+    col: number,
+    event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    const key = event.key;
+    if (key !== 'ArrowUp' && key !== 'ArrowDown' && key !== 'ArrowLeft' && key !== 'ArrowRight') {
+      return;
+    }
+
+    if (key === 'ArrowUp' || key === 'ArrowDown') {
+      event.preventDefault();
+      const nextRow = key === 'ArrowUp' ? index - 1 : index + 1;
+      if (nextRow < 0 || nextRow >= rows.length) return;
+      settleToBeforeLeave(index, col);
+      setActiveRow(nextRow);
+      focusCell(nextRow, col);
+      return;
+    }
+
+    if (col === COL.item) {
+      event.preventDefault();
+      const targetCol = key === 'ArrowLeft' ? prevEditableCol(col) : nextEditableCol(col);
+      if (targetCol == null) return;
+      settleToBeforeLeave(index, col);
+      setActiveRow(index);
+      focusCell(index, targetCol);
+      return;
+    }
+
+    const target = event.currentTarget;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    const { selectionStart, selectionEnd, value } = target;
+    if (selectionStart == null || selectionEnd == null) return;
+    if (selectionStart !== selectionEnd) return;
+
+    if (key === 'ArrowLeft') {
+      if (selectionStart !== 0) return;
+      const prev = prevEditableCol(col);
+      event.preventDefault();
+      if (prev == null) return;
+      settleToBeforeLeave(index, col);
+      setActiveRow(index);
+      focusCell(index, prev);
+      return;
+    }
+
+    if (key === 'ArrowRight') {
+      if (selectionStart !== value.length) return;
+      const next = nextEditableCol(col);
+      event.preventDefault();
+      if (next == null) return;
+      settleToBeforeLeave(index, col);
+      setActiveRow(index);
+      focusCell(index, next);
+    }
+  };
+
   const totalQty = totalSaleRangeQty(rows);
   const totalAmount = totalSaleRangeAmount(rows);
 
@@ -488,6 +570,7 @@ export default function SaleRangeTable({
                       onChange={(event) => updateRow(index, { code: event.target.value })}
                       onFocus={() => setActiveRow(index)}
                       onKeyDown={(event) => {
+                        handleCellArrow(index, COL.code, event);
                         if (event.key !== 'Enter') return;
                         event.preventDefault();
                         event.stopPropagation();
@@ -524,6 +607,7 @@ export default function SaleRangeTable({
                       }
                       onFocus={() => setActiveRow(index)}
                       onKeyDown={(event) => {
+                        handleCellArrow(index, COL.item, event);
                         if (event.key === 'Enter') {
                           event.preventDefault();
                           advanceFrom(index, COL.item);
@@ -575,6 +659,7 @@ export default function SaleRangeTable({
                       onChange={(event) => updateRow(index, { prefix: event.target.value })}
                       onFocus={() => setActiveRow(index)}
                       onKeyDown={(event) => {
+                        handleCellArrow(index, COL.prefix, event);
                         if (event.key === 'Enter' && fieldsUnlocked) {
                           event.preventDefault();
                           advanceFrom(index, COL.prefix);
@@ -601,6 +686,7 @@ export default function SaleRangeTable({
                       onChange={(event) => updateRow(index, { series: event.target.value })}
                       onFocus={() => setActiveRow(index)}
                       onKeyDown={(event) => {
+                        handleCellArrow(index, COL.series, event);
                         if (event.key === 'Enter' && fieldsUnlocked) {
                           event.preventDefault();
                           advanceFrom(index, COL.series);
@@ -634,6 +720,7 @@ export default function SaleRangeTable({
                       }}
                       onFocus={() => setActiveRow(index)}
                       onKeyDown={(event) => {
+                        handleCellArrow(index, COL.from, event);
                         if (event.key !== 'Enter') return;
                         event.preventDefault();
                         event.stopPropagation();
@@ -693,6 +780,7 @@ export default function SaleRangeTable({
                         }
                       }}
                       onKeyDown={(event) => {
+                        handleCellArrow(index, COL.to, event);
                         if (event.key === 'Escape') {
                           event.preventDefault();
                           event.stopPropagation();
@@ -744,6 +832,7 @@ export default function SaleRangeTable({
                       readOnly={!canEditRate}
                       tabIndex={canEditRate ? 0 : -1}
                       onKeyDown={(event) => {
+                        handleCellArrow(index, COL.rate, event);
                         if (event.key === 'Enter') {
                           event.preventDefault();
                           void tryAdvanceFromRate(index);
