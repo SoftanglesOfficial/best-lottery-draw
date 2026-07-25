@@ -202,13 +202,19 @@ export default function SaleRangeTable({
   };
 
   const addRow = (afterIndex: number) => {
-    const stickyCode = rows[afterIndex]?.code ?? '';
-    const blank = { ...emptySaleRangeRow(defaultRate), code: stickyCode };
+    const prev = rows[afterIndex];
+    const blank = {
+      ...emptySaleRangeRow(defaultRate),
+      code: prev?.code ?? '',
+      itemId: prev?.itemId ?? null,
+      prefix: prev?.prefix ?? '',
+      series: prev?.series ?? '',
+    };
     const next = [...rows];
     next.splice(afterIndex + 1, 0, blank);
     onChange(next);
     setActiveRow(afterIndex + 1);
-    focusCell(afterIndex + 1, COL.code);
+    focusCell(afterIndex + 1, COL.from);
   };
 
   const handleItemChange = (index: number, itemId: number | null) => {
