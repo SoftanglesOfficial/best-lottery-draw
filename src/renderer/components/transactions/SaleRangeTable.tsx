@@ -161,6 +161,17 @@ export default function SaleRangeTable({
   const canEditRate = user ? isAtLeastRole(user.role, 'manager') : false;
   const dense = variant === 'blueSpreadsheet';
 
+  /** # ponytail: 350ms settle; bump if operators clip multi-digit diffs */
+  const TO_SETTLE_MS = 350;
+  const toSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearToSettleTimer = () => {
+    if (toSettleTimerRef.current != null) {
+      clearTimeout(toSettleTimerRef.current);
+      toSettleTimerRef.current = null;
+    }
+  };
+
   const fieldClass = dense
     ? 'h-7 w-full border border-[color:var(--sales-border)] bg-white px-1.5 font-mono text-xs text-[#071b4d] outline-none focus:border-[color:var(--sales-focus)] focus:ring-1 focus:ring-[color:var(--sales-focus)]'
     : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20';
@@ -253,6 +264,12 @@ export default function SaleRangeTable({
     return true;
   };
 
+  const commitToAndAdvance = (index: number, rawInput: string) => {
+    clearToSettleTimer();
+    if (!commitTo(index, rawInput)) return;
+    void tryAdvanceFromRate(index);
+  };
+
   const tryAdvanceFromRate = async (index: number) => {
     const row = rows[index];
     const error = validateRange(row);
@@ -286,6 +303,12 @@ export default function SaleRangeTable({
   useEffect(() => {
     if (focusItemRequest > 0) focusCell(0, COL.item);
   }, [focusItemRequest]);
+
+  useEffect(() => () => clearToSettleTimer(), []);
+
+  useEffect(() => {
+    clearToSettleTimer();
+  }, [activeRowIndex]);
 
   return (
     <div
@@ -560,23 +583,50 @@ export default function SaleRangeTable({
                       }}
                       value={toDisplay}
                       onChange={(event) => {
-                        const value = event.target.value.replace(/\D/g, '').slice(0, absoluteToArmed ? 5 : 6);
+                        const maxLen = absoluteToArmed ? 5 : 6;
+                        const value = event.target.value.replace(/\D/g, '').slice(0, maxLen);
                         setToDraft({ index, value });
+                        clearToSettleTimer();
+                        if (absoluteToArmed) {
+                          if (value.length === 5) commitToAndAdvance(index, value);
+                          return;
+                        }
+                        // diff: settle only — never commit on first keystroke alone without pause
+                        toSettleTimerRef.current = setTimeout(() => {
+                          toSettleTimerRef.current = null;
+                          commitToAndAdvance(index, value);
+                        }, TO_SETTLE_MS);
                       }}
                       onFocus={() => {
+                        clearToSettleTimer();
                         setActiveRow(index);
                         setToDraft({ index, value: '' });
                       }}
                       onBlur={() => {
+                        clearToSettleTimer();
                         if (toDraft?.index === index) {
-                          commitTo(index, toDraft.value);
+                          // empty draft = cancel (existing commitTo); do not advance on empty
+                          if (toDraft.value.trim() === '') {
+                            commitTo(index, toDraft.value);
+                            return;
+                          }
+                          commitToAndAdvance(index, toDraft.value);
                         }
                       }}
                       onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
+                        if (event.key === 'Escape') {
                           event.preventDefault();
-                          if (toDraft?.index === index && !commitTo(index, toDraft.value)) return;
-                          advanceFrom(index, COL.to);
+                          event.stopPropagation();
+                          clearToSettleTimer();
+                          setToDraft(null);
+                          setInvalidCell(null);
+                          return;
+                        }
+                        if (event.key !== 'Enter') return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (toDraft?.index === index) {
+                          commitToAndAdvance(index, toDraft.value);
                         }
                       }}
                       className={`${fieldClass} ${cellErr('to')}`}
