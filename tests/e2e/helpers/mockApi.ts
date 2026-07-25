@@ -44,6 +44,33 @@ export async function installMockApi(page: Page, options: MockOptions = {}) {
     const ok = async () => ({ success: true });
     let transactionListAttempts = 0;
 
+    const seedTransactions = [503, 508, 501, 506, 502, 507, 504, 505].map((memoId) => ({
+      id: memoId - 440,
+      type: memoId % 2 === 0 ? 'sale' : 'purchase',
+      memoId,
+      drawId: 31,
+      drawName: 'Morning 10:00',
+      providerName: memoId % 2 === 0 ? null : 'Lucky Provider',
+      buyerName: memoId % 2 === 0 ? 'Blue Star Agency' : null,
+      amount: '1250.00',
+      enteredAt: `2026-07-17T${String(memoId - 500).padStart(2, '0')}:00:00.000Z`,
+    }));
+
+    const readCreatedTransactions = () =>
+      JSON.parse(localStorage.getItem('mockCreatedTransactions') ?? '[]') as typeof seedTransactions;
+
+    const buyerNameForId = (buyerId: number | undefined) => {
+      if (buyerId === 41) return 'Blue Star Agency';
+      if (buyerId === 42) {
+        const extra = JSON.parse(localStorage.getItem('extraBuyers') ?? '[]') as Array<{ id: number; name: string }>;
+        const hit = extra.find((b) => b.id === 42);
+        if (hit) return hit.name;
+        const created = JSON.parse(localStorage.getItem('buyersCreatePayload') ?? 'null') as { name?: string } | null;
+        return created?.name ?? 'New Party';
+      }
+      return 'Blue Star Agency';
+    };
+
     Object.defineProperty(window, 'api', {
       value: {
         authRestore: async () => {
@@ -208,24 +235,14 @@ export async function installMockApi(page: Page, options: MockOptions = {}) {
             },
           ],
         }),
-        transactionsList: async () => {
+        transactionsList: async (_companyId?: number, _drawId?: number, type?: string) => {
           transactionListAttempts += 1;
           if (mockOptions.transactionsFailOnce && transactionListAttempts <= 2) {
             return { success: false, error: 'Temporary transaction failure.' };
           }
-          return {
-            success: true,
-            transactions: [503, 508, 501, 506, 502, 507, 504, 505].map((memoId) => ({
-              id: memoId - 440,
-              type: memoId % 2 === 0 ? 'sale' : 'purchase',
-              memoId,
-              drawName: 'Morning 10:00',
-              providerName: memoId % 2 === 0 ? null : 'Lucky Provider',
-              buyerName: memoId % 2 === 0 ? 'Blue Star Agency' : null,
-              amount: '1250.00',
-              enteredAt: `2026-07-17T${String(memoId - 500).padStart(2, '0')}:00:00.000Z`,
-            })),
-          };
+          const merged = [...seedTransactions, ...readCreatedTransactions()];
+          const transactions = type ? merged.filter((row) => row.type === type) : merged;
+          return { success: true, transactions };
         },
         buyersList: async () => ({
           success: true,
@@ -249,6 +266,36 @@ export async function installMockApi(page: Page, options: MockOptions = {}) {
         },
         transactionsCreate: async (payload: unknown) => {
           localStorage.setItem('transactionsCreatePayload', JSON.stringify(payload));
+          const p = payload as {
+            type: string;
+            memoId: number;
+            amount: number | null;
+            enteredAt: string;
+            buyerId?: number;
+          };
+          const isPurchase = p.type === 'purchase' || p.type === 'purchase_return';
+          const isBuyerTxn =
+            p.type === 'sale' || p.type === 'sale_return' || p.type === 'booking';
+          const created = readCreatedTransactions();
+          created.push({
+            id: 200 + created.length,
+            type: p.type,
+            memoId: p.memoId,
+            drawId: 31,
+            drawName: 'Morning 10:00',
+            providerName: isPurchase ? 'Lucky Provider' : null,
+            buyerName: isBuyerTxn ? buyerNameForId(p.buyerId) : null,
+            amount:
+              p.amount != null && typeof p.amount === 'number'
+                ? p.amount.toFixed(2)
+                : p.amount != null
+                  ? String(p.amount)
+                  : '0.00',
+            enteredAt: p.enteredAt.includes('T')
+              ? p.enteredAt
+              : `${p.enteredAt}T12:00:00.000Z`,
+          });
+          localStorage.setItem('mockCreatedTransactions', JSON.stringify(created));
           return { success: true, transactionId: 61 };
         },
         // --- mount stubs for master / reports / admin / returns ---

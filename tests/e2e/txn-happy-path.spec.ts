@@ -70,10 +70,25 @@ test('T01: purchase entry saves purchase memo', async ({ page }) => {
 
   await expect.poll(() =>
     page.evaluate(() => JSON.parse(localStorage.getItem('transactionsCreatePayload') ?? 'null')),
-  ).toMatchObject({ type: 'purchase', companyId: 7, drawId: 31, providerId: 81 });
+  ).toEqual({
+    type: 'purchase',
+    companyId: 7,
+    userId: 1,
+    drawId: 31,
+    providerId: 81,
+    memoId: 501,
+    ticketCount: 1,
+    ticketData:
+      '{"ranges":[{"itemId":51,"code":"DR","from":"00010","to":"00010","qty":1,"rate":1.5,"amount":1.5}]}',
+    amount: 1.5,
+    enteredAt: '2026-07-17',
+    voucherNo: null,
+  });
 
   await page.goto('/transactions/purchase');
   await expect(page.getByRole('heading', { name: 'Purchase List' })).toBeVisible();
+  await expect(page.getByRole('table')).toContainText('501');
+  await expect(page.getByRole('table')).toContainText('Lucky Provider');
 });
 
 test('T02: sale entry saves sale memo', async ({ page }) => {
@@ -109,6 +124,8 @@ test('T02: sale entry saves sale memo', async ({ page }) => {
 
   await page.goto('/transactions/sale');
   await expect(page.getByRole('heading', { name: 'Sale List' })).toBeVisible();
+  await expect(page.getByRole('table')).toContainText('501');
+  await expect(page.getByRole('table')).toContainText('Blue Star Agency');
 });
 
 test('T03/B05: booking saves tickets payload', async ({ page }) => {
@@ -134,4 +151,31 @@ test('T03/B05: booking saves tickets payload', async ({ page }) => {
 
   await page.goto('/transactions/bookings');
   await expect(page.getByRole('heading', { name: 'Bookings' })).toBeVisible();
+  await expect(page.getByRole('table')).toContainText('501');
+  await expect(page.getByRole('table')).toContainText('Blue Star Agency');
+});
+
+test('B06: unmatched Book For create then booking save uses new buyer', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-07-17T07:48:12.000Z'));
+  await installMockApi(page, { seedCompanyId: 7, seedShiftId: 21 });
+  await page.goto('/transactions/booking-entry');
+
+  const party = page.getByLabel('Book For *');
+  await party.fill('New Booker Co');
+  await party.press('Enter');
+  await page.getByRole('button', { name: 'Create' }).click();
+  await expect(party).toHaveValue('New Booker Co');
+
+  await page.getByLabel('Ticket number row 1').fill('12345');
+  await page.getByRole('button', { name: 'Save (F2)' }).click();
+  await expect(page.getByText(/tickets booked/i)).toBeVisible();
+  await expect.poll(() =>
+    page.evaluate(() => JSON.parse(localStorage.getItem('transactionsCreatePayload') ?? 'null')),
+  ).toMatchObject({
+    type: 'booking',
+    companyId: 7,
+    buyerId: 42,
+    drawId: 31,
+    amount: null,
+  });
 });
