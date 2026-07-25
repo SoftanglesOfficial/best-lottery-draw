@@ -95,6 +95,33 @@ export default function TicketNumberTable({
     commitRow(index, true);
   };
 
+  const handleTicketArrow = (index: number, event: React.KeyboardEvent<HTMLInputElement>) => {
+    const key = event.key;
+    if (key !== 'ArrowUp' && key !== 'ArrowDown' && key !== 'ArrowLeft' && key !== 'ArrowRight') {
+      return;
+    }
+
+    if (key === 'ArrowUp' || key === 'ArrowDown') {
+      event.preventDefault();
+      const nextRow = key === 'ArrowUp' ? index - 1 : index + 1;
+      if (nextRow < 0 || nextRow >= rows.length) return;
+      focusRow(nextRow);
+      return;
+    }
+
+    const { selectionStart, selectionEnd, value } = event.currentTarget;
+    if (selectionStart == null || selectionEnd == null) return;
+    if (selectionStart !== selectionEnd) return;
+
+    if (key === 'ArrowLeft' && selectionStart === 0) {
+      event.preventDefault();
+      return;
+    }
+    if (key === 'ArrowRight' && selectionStart === value.length) {
+      event.preventDefault();
+    }
+  };
+
   const removeRow = (index: number) => {
     if (onRequestDelete) {
       onRequestDelete(index);
@@ -196,6 +223,7 @@ export default function TicketNumberTable({
                       commitRow(index, false);
                     }}
                     onKeyDown={(event) => {
+                      handleTicketArrow(index, event);
                       if (event.key === 'Enter') {
                         event.preventDefault();
                         advanceFromRow(index);
