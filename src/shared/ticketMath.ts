@@ -51,6 +51,25 @@ export function findDuplicatePrefixCodeIndex(
   );
 }
 
+export type MatchItemByCodeResult<T> =
+  | { status: 'unique'; item: T }
+  | { status: 'none' }
+  | { status: 'ambiguous' };
+
+export function matchItemByCode<T extends { code?: string | null }>(
+  items: T[],
+  rawCode: string,
+): MatchItemByCodeResult<T> {
+  const needle = String(rawCode ?? '').trim().toLowerCase();
+  if (!needle) return { status: 'none' };
+  const hits = items.filter(
+    (item) => (item.code ?? '').trim().toLowerCase() === needle,
+  );
+  if (hits.length === 0) return { status: 'none' };
+  if (hits.length > 1) return { status: 'ambiguous' };
+  return { status: 'unique', item: hits[0] };
+}
+
 /**
  * Resolve To from From + input.
  * - diff: To = From + Number(input); output padded to 5 digits

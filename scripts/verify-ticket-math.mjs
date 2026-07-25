@@ -21,6 +21,7 @@ const {
   qtyMatchesRange,
   isFiveDigitTicket,
   validateSaleTicketSnapshot,
+  matchItemByCode,
 } = module.exports;
 
 // — resolveTo diff —
@@ -84,5 +85,18 @@ assert.match(
   ], new Map([[1, { code: 'A', prefix: null, defaultSeries: null }]])) ?? '',
   /Code/,
 );
+
+const items = [
+  { id: 1, code: 'AB' },
+  { id: 2, code: 'cd' },
+  { id: 3, code: 'DUP' },
+  { id: 4, code: 'dup' },
+];
+assert.equal(matchItemByCode(items, '').status, 'none');
+assert.equal(matchItemByCode(items, '  ').status, 'none');
+assert.equal(matchItemByCode(items, 'nope').status, 'none');
+assert.deepEqual(matchItemByCode(items, 'ab'), { status: 'unique', item: items[0] });
+assert.deepEqual(matchItemByCode(items, '  CD '), { status: 'unique', item: items[1] });
+assert.equal(matchItemByCode(items, 'dup').status, 'ambiguous');
 
 console.log('verify-ticket-math: ok');
