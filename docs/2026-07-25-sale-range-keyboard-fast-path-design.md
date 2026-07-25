@@ -1,7 +1,7 @@
 # Sale Range keyboard fast path
 
 **Date:** 2026-07-25  
-**Status:** approved (with corrections)  
+**Status:** implemented (pending human manual smoke — see Manual smoke script below)  
 **Scope:** `SaleRangeTable` only (Add Sale / Sale Return)  
 **Approach:** Patch table in place — no new hook, no shared settle util, no purchase/`TicketRangeTable` changes
 
