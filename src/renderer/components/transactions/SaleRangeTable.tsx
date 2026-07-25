@@ -521,21 +521,26 @@ export default function SaleRangeTable({
                         inputRefs.current[index * FOCUS_COLS + COL.from] = el;
                       }}
                       value={row.from}
-                      onChange={(event) =>
-                        updateRow(index, {
-                          from: event.target.value.replace(/\D/g, '').slice(0, 5),
-                        })
-                      }
+                      onChange={(event) => {
+                        const from = event.target.value.replace(/\D/g, '').slice(0, 5);
+                        updateRow(index, { from });
+                        if (isFiveDigitTicket(from)) focusCell(index, COL.to);
+                      }}
                       onBlur={() => {
                         const padded = padTicketDigits(row.from);
                         if (padded && padded !== row.from) updateRow(index, { from: padded });
                       }}
                       onFocus={() => setActiveRow(index)}
                       onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault();
-                          advanceFrom(index, COL.from);
+                        if (event.key !== 'Enter') return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (!isFiveDigitTicket(row.from)) {
+                          setInvalidCell(`${index}:from`);
+                          onRowError?.('From must be exactly 5 digits.');
+                          return;
                         }
+                        focusCell(index, COL.to);
                       }}
                       className={`${fieldClass} ${cellErr('from')}`}
                       inputMode="numeric"
