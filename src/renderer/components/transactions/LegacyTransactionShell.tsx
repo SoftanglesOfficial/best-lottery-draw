@@ -299,10 +299,15 @@ export default function LegacyTransactionShell({
               ref={partyInputRef}
               value={partyQuery}
               onChange={(event) => {
-                setPartyQuery(event.target.value);
+                const value = event.target.value;
+                setPartyQuery(value);
                 setPartyOpen(true);
                 setPartyHighlight(0);
-                if (!event.target.value.trim()) onPartyIdChange(null);
+                if (!value.trim()) {
+                  onPartyIdChange(null);
+                } else if (selectedParty && value.trim() !== selectedParty.name) {
+                  onPartyIdChange(null);
+                }
               }}
               onFocus={() => setPartyOpen(true)}
               onBlur={() => {

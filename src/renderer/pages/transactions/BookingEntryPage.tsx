@@ -16,6 +16,11 @@ import { formatCloseTimeLabel, isDrawPastCloseTime } from '../../lib/drawCloseTi
 import { isSameCalendarDay, toLocalDateString } from '../../../shared/localDate';
 import type { BuyerRecord, DrawRecord } from '../../../shared/types';
 
+type ConfirmState =
+  | null
+  | { kind: 'delete'; message: string }
+  | { kind: 'createParty'; name: string; message: string };
+
 export default function BookingEntryPage() {
   const allowed = useRoleGuard(['admin', 'owner', 'manager', 'supervisor', 'data_entry']);
   const { user } = useAuth();
@@ -33,7 +38,9 @@ export default function BookingEntryPage() {
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [activeRowIndex, setActiveRowIndex] = useState(0);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmState>(null);
+  const [partyFocusRequest, setPartyFocusRequest] = useState(0);
+  const [drawFocusRequest, setDrawFocusRequest] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
 
   const openDraws = draws.filter((draw) => draw.status === 'open');
@@ -86,11 +93,68 @@ export default function BookingEntryPage() {
   const deleteActiveRow = useCallback(() => {
     const row = rows[activeRowIndex];
     if (row?.number?.trim()) {
-      setConfirmDelete(true);
+      setConfirm({ kind: 'delete', message: `Delete row ${activeRowIndex + 1}?` });
       return;
     }
     doDeleteActiveRow();
   }, [activeRowIndex, doDeleteActiveRow, rows]);
+
+  const applyConfirm = useCallback(async () => {
+    if (!confirm) return;
+    if (confirm.kind === 'delete') {
+      doDeleteActiveRow();
+      setConfirm(null);
+      return;
+    }
+    if (confirm.kind === 'createParty') {
+      const name = confirm.name;
+      setConfirm(null);
+      if (companyId == null) {
+        showToast('No active company.', 'error');
+        setPartyFocusRequest((n) => n + 1);
+        return;
+      }
+      const groupsResult = await api.buyerGroupsList(companyId);
+      if (!groupsResult.success || groupsResult.groups.length === 0) {
+        showToast(
+          groupsResult.success
+            ? 'No buyer group — create one in Master first.'
+            : groupsResult.error,
+          'error',
+        );
+        setPartyFocusRequest((n) => n + 1);
+        return;
+      }
+      const createResult = await api.buyersCreate({
+        name,
+        companyId,
+        buyerGroupId: groupsResult.groups[0].id,
+        type: 'stockist',
+      });
+      if (!createResult.success || !createResult.buyer) {
+        showToast(createResult.success ? 'Failed to create party.' : createResult.error, 'error');
+        setPartyFocusRequest((n) => n + 1);
+        return;
+      }
+      const listResult = await api.buyersList(companyId);
+      if (listResult.success) setBuyers(listResult.buyers);
+      setBuyerId(createResult.buyer.id);
+      setDrawFocusRequest((n) => n + 1);
+    }
+  }, [companyId, confirm, doDeleteActiveRow, showToast]);
+
+  const cancelConfirm = useCallback(() => {
+    if (confirm?.kind === 'createParty') setPartyFocusRequest((n) => n + 1);
+    setConfirm(null);
+  }, [confirm]);
+
+  const onRequestCreateParty = useCallback((name: string) => {
+    setConfirm({
+      kind: 'createParty',
+      name,
+      message: `Create party "${name}" as stockist?`,
+    });
+  }, []);
 
   const clearWorksheet = useCallback(() => {
     setRows([{ number: '' }]);
@@ -233,6 +297,9 @@ export default function BookingEntryPage() {
       onDeleteRow={deleteActiveRow}
       onClear={clearWorksheet}
       onSearch={() => navigate('/transactions/ticket-search')}
+      partyFocusRequest={partyFocusRequest}
+      drawFocusRequest={drawFocusRequest}
+      onRequestCreateParty={onRequestCreateParty}
     >
       <TicketNumberTable
         rows={rows}
@@ -242,7 +309,7 @@ export default function BookingEntryPage() {
         onRequestDelete={(index) => {
           setActiveRowIndex(index);
           if (rows[index]?.number?.trim()) {
-            setConfirmDelete(true);
+            setConfirm({ kind: 'delete', message: `Delete row ${index + 1}?` });
             return;
           }
           if (rows.length <= 1) {
@@ -256,14 +323,12 @@ export default function BookingEntryPage() {
         }}
       />
     </LegacyTransactionShell>
-    {confirmDelete ? (
+    {confirm ? (
       <ConfirmDialog
-        message={`Delete row ${activeRowIndex + 1}?`}
-        onConfirm={() => {
-          doDeleteActiveRow();
-          setConfirmDelete(false);
-        }}
-        onCancel={() => setConfirmDelete(false)}
+        message={confirm.message}
+        onConfirm={() => void applyConfirm()}
+        onCancel={cancelConfirm}
+        confirmLabel={confirm.kind === 'createParty' ? 'Create' : 'Confirm'}
       />
     ) : null}
     </>
