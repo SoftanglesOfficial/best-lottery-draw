@@ -476,13 +476,22 @@ const purchaseEntrySource = fs.readFileSync(
 );
 assert.match(
   purchaseEntrySource,
+  /LegacyTransactionShell/,
+  'purchase entry must use LegacyTransactionShell for shared header/draw chrome',
+);
+assert.doesNotMatch(
+  purchaseEntrySource,
   /htmlFor="purchase-draw"/,
-  'purchase draw label must link to purchase-draw input',
+  'purchase entry must not use legacy inline purchase-draw markup',
+);
+const legacyShellSource = fs.readFileSync(
+  new URL('../src/renderer/components/transactions/LegacyTransactionShell.tsx', import.meta.url),
+  'utf8',
 );
 assert.match(
-  purchaseEntrySource,
-  /id="purchase-draw"/,
-  'purchase draw input id must remain purchase-draw',
+  legacyShellSource,
+  /aria-label="Draw \*"/,
+  'transaction shell draw select must expose Draw * aria-label',
 );
 
 const buyerLedgerSource = fs.readFileSync(
