@@ -277,7 +277,7 @@ export function registerIpcHandlers(): void {
   );
 
   ipcMain.handle('auth-change-password', async (_e, ...args) =>
-    withSession(args, (ctx, _userId, current, newPass) =>
+    withSession(args, (ctx, _uid, current, newPass) =>
       changePassword(ctx.userId, current as string, newPass as string),
     ),
   );
@@ -544,7 +544,7 @@ export function registerIpcHandlers(): void {
       const denied = scopedCompany(ctx, input.companyId);
       if (denied) return denied;
       return createProvider(input);
-    }, 'manager'),
+    }, 'data_entry'),
   );
   ipcMain.handle('providers-update', async (_e, ...args) =>
     withSession(args, (ctx, id, data) => updateProvider(id as number, data as ProviderInput, ctx.activeCompanyId), 'manager'),
@@ -587,7 +587,7 @@ export function registerIpcHandlers(): void {
       const denied = scopedCompany(ctx, input.companyId);
       if (denied) return denied;
       return createBuyer(input);
-    }, 'manager'),
+    }, 'data_entry'),
   );
   ipcMain.handle('buyers-update', async (_e, ...args) =>
     withSession(args, (ctx, id, data) => updateBuyer(id as number, data as BuyerInput, ctx.activeCompanyId), 'manager'),
@@ -784,7 +784,7 @@ export function registerIpcHandlers(): void {
     withSession(args, (ctx, data) => createTransaction(data as TransactionInput, ctx)),
   );
   ipcMain.handle('transactions-update', async (_e, ...args) =>
-    withSession(args, (ctx, id, data, _userRole) =>
+    withSession(args, (ctx, id, data) =>
       updateTransaction(id as number, data as TransactionInput, ctx), 'supervisor'),
   );
   ipcMain.handle('transactions-delete', async (_e, ...args) =>
