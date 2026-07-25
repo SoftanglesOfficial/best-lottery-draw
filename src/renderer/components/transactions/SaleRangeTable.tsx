@@ -264,21 +264,99 @@ export default function SaleRangeTable({
     return true;
   };
 
-  const commitToAndAdvance = (index: number, rawInput: string) => {
+  /** Atomic: commit To + validate + add-row in one update (fix: stale rows) */
+  const commitToAndAdvance = async (index: number, rawInput: string) => {
     clearToSettleTimer();
-    if (!commitTo(index, rawInput)) return;
-    void tryAdvanceFromRate(index);
+    const row = rows[index];
+
+    // 1. Resolve To
+    if (rawInput.trim() === '') {
+      setToDraft(null);
+      setInvalidCell(null);
+      return;
+    }
+    const mode = absoluteToArmed ? 'absolute' : 'diff';
+    const result = resolveTo(row.from, rawInput, mode);
+    if (!result.ok) {
+      if (result.error !== 'empty') {
+        setInvalidCell(`${index}:to`);
+        onRowError?.(result.error);
+      }
+      return;
+    }
+
+    // 2. Build committed row (with rate fallback if empty/invalid)
+    let finalRate = row.rate;
+    const rateNum = Number(finalRate);
+    if (!finalRate || Number.isNaN(rateNum) || rateNum <= 0) {
+      finalRate = defaultRate;
+    }
+    const committed = { ...row, to: result.to, rate: finalRate };
+
+    // 3. Validate
+    const error = validateRange(committed);
+    if (error) {
+      setInvalidCell(`${index}:rate`);
+      onRowError?.(error);
+      // Write the committed to but do not advance
+      updateRow(index, { to: result.to });
+      setToDraft(null);
+      if (absoluteToArmed) onAbsoluteToConsumed?.();
+      return;
+    }
+
+    // 4. Clear state
+    setToDraft(null);
+    setInvalidCell(null);
+    if (absoluteToArmed) onAbsoluteToConsumed?.();
+
+    // 5. Build next with committed row
+    const next = rows.map((r, i) => (i === index ? committed : r));
+
+    // 6. Check dup
+    if (onBeforeAddRow) {
+      const ok = await onBeforeAddRow(index);
+      if (!ok) {
+        onChange(next);
+        focusCell(index, fieldsUnlocked ? COL.prefix : COL.code);
+        return;
+      }
+    }
+
+    // 7. Splice blank row + single onChange
+    const blank = {
+      ...emptySaleRangeRow(defaultRate),
+      code: committed.code,
+      itemId: committed.itemId,
+      prefix: committed.prefix,
+      series: committed.series,
+    };
+    next.splice(index + 1, 0, blank);
+    onChange(next);
+    setActiveRow(index + 1);
+    focusCell(index + 1, COL.from);
   };
 
   const tryAdvanceFromRate = async (index: number) => {
     const row = rows[index];
-    const error = validateRange(row);
+    // Fallback rate before validate
+    let finalRate = row.rate;
+    const rateNum = Number(finalRate);
+    if (!finalRate || Number.isNaN(rateNum) || rateNum <= 0) {
+      finalRate = defaultRate;
+    }
+    const toValidate = { ...row, rate: finalRate };
+    const error = validateRange(toValidate);
     if (error) {
       setInvalidCell(`${index}:rate`);
       onRowError?.(error);
       return;
     }
     setInvalidCell(null);
+    // Write rate if we applied fallback
+    if (finalRate !== row.rate) {
+      updateRow(index, { rate: finalRate });
+    }
     if (onBeforeAddRow) {
       const ok = await onBeforeAddRow(index);
       if (!ok) {
@@ -546,6 +624,7 @@ export default function SaleRangeTable({
                       value={row.from}
                       onChange={(event) => {
                         const from = event.target.value.replace(/\D/g, '').slice(0, 5);
+                        if (invalidCell === `${index}:from`) setInvalidCell(null);
                         updateRow(index, { from });
                         if (isFiveDigitTicket(from)) focusCell(index, COL.to);
                       }}
