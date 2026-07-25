@@ -183,8 +183,9 @@ export default function LegacyTransactionShell({
   const requestCreateIfUnmatched = () => {
     const name = partyQuery.trim();
     if (!name || partyId != null || filteredParties.length > 0) return false;
+    if (!onRequestCreateParty) return false;
     setPartyOpen(false);
-    onRequestCreateParty?.(name);
+    onRequestCreateParty(name);
     return true;
   };
 
