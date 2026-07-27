@@ -6,6 +6,7 @@ import {
   resolveTo,
   validateRange,
   isFiveDigitTicket,
+  isCompletableSaleRangeRow,
 } from '../../../shared/ticketMath';
 import { padTicketDigits } from '../../lib/ticketAutoComplete';
 import type { ItemRecord } from '../../../shared/types';
@@ -117,7 +118,7 @@ export function totalSaleRangeAmount(rows: SaleRangeRow[]) {
 }
 
 export function validateSaleRangeRows(rows: SaleRangeRow[]): string | null {
-  const validRows = rows.filter((row) => row.from || row.to || row.itemId != null);
+  const validRows = rows.filter((row) => isCompletableSaleRangeRow(row));
   if (validRows.length === 0) {
     return 'Add at least one ticket range.';
   }
@@ -702,7 +703,6 @@ export default function SaleRangeTable({
                         event.stopPropagation();
                         if (!isFiveDigitTicket(row.from)) {
                           setInvalidCell(`${index}:from`);
-                          onRowError?.('From must be exactly 5 digits.');
                           return;
                         }
                         focusCell(index, COL.to);
