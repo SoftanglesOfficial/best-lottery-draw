@@ -3,6 +3,7 @@ import { rangeCount } from '../../lib/transactionDisplay';
 import { isAtLeastRole } from '../../lib/roles';
 import { useAuth } from '../../lib/auth';
 import { padTicketDigits, sanitizeTicketInput } from '../../lib/ticketAutoComplete';
+import { SPREADSHEET_MIN_ROWS } from './TicketRangeTable';
 import type { ItemRecord } from '../../../shared/types';
 
 export type SaleRangeRow = {
@@ -38,6 +39,14 @@ function rowAmount(row: SaleRangeRow) {
 
 export function emptySaleRangeRow(defaultRate = ''): SaleRangeRow {
   return { itemId: null, code: '', from: '', to: '', rate: defaultRate };
+}
+
+/** Match purchase/BEST-10 sheet density — empty trailing rows ignored on save */
+export function emptySaleRangeRows(
+  defaultRate = '',
+  count = SPREADSHEET_MIN_ROWS,
+): SaleRangeRow[] {
+  return Array.from({ length: count }, () => emptySaleRangeRow(defaultRate));
 }
 
 export function saleRangesToTicketData(rows: SaleRangeRow[]) {
@@ -136,12 +145,18 @@ export default function SaleRangeTable({
 
   const removeRow = (index: number) => {
     if (rows.length <= 1) {
-      onChange([emptySaleRangeRow(defaultRate)]);
+      onChange(blueSpreadsheet ? emptySaleRangeRows(defaultRate) : [emptySaleRangeRow(defaultRate)]);
       setActiveRow(0);
       return;
     }
     const next = rows.filter((_, i) => i !== index);
-    onChange(next);
+    const padded =
+      blueSpreadsheet && next.length < SPREADSHEET_MIN_ROWS
+        ? [...next, ...emptySaleRangeRows(defaultRate, SPREADSHEET_MIN_ROWS - next.length)]
+        : next.length
+          ? next
+          : [emptySaleRangeRow(defaultRate)];
+    onChange(padded);
     const focusIndex = Math.max(0, index - 1);
     setActiveRow(focusIndex);
     setTimeout(() => inputRefs.current[focusIndex * 4]?.focus(), 0);
@@ -159,8 +174,18 @@ export default function SaleRangeTable({
   const totalAmount = totalSaleRangeAmount(rows);
 
   useEffect(() => {
-    if (rows.length === 0) onChange([emptySaleRangeRow(defaultRate)]);
-  }, [rows.length, onChange, defaultRate]);
+    if (rows.length === 0) {
+      onChange(blueSpreadsheet ? emptySaleRangeRows(defaultRate) : [emptySaleRangeRow(defaultRate)]);
+      return;
+    }
+    // ponytail: same sheet density as purchase return (SPREADSHEET_MIN_ROWS)
+    if (blueSpreadsheet && rows.length < SPREADSHEET_MIN_ROWS) {
+      onChange([
+        ...rows,
+        ...emptySaleRangeRows(defaultRate, SPREADSHEET_MIN_ROWS - rows.length),
+      ]);
+    }
+  }, [rows, onChange, defaultRate, blueSpreadsheet]);
 
   useEffect(() => {
     setActiveRowIndex((current) => Math.min(current, Math.max(0, rows.length - 1)));
@@ -169,18 +194,31 @@ export default function SaleRangeTable({
   return (
     <div className={blueSpreadsheet ? 'flex h-full min-h-0 flex-col' : undefined}>
       <div className={blueSpreadsheet ? 'min-h-0 flex-1 overflow-auto border border-[#3f68ba] bg-[#071b5d]' : 'max-w-full overflow-x-auto rounded-cyber border border-line'}>
-      <table className={blueSpreadsheet ? 'w-full min-w-[980px] table-fixed border-collapse text-xs' : 'min-w-[980px] w-full text-sm'}>
-        <thead className={blueSpreadsheet ? 'sticky top-0 z-10 bg-white' : 'bg-surface-high'}>
+      <table className={blueSpreadsheet ? 'w-full table-fixed border-collapse text-xs' : 'min-w-[980px] w-full text-sm'}>
+        {blueSpreadsheet ? (
+          <colgroup>
+            <col className="w-10" />
+            <col className="w-[22%]" />
+            <col className="w-14" />
+            <col className="w-[12%]" />
+            <col className="w-[12%]" />
+            <col className="w-12" />
+            <col className="w-14" />
+            <col className="w-[12%]" />
+            <col className="w-12" />
+          </colgroup>
+        ) : null}
+        <thead className={blueSpreadsheet ? 'sticky top-0 z-10 bg-white shadow-sm' : 'bg-surface-high'}>
           <tr className={blueSpreadsheet ? 'border-b-2 border-[#071b4d] text-left text-[#071b4d]' : 'border-b border-line text-left'}>
-            <th className={blueSpreadsheet ? 'w-10 border-r border-[#071b4d] px-1 py-1 text-center text-[10px] font-bold uppercase' : 'w-12 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Sr</th>
-            <th className={blueSpreadsheet ? 'w-[22%] border-r border-[#071b4d] px-1 py-1 text-[10px] font-bold uppercase' : 'min-w-[140px] px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Item</th>
-            <th className={blueSpreadsheet ? 'w-14 border-r border-[#071b4d] px-1 py-1 text-[10px] font-bold uppercase' : 'w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Code</th>
-            <th className={blueSpreadsheet ? 'w-[11%] border-r border-[#071b4d] px-1 py-1 text-[10px] font-bold uppercase' : 'w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>From</th>
-            <th className={blueSpreadsheet ? 'w-[11%] border-r border-[#071b4d] px-1 py-1 text-[10px] font-bold uppercase' : 'w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>To</th>
-            <th className={blueSpreadsheet ? 'w-12 border-r border-[#071b4d] px-1 py-1 text-right text-[10px] font-bold uppercase' : 'w-16 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Qty</th>
-            <th className={blueSpreadsheet ? 'w-14 border-r border-[#071b4d] px-1 py-1 text-right text-[10px] font-bold uppercase' : 'w-20 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Rate</th>
-            <th className={blueSpreadsheet ? 'w-[11%] border-r border-[#071b4d] px-1 py-1 text-right text-[10px] font-bold uppercase' : 'w-24 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Amt (auto)</th>
-            <th className={blueSpreadsheet ? 'w-12 px-1 py-1 text-center text-[10px] font-bold uppercase' : 'w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Del</th>
+            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide' : 'w-12 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Sr</th>
+            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-[10px] font-bold uppercase tracking-wide' : 'min-w-[140px] px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Item</th>
+            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-[10px] font-bold uppercase tracking-wide' : 'w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Code</th>
+            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-[10px] font-bold uppercase tracking-wide' : 'w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>From</th>
+            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-[10px] font-bold uppercase tracking-wide' : 'w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>To</th>
+            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-right text-[10px] font-bold uppercase tracking-wide' : 'w-16 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Qty</th>
+            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-right text-[10px] font-bold uppercase tracking-wide' : 'w-20 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Rate</th>
+            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-right text-[10px] font-bold uppercase tracking-wide' : 'w-24 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Amt</th>
+            <th className={blueSpreadsheet ? 'px-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide' : 'w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Del</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">

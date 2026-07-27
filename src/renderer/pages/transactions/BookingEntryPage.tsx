@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import LegacyTransactionShell from '../../components/transactions/LegacyTransactionShell';
 import TicketNumberTable, {
+  emptyTicketRows,
   ticketsToTicketData,
   validTicketNumbers,
   type TicketRow,
@@ -28,7 +29,7 @@ export default function BookingEntryPage() {
   const [buyerId, setBuyerId] = useState<number | null>(null);
   const [entryDate, setEntryDate] = useState(() => toLocalDateString());
   const [memoId, setMemoId] = useState<number | null>(null);
-  const [rows, setRows] = useState<TicketRow[]>([{ number: '' }]);
+  const [rows, setRows] = useState<TicketRow[]>(() => emptyTicketRows());
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [activeRowIndex, setActiveRowIndex] = useState(0);
@@ -72,17 +73,17 @@ export default function BookingEntryPage() {
 
   const deleteActiveRow = useCallback(() => {
     if (rows.length <= 1) {
-      setRows([{ number: '' }]);
+      setRows(emptyTicketRows());
       setActiveRowIndex(0);
       return;
     }
     const next = rows.filter((_, index) => index !== activeRowIndex);
-    setRows(next.length ? next : [{ number: '' }]);
+    setRows(next.length ? next : emptyTicketRows());
     setActiveRowIndex(Math.max(0, activeRowIndex - 1));
   }, [activeRowIndex, rows]);
 
   const clearWorksheet = useCallback(() => {
-    setRows([{ number: '' }]);
+    setRows(emptyTicketRows());
     setActiveRowIndex(0);
   }, []);
 
@@ -162,7 +163,7 @@ export default function BookingEntryPage() {
       });
       if (result.success) {
         showToast(`${ticketNumbers.length} tickets booked.`, 'success');
-        setRows([{ number: '' }]);
+        setRows(emptyTicketRows());
         await refreshMemo();
       } else {
         showToast(result.error, 'error');

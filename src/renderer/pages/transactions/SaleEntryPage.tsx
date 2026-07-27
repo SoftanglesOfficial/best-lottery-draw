@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { useNavigate } from 'react-router-dom';
 import LegacyTransactionShell from '../../components/transactions/LegacyTransactionShell';
 import SaleRangeTable, {
-  emptySaleRangeRow,
+  emptySaleRangeRows,
   saleRangesToTicketData,
   totalSaleRangeAmount,
   totalSaleRangeQty,
@@ -45,7 +45,7 @@ export default function SaleEntryPage({
   const [buyerId, setBuyerId] = useState<number | null>(null);
   const [entryDate, setEntryDate] = useState(() => toLocalDateString());
   const [memoId, setMemoId] = useState<number | null>(null);
-  const [rows, setRows] = useState<SaleRangeRow[]>([emptySaleRangeRow()]);
+  const [rows, setRows] = useState<SaleRangeRow[]>(() => emptySaleRangeRows());
   const [saving, setSaving] = useState(false);
   const [buyerSummary, setBuyerSummary] = useState<{
     totalSold: number;
@@ -129,17 +129,17 @@ export default function SaleEntryPage({
 
   const deleteActiveRow = useCallback(() => {
     if (rows.length <= 1) {
-      setRows([emptySaleRangeRow(defaultRate)]);
+      setRows(emptySaleRangeRows(defaultRate));
       setActiveRowIndex(0);
       return;
     }
     const next = rows.filter((_, index) => index !== activeRowIndex);
-    setRows(next);
+    setRows(next.length ? next : emptySaleRangeRows(defaultRate));
     setActiveRowIndex(Math.max(0, activeRowIndex - 1));
   }, [activeRowIndex, defaultRate, rows]);
 
   const clearWorksheet = useCallback(() => {
-    setRows([emptySaleRangeRow(defaultRate)]);
+    setRows(emptySaleRangeRows(defaultRate));
     setActiveRowIndex(0);
   }, [defaultRate]);
 
@@ -242,7 +242,7 @@ export default function SaleEntryPage({
       });
       if (result.success) {
         showToast(`${ticketCount} tickets saved.`, 'success');
-        setRows([emptySaleRangeRow(defaultRate)]);
+        setRows(emptySaleRangeRows(defaultRate));
         await refreshMemo();
         await refreshBuyerSummary();
       } else {

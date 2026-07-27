@@ -4,8 +4,13 @@ import {
   isValidTicketNumber,
   TICKET_NUMBER_LENGTH,
 } from '../../lib/ticketAutoComplete';
+import { SPREADSHEET_MIN_ROWS } from './TicketRangeTable';
 
 export type TicketRow = { number: string };
+
+export function emptyTicketRows(count = SPREADSHEET_MIN_ROWS): TicketRow[] {
+  return Array.from({ length: count }, () => ({ number: '' }));
+}
 
 type TicketNumberTableProps = {
   rows: TicketRow[];
@@ -94,18 +99,34 @@ export default function TicketNumberTable({
 
   const removeRow = (index: number) => {
     if (rows.length <= 1) {
-      onChange([{ number: '' }]);
+      onChange(blueSpreadsheet ? emptyTicketRows() : [{ number: '' }]);
       focusRow(0);
       onF5?.(0);
       return;
     }
 
     const next = rows.filter((_, i) => i !== index);
-    onChange(next.length ? next : [{ number: '' }]);
-    const focusIndex = Math.min(index, next.length - 1);
+    const padded =
+      blueSpreadsheet && next.length < SPREADSHEET_MIN_ROWS
+        ? [...next, ...emptyTicketRows(SPREADSHEET_MIN_ROWS - next.length)]
+        : next.length
+          ? next
+          : [{ number: '' }];
+    onChange(padded);
+    const focusIndex = Math.min(index, Math.max(0, padded.length - 1));
     focusRow(focusIndex);
     onF5?.(focusIndex);
   };
+
+  useEffect(() => {
+    if (rows.length === 0) {
+      onChange(blueSpreadsheet ? emptyTicketRows() : [{ number: '' }]);
+      return;
+    }
+    if (blueSpreadsheet && rows.length < SPREADSHEET_MIN_ROWS) {
+      onChange([...rows, ...emptyTicketRows(SPREADSHEET_MIN_ROWS - rows.length)]);
+    }
+  }, [rows, onChange, blueSpreadsheet]);
 
   useEffect(() => {
     setActiveRowIndex((current) => Math.min(current, Math.max(0, rows.length - 1)));
@@ -125,12 +146,19 @@ export default function TicketNumberTable({
   return (
     <div className={blueSpreadsheet ? 'flex h-full min-h-0 flex-col' : undefined}>
       <div className={blueSpreadsheet ? 'min-h-0 flex-1 overflow-auto border border-[#3f68ba] bg-[#071b5d]' : 'max-w-full overflow-x-auto rounded-cyber border border-line'}>
-      <table className={blueSpreadsheet ? 'w-full min-w-[480px] table-fixed border-collapse text-xs' : 'min-w-[480px] w-full text-sm'}>
-        <thead className={blueSpreadsheet ? 'sticky top-0 z-10 bg-white' : 'bg-surface-high'}>
+      <table className={blueSpreadsheet ? 'w-full table-fixed border-collapse text-xs' : 'min-w-[480px] w-full text-sm'}>
+        {blueSpreadsheet ? (
+          <colgroup>
+            <col className="w-12" />
+            <col />
+            <col className="w-14" />
+          </colgroup>
+        ) : null}
+        <thead className={blueSpreadsheet ? 'sticky top-0 z-10 bg-white shadow-sm' : 'bg-surface-high'}>
           <tr className={blueSpreadsheet ? 'border-b-2 border-[#071b4d] text-left text-[#071b4d]' : 'border-b border-line text-left'}>
-            <th className={blueSpreadsheet ? 'w-12 border-r border-[#071b4d] px-1 py-1 text-center text-[10px] font-bold uppercase' : 'w-16 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Sr</th>
-            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1 text-[10px] font-bold uppercase' : 'px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Ticket No</th>
-            <th className={blueSpreadsheet ? 'w-12 px-1 py-1 text-center text-[10px] font-bold uppercase' : 'w-24 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Del</th>
+            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide' : 'w-16 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Sr</th>
+            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-[10px] font-bold uppercase tracking-wide' : 'px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Ticket No</th>
+            <th className={blueSpreadsheet ? 'px-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide' : 'w-24 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Del</th>
           </tr>
         </thead>
         <tbody className={blueSpreadsheet ? undefined : 'divide-y divide-line'}>
