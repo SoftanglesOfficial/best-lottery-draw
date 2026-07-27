@@ -118,6 +118,9 @@ const authRequireMock = (id) => {
   if (id === '../db') {
     return {
       ensureConnected: async () => ({ success: true }),
+      verifyPassword: () => false,
+      hashPassword: (value) => `hash:${value}`,
+      isLegacyPasswordHash: () => false,
       getDb: () => ({
         select: () => ({
           from: () => ({
@@ -132,6 +135,7 @@ const authRequireMock = (id) => {
                     role: 'manager',
                     companyId: null,
                     activeCompanyId: 99,
+                    passwordHash: 'hash:changed',
                     createdAt: null,
                     updatedAt: null,
                   }];
@@ -169,6 +173,13 @@ const authRequireMock = (id) => {
         companyId: 'user_companies.company_id',
       },
       users: { id: 'users.id' },
+    };
+  }
+  if (id === './sessionContext') {
+    return {
+      assertAssignableRole: () => null,
+      assertCompanyAccess: () => null,
+      isAtLeastRole: () => true,
     };
   }
   throw new Error(`Unexpected auth import: ${id}`);
@@ -466,12 +477,12 @@ const purchaseEntrySource = fs.readFileSync(
 assert.match(
   purchaseEntrySource,
   /LegacyTransactionShell/,
-  'purchase entry must use excel LegacyTransactionShell',
+  'purchase entry must use LegacyTransactionShell for shared header/draw chrome',
 );
-assert.match(
+assert.doesNotMatch(
   purchaseEntrySource,
-  /partyKind="provider"/,
-  'purchase entry must select provider party on shell',
+  /htmlFor="purchase-draw"/,
+  'purchase entry must not use legacy inline purchase-draw markup',
 );
 const legacyShellSource = fs.readFileSync(
   new URL('../src/renderer/components/transactions/LegacyTransactionShell.tsx', import.meta.url),
@@ -480,7 +491,7 @@ const legacyShellSource = fs.readFileSync(
 assert.match(
   legacyShellSource,
   /aria-label="Draw \*"/,
-  'excel shell draw select must expose aria-label',
+  'transaction shell draw select must expose Draw * aria-label',
 );
 
 const buyerLedgerSource = fs.readFileSync(

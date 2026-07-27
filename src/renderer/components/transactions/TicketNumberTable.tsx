@@ -18,6 +18,8 @@ type TicketNumberTableProps = {
   activeIndex?: number;
   onActiveIndexChange?: (index: number) => void;
   onF5?: (index: number) => void;
+  /** When set, F5 / Del button ask parent (confirm) instead of deleting inline. */
+  onRequestDelete?: (index: number) => void;
   variant?: 'default' | 'blueSpreadsheet';
 };
 
@@ -27,6 +29,7 @@ export default function TicketNumberTable({
   activeIndex,
   onActiveIndexChange,
   onF5,
+  onRequestDelete,
   variant = 'default',
 }: TicketNumberTableProps) {
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -97,7 +100,38 @@ export default function TicketNumberTable({
     commitRow(index, true);
   };
 
+  const handleTicketArrow = (index: number, event: React.KeyboardEvent<HTMLInputElement>) => {
+    const key = event.key;
+    if (key !== 'ArrowUp' && key !== 'ArrowDown' && key !== 'ArrowLeft' && key !== 'ArrowRight') {
+      return;
+    }
+
+    if (key === 'ArrowUp' || key === 'ArrowDown') {
+      event.preventDefault();
+      const nextRow = key === 'ArrowUp' ? index - 1 : index + 1;
+      if (nextRow < 0 || nextRow >= rows.length) return;
+      focusRow(nextRow);
+      return;
+    }
+
+    const { selectionStart, selectionEnd, value } = event.currentTarget;
+    if (selectionStart == null || selectionEnd == null) return;
+    if (selectionStart !== selectionEnd) return;
+
+    if (key === 'ArrowLeft' && selectionStart === 0) {
+      event.preventDefault();
+      return;
+    }
+    if (key === 'ArrowRight' && selectionStart === value.length) {
+      event.preventDefault();
+    }
+  };
+
   const removeRow = (index: number) => {
+    if (onRequestDelete) {
+      onRequestDelete(index);
+      return;
+    }
     if (rows.length <= 1) {
       onChange(blueSpreadsheet ? emptyTicketRows() : [{ number: '' }]);
       focusRow(0);
@@ -123,6 +157,7 @@ export default function TicketNumberTable({
       onChange(blueSpreadsheet ? emptyTicketRows() : [{ number: '' }]);
       return;
     }
+    // ponytail: keep booking sheet density aligned with purchase min rows
     if (blueSpreadsheet && rows.length < SPREADSHEET_MIN_ROWS) {
       onChange([...rows, ...emptyTicketRows(SPREADSHEET_MIN_ROWS - rows.length)]);
     }
@@ -145,20 +180,13 @@ export default function TicketNumberTable({
 
   return (
     <div className={blueSpreadsheet ? 'flex h-full min-h-0 flex-col' : undefined}>
-      <div className={blueSpreadsheet ? 'min-h-0 flex-1 overflow-auto border border-[#3f68ba] bg-[#071b5d]' : 'max-w-full overflow-x-auto rounded-cyber border border-line'}>
-      <table className={blueSpreadsheet ? 'w-full table-fixed border-collapse text-xs' : 'min-w-[480px] w-full text-sm'}>
-        {blueSpreadsheet ? (
-          <colgroup>
-            <col className="w-12" />
-            <col />
-            <col className="w-14" />
-          </colgroup>
-        ) : null}
-        <thead className={blueSpreadsheet ? 'sticky top-0 z-10 bg-white shadow-sm' : 'bg-surface-high'}>
-          <tr className={blueSpreadsheet ? 'border-b-2 border-[#071b4d] text-left text-[#071b4d]' : 'border-b border-line text-left'}>
-            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide' : 'w-16 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Sr</th>
-            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-[10px] font-bold uppercase tracking-wide' : 'px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Ticket No</th>
-            <th className={blueSpreadsheet ? 'px-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide' : 'w-24 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Del</th>
+      <div className={blueSpreadsheet ? 'min-h-0 flex-1 overflow-auto border border-[#81c784] bg-[#e8f5e9]' : 'max-w-full overflow-x-auto rounded-cyber border border-line'}>
+      <table className={blueSpreadsheet ? 'w-full min-w-[480px] table-fixed border-collapse text-xs' : 'min-w-[480px] w-full text-sm'}>
+        <thead className={blueSpreadsheet ? 'sticky top-0 z-10 bg-[#f1b900] text-[#071b4d]' : 'bg-surface-high'}>
+          <tr className={blueSpreadsheet ? 'border-b border-[#745600] text-left' : 'border-b border-line text-left'}>
+            <th className={blueSpreadsheet ? 'w-12 border-r border-[#745600] px-1 py-1 text-center text-[10px] font-bold uppercase' : 'w-16 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Sr</th>
+            <th className={blueSpreadsheet ? 'border-r border-[#745600] px-1 py-1 text-[10px] font-bold uppercase' : 'px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Ticket No</th>
+            <th className={blueSpreadsheet ? 'w-12 px-1 py-1 text-center text-[10px] font-bold uppercase' : 'w-24 px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Del</th>
           </tr>
         </thead>
         <tbody className={blueSpreadsheet ? undefined : 'divide-y divide-line'}>
@@ -178,10 +206,10 @@ export default function TicketNumberTable({
             const isActive = blueSpreadsheet && currentActive === index;
             const rowBg = blueSpreadsheet
               ? isActive
-                ? 'bg-[#e85d04] text-white'
+                ? 'bg-[#dc2626] text-white'
                 : index % 2 === 0
-                  ? 'bg-[#dceaff] text-[#071b4d]'
-                  : 'bg-[#c9dcfb] text-[#071b4d]'
+                  ? 'bg-[#e8f5e9] text-[#071b4d]'
+                  : 'bg-[#dcedc8] text-[#071b4d]'
               : '';
             const activeField = isActive ? `${blueField} bg-white` : blueField;
 
@@ -194,9 +222,9 @@ export default function TicketNumberTable({
                   : 'border-line-control bg-canvas';
 
             return (
-              <tr key={index} className={blueSpreadsheet ? `${rowBg} border-b border-[#83a5da]` : 'bg-surface-raised hover:bg-surface-high'}>
-                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-2 py-1 text-center font-mono font-bold' : 'px-3 py-2 font-mono text-content-subtle'}>{index + 1}</td>
-                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-3 py-2'}>
+              <tr key={index} className={blueSpreadsheet ? `${rowBg} border-b border-[#81c784]` : 'bg-surface-raised hover:bg-surface-high'}>
+                <td className={blueSpreadsheet ? 'border-r border-[#81c784] px-2 py-1 text-center font-mono font-bold' : 'px-3 py-2 font-mono text-content-subtle'}>{index + 1}</td>
+                <td className={blueSpreadsheet ? 'border-r border-[#81c784] px-1.5 py-1' : 'px-3 py-2'}>
                   <input
                     ref={(el) => {
                       inputRefs.current[index] = el;
@@ -217,12 +245,14 @@ export default function TicketNumberTable({
                       commitRow(index, false);
                     }}
                     onKeyDown={(event) => {
+                      handleTicketArrow(index, event);
                       if (event.key === 'Enter') {
                         event.preventDefault();
                         advanceFromRow(index);
                       }
                       if (event.key === 'F5') {
                         event.preventDefault();
+                        event.stopPropagation();
                         removeRow(index);
                       }
                     }}
@@ -263,7 +293,7 @@ export default function TicketNumberTable({
         </tbody>
         {blueSpreadsheet ? (
           <tfoot>
-            <tr className="border-t-2 border-[#8db3f2] bg-[#123d99] font-bold text-white">
+            <tr className="border-t-2 border-[#81c784] bg-[#1b5e20] font-bold text-white">
               <td colSpan={3} className="px-2 py-2 text-right text-xs uppercase tracking-wide">
                 Valid Tickets{' '}
                 <span className="ml-2 font-mono text-[#ffe16a]">{validCount}</span>

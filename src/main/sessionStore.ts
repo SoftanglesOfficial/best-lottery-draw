@@ -12,14 +12,35 @@ export type StoredSession = {
 };
 
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const TOKEN_ENC_PREFIX = 'enc:v1:';
 const sessions = new Map<string, StoredSession>();
 let persistedSessionLoaded = false;
+
+function encryptToken(token: string): string {
+  if (!safeStorage.isEncryptionAvailable()) return token;
+  try {
+    return `${TOKEN_ENC_PREFIX}${safeStorage.encryptString(token).toString('base64')}`;
+  } catch {
+    return token;
+  }
+}
+
+function decryptToken(stored: string | null): string | null {
+  if (!stored) return null;
+  if (!stored.startsWith(TOKEN_ENC_PREFIX)) return stored;
+  if (!safeStorage.isEncryptionAvailable()) return null;
+  try {
+    return safeStorage.decryptString(Buffer.from(stored.slice(TOKEN_ENC_PREFIX.length), 'base64'));
+  } catch {
+    return null;
+  }
+}
 
 function persistSession(token: string, session: StoredSession): boolean {
   try {
     if (!safeStorage.isEncryptionAvailable()) return false;
     const encrypted = safeStorage.encryptString(JSON.stringify(session)).toString('base64');
-    setConfig({ sessionToken: token, session: encrypted });
+    setConfig({ sessionToken: encryptToken(token), session: encrypted });
     return true;
   } catch {
     return false;
@@ -38,7 +59,7 @@ export function clearPersistedSession(): boolean {
 function loadPersistedSession(): void {
   if (persistedSessionLoaded) return;
   persistedSessionLoaded = true;
-  const token = getConfigValue<string | null>('sessionToken', null);
+  const token = decryptToken(getConfigValue<string | null>('sessionToken', null));
   const encrypted = getConfigValue<string | null>('session', null);
   if (!token || !encrypted || !safeStorage.isEncryptionAvailable()) {
     clearPersistedSession();
@@ -53,6 +74,8 @@ function loadPersistedSession(): void {
       return;
     }
     sessions.set(token, { ...session, activeShiftId: session.activeShiftId ?? null });
+    const loaded = sessions.get(token);
+    if (loaded) persistSession(token, loaded);
   } catch {
     clearPersistedSession();
   }
@@ -99,8 +122,14 @@ export function touchSession(token: string): boolean {
 }
 
 export function revokeSession(token: string): boolean {
+  const known = sessions.has(token);
+  const persisted = getPersistedSessionToken();
   sessions.delete(token);
-  return clearPersistedSession();
+  // Only wipe disk when this token is (or was) the persisted session.
+  if (known || persisted === token) {
+    return clearPersistedSession();
+  }
+  return known;
 }
 
 export function updateSessionCompany(token: string, activeCompanyId: number | null): boolean {
@@ -156,5 +185,5 @@ export function isSessionSelectionCurrent(
 
 export function getPersistedSessionToken(): string | null {
   loadPersistedSession();
-  return getConfigValue<string | null>('sessionToken', null);
+  return decryptToken(getConfigValue<string | null>('sessionToken', null));
 }

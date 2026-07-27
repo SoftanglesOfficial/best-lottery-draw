@@ -13,7 +13,8 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
-    "test": "node scripts/verify-schema-sync.mjs && node scripts/verify-phase1-session.mjs",
+    "test": "node scripts/verify-schema-sync.mjs && node scripts/verify-phase1-session.mjs && node scripts/verify-ticket-math.mjs && node scripts/verify-sale-excel.mjs && node scripts/verify-winner-match.mjs && node scripts/verify-auth-gates.mjs && node scripts/verify-company-isolation.mjs && node scripts/verify-role-ceiling.mjs",
+    "typecheck": "tsc --noEmit",
     "test:phase1-session": "node scripts/verify-phase1-session.mjs",
     "test:e2e:install": "playwright install chromium",
     "test:e2e": "playwright test"
@@ -44,6 +45,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.5.0",
     "electron": "42.3.3",
+    "electron-winstaller": "^5.4.4",
     "eslint": "^8.57.1",
     "eslint-plugin-import": "^2.32.0",
     "postcss": "^8.5.15",
@@ -55,7 +57,6 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
-    "electron-log": "^5.4.4",
     "electron-squirrel-startup": "^1.0.1",
     "lucide-react": "^1.17.0",
     "pg": "^8.18.0",

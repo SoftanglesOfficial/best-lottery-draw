@@ -15,6 +15,7 @@ import { Button, PageHeader } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
+import { toLocalDateString } from '../../../shared/localDate';
 import type { ReportsDashboardData, TransactionRecord } from '../../../shared/types';
 
 function formatCurrency(value: number) {
@@ -22,7 +23,7 @@ function formatCurrency(value: number) {
 }
 
 function toDateInputValue(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return toLocalDateString(date);
 }
 
 function formatTime(value: Date | string | null | undefined) {

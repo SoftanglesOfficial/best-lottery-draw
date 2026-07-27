@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import {
   BrowserRouter,
   HashRouter,
@@ -49,10 +49,6 @@ import BookingsListPage from './pages/transactions/BookingsListPage';
 import DrawResultsListPage from './pages/transactions/DrawResultsListPage';
 import WinningTicketsPage from './pages/transactions/WinningTicketsPage';
 import TicketSearchPage from './pages/transactions/TicketSearchPage';
-import ReportsSummaryPage from './pages/reports/ReportsSummaryPage';
-import PnLPage from './pages/reports/PnLPage';
-import BuyerLedgerPage from './pages/reports/BuyerLedgerPage';
-import ProviderLedgerPage from './pages/reports/ProviderLedgerPage';
 import AuditLogsPage from './pages/admin/AuditLogsPage';
 import BackupsPage from './pages/admin/BackupsPage';
 import DiagnosticsPage from './pages/admin/DiagnosticsPage';
@@ -60,8 +56,16 @@ import { ToastProvider } from './components/Toast';
 import ErrorBoundary from './components/ErrorBoundary';
 import AppListeners from './components/AppListeners';
 import SessionTimeout from './components/SessionTimeout';
+import ForceChangePassword from './components/ForceChangePassword';
 import { ConnectionProvider } from './lib/ConnectionContext';
 import SettingsPage from './pages/SettingsPage';
+import { FullPageLoading } from './components/LoadingSpinner';
+
+// ponytail: recharts lives in reports — lazy so cold start skips ~charts chunk
+const ReportsSummaryPage = lazy(() => import('./pages/reports/ReportsSummaryPage'));
+const PnLPage = lazy(() => import('./pages/reports/PnLPage'));
+const BuyerLedgerPage = lazy(() => import('./pages/reports/BuyerLedgerPage'));
+const ProviderLedgerPage = lazy(() => import('./pages/reports/ProviderLedgerPage'));
 
 const AppRouter = window.location.protocol === 'file:' ? HashRouter : BrowserRouter;
 
@@ -93,6 +97,7 @@ export default function App() {
         <ConnectionProvider>
         <AppListeners />
         <SessionTimeout />
+        <ForceChangePassword />
         <ErrorBoundary>
         <Routes>
           <Route element={<PublicRoute />}>
@@ -149,10 +154,38 @@ export default function App() {
               <Route path="/transactions/ticket-search" element={<TicketSearchPage />} />
               <Route path="/transactions/draw-results" element={<DrawResultsListPage />} />
 
-              <Route path="/reports" element={<ReportsSummaryPage />} />
-              <Route path="/reports/pnl" element={<PnLPage />} />
-              <Route path="/reports/buyer-ledger" element={<BuyerLedgerPage />} />
-              <Route path="/reports/provider-ledger" element={<ProviderLedgerPage />} />
+              <Route
+                path="/reports"
+                element={
+                  <Suspense fallback={<FullPageLoading />}>
+                    <ReportsSummaryPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/reports/pnl"
+                element={
+                  <Suspense fallback={<FullPageLoading />}>
+                    <PnLPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/reports/buyer-ledger"
+                element={
+                  <Suspense fallback={<FullPageLoading />}>
+                    <BuyerLedgerPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/reports/provider-ledger"
+                element={
+                  <Suspense fallback={<FullPageLoading />}>
+                    <ProviderLedgerPage />
+                  </Suspense>
+                }
+              />
               </Route>
               </Route>
             </Route>

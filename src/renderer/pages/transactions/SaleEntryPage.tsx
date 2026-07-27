@@ -1,8 +1,10 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import LegacyTransactionShell from '../../components/transactions/LegacyTransactionShell';
 import SaleRangeTable, {
   emptySaleRangeRows,
+  rowHasSaleData,
   saleRangesToTicketData,
   totalSaleRangeAmount,
   totalSaleRangeQty,
@@ -12,11 +14,13 @@ import SaleRangeTable, {
 import { useToast } from '../../components/Toast';
 import { Button, Input, PageHeader } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
+import { isAtLeastRole } from '../../lib/roles';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
 import { isDrawPastCloseTime, formatCloseTimeLabel } from '../../lib/drawCloseTime';
-import { isSameCalendarDay, toLocalDateString } from '../../../shared/localDate';
+import { findDuplicatePrefixCodeIndex } from '../../../shared/ticketMath';
+import { toLocalDateString } from '../../../shared/localDate';
 import type { BuyerRecord, DrawRecord, ItemRecord } from '../../../shared/types';
 
 type SaleEntryOptions = {
@@ -25,7 +29,37 @@ type SaleEntryOptions = {
   type?: 'sale' | 'sale_return' | 'booking';
 };
 
+type ConfirmState =
+  | { kind: 'delete' | 'clear'; message: string }
+  | { kind: 'dup'; message: string; resolve: (ok: boolean) => void }
+  | { kind: 'createParty'; name: string; message: string };
+
 const LEGACY_TYPES = new Set<SaleEntryOptions['type']>(['sale', 'sale_return']);
+
+function drawDateParts(draw: DrawRecord | null) {
+  if (!draw) return { dateLabel: '—', dayLabel: '—' };
+  const date = draw.drawDate instanceof Date ? draw.drawDate : new Date(draw.drawDate);
+  if (Number.isNaN(date.getTime())) return { dateLabel: '—', dayLabel: '—' };
+  return {
+    dateLabel: date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+    }),
+    dayLabel: date.toLocaleDateString('en-GB', { weekday: 'short' }),
+  };
+}
+
+/** Intentional unlock — structured for future audit logging. */
+function requestManagerUnlock(
+  userRole: string | undefined,
+  fields: Array<'prefix' | 'series' | 'absoluteTo'>,
+): boolean {
+  if (!userRole || !isAtLeastRole(userRole, 'manager')) return false;
+  // ponytail: audit hook point — log unlock(fields) when audit exists
+  void fields;
+  return true;
+}
 
 export default function SaleEntryPage({
   title = 'Sale Entry',
@@ -54,15 +88,22 @@ export default function SaleEntryPage({
   } | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [activeRowIndex, setActiveRowIndex] = useState(0);
+  const [fieldsUnlocked, setFieldsUnlocked] = useState(false);
+  const [absoluteToArmed, setAbsoluteToArmed] = useState(false);
+  const [partyFocusRequest, setPartyFocusRequest] = useState(0);
+  const [drawFocusRequest, setDrawFocusRequest] = useState(0);
+  const [focusItemRequest, setFocusItemRequest] = useState(0);
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const partyListOpenRef = useRef(false);
 
   const useLegacyShell = LEGACY_TYPES.has(type);
+  const canManageUnlock = user ? isAtLeastRole(user.role, 'manager') : false;
   const defaultRate = useMemo(() => {
     const buyer = buyers.find((entry) => entry.id === buyerId);
     return buyer?.saleRate ? String(buyer.saleRate) : '';
   }, [buyers, buyerId]);
 
-  // ponytail: same as purchase — all open draws; same-day filter emptied the dropdown
   const openDraws = useMemo(
     () => draws.filter((draw) => draw.status === 'open'),
     [draws],
@@ -70,6 +111,7 @@ export default function SaleEntryPage({
 
   const selectedDraw = draws.find((draw) => draw.id === drawId) ?? null;
   const selectedBuyer = buyers.find((buyer) => buyer.id === buyerId) ?? null;
+  const { dateLabel: drawDateLabel, dayLabel: drawDayLabel } = drawDateParts(selectedDraw);
   const drawPastClose =
     type === 'sale' && selectedDraw != null && isDrawPastCloseTime(selectedDraw, now);
 
@@ -90,9 +132,7 @@ export default function SaleEntryPage({
       if (drawsResult.success) {
         setDraws(drawsResult.draws);
         const open = drawsResult.draws.filter((draw) => draw.status === 'open');
-        const preferred =
-          open.find((draw) => isSameCalendarDay(draw.drawDate, entryDate)) ?? open[0];
-        setDrawId((current) => current ?? preferred?.id ?? null);
+        setDrawId((current) => current ?? open[0]?.id ?? null);
       }
       if (buyersResult.success) {
         setBuyers(buyersResult.buyers);
@@ -105,7 +145,7 @@ export default function SaleEntryPage({
     } catch {
       showToast('Failed to load form data.', 'error');
     }
-  }, [companyId, entryDate, refreshMemo, showToast]);
+  }, [companyId, refreshMemo, showToast]);
 
   const refreshBuyerSummary = useCallback(async () => {
     if (type !== 'sale_return' || drawId == null || buyerId == null) {
@@ -128,29 +168,158 @@ export default function SaleEntryPage({
   }, [useLegacyShell]);
 
   const deleteActiveRow = useCallback(() => {
-    if (rows.length <= 1) {
-      setRows(emptySaleRangeRows(defaultRate));
-      setActiveRowIndex(0);
+    const row = rows[activeRowIndex];
+    const doDelete = () => {
+      if (rows.length <= 1) {
+        setRows(emptySaleRangeRows(defaultRate));
+        setActiveRowIndex(0);
+        return;
+      }
+      const next = rows.filter((_, index) => index !== activeRowIndex);
+      setRows(next.length ? next : emptySaleRangeRows(defaultRate));
+      setActiveRowIndex(Math.max(0, activeRowIndex - 1));
+    };
+    if (row && rowHasSaleData(row)) {
+      setConfirm({ kind: 'delete', message: `Delete row ${activeRowIndex + 1}?` });
       return;
     }
-    const next = rows.filter((_, index) => index !== activeRowIndex);
-    setRows(next.length ? next : emptySaleRangeRows(defaultRate));
-    setActiveRowIndex(Math.max(0, activeRowIndex - 1));
+    doDelete();
   }, [activeRowIndex, defaultRate, rows]);
 
   const clearWorksheet = useCallback(() => {
+    const dirty = rows.some(rowHasSaleData);
+    if (dirty) {
+      setConfirm({ kind: 'clear', message: 'Clear all sales data in this worksheet?' });
+      return;
+    }
     setRows(emptySaleRangeRows(defaultRate));
     setActiveRowIndex(0);
-  }, [defaultRate]);
+  }, [defaultRate, rows]);
+
+  const applyConfirm = useCallback(async () => {
+    if (!confirm) return;
+    if (confirm.kind === 'delete') {
+      if (rows.length <= 1) {
+        setRows(emptySaleRangeRows(defaultRate));
+        setActiveRowIndex(0);
+      } else {
+        const next = rows.filter((_, index) => index !== activeRowIndex);
+        setRows(next.length ? next : emptySaleRangeRows(defaultRate));
+        setActiveRowIndex(Math.max(0, activeRowIndex - 1));
+      }
+      setConfirm(null);
+    } else if (confirm.kind === 'clear') {
+      setRows(emptySaleRangeRows(defaultRate));
+      setActiveRowIndex(0);
+      setConfirm(null);
+    } else if (confirm.kind === 'dup') {
+      confirm.resolve(true);
+      setConfirm(null);
+    } else if (confirm.kind === 'createParty') {
+      const name = confirm.name;
+      setConfirm(null);
+      if (companyId == null) {
+        showToast('No active company.', 'error');
+        setPartyFocusRequest((n) => n + 1);
+        return;
+      }
+      const groupsResult = await api.buyerGroupsList(companyId);
+      if (!groupsResult.success || groupsResult.groups.length === 0) {
+        showToast(
+          groupsResult.success
+            ? 'No buyer group — create one in Master first.'
+            : groupsResult.error,
+          'error',
+        );
+        setPartyFocusRequest((n) => n + 1);
+        return;
+      }
+      const createResult = await api.buyersCreate({
+        name,
+        companyId,
+        buyerGroupId: groupsResult.groups[0].id,
+        type: 'stockist',
+      });
+      if (!createResult.success || !createResult.buyer) {
+        showToast(createResult.success ? 'Failed to create party.' : createResult.error, 'error');
+        setPartyFocusRequest((n) => n + 1);
+        return;
+      }
+      const listResult = await api.buyersList(companyId);
+      if (listResult.success) setBuyers(listResult.buyers);
+      setBuyerId(createResult.buyer.id);
+      setDrawFocusRequest((n) => n + 1);
+    }
+  }, [activeRowIndex, companyId, confirm, defaultRate, rows, showToast]);
+
+  const cancelConfirm = useCallback(() => {
+    if (confirm?.kind === 'dup') confirm.resolve(false);
+    if (confirm?.kind === 'createParty') setPartyFocusRequest((n) => n + 1);
+    setConfirm(null);
+  }, [confirm]);
+
+  const onRequestCreateParty = useCallback((name: string) => {
+    setConfirm({
+      kind: 'createParty',
+      name,
+      message: `Create party "${name}" as stockist?`,
+    });
+  }, []);
+
+  const onBeforeAddRow = useCallback(
+    (index: number) => {
+      const dupAt = findDuplicatePrefixCodeIndex(rows, index);
+      if (dupAt < 0) return true;
+      const code = rows[index]?.code?.trim() || '(blank)';
+      return new Promise<boolean>((resolve) => {
+        setConfirm({
+          kind: 'dup',
+          message: `Duplicate prefix for code ${code} (also on row ${dupAt + 1}). Continue?`,
+          resolve,
+        });
+      });
+    },
+    [rows],
+  );
+
+  const toggleFieldUnlock = useCallback(() => {
+    if (fieldsUnlocked) {
+      setFieldsUnlocked(false);
+      return;
+    }
+    if (!requestManagerUnlock(user?.role, ['prefix', 'series'])) {
+      showToast('Manager unlock required', 'error');
+      return;
+    }
+    setFieldsUnlocked(true);
+    showToast('Prefix / Series unlocked', 'success');
+  }, [fieldsUnlocked, showToast, user?.role]);
+
+  const armAbsoluteTo = useCallback(() => {
+    if (!requestManagerUnlock(user?.role, ['absoluteTo'])) {
+      showToast('Manager unlock required', 'error');
+      return;
+    }
+    setAbsoluteToArmed(true);
+    showToast('Absolute To armed for one edit', 'success');
+  }, [showToast, user?.role]);
 
   useEffect(() => {
     if (!useLegacyShell) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'F2') {
+        if (partyListOpenRef.current) {
+          event.preventDefault();
+          return;
+        }
         event.preventDefault();
-        formRef.current?.requestSubmit();
+        if (!saving) formRef.current?.requestSubmit();
       }
-      if (event.key === 'F3') {
+      if (event.key === 'Delete' && event.ctrlKey) {
+        event.preventDefault();
+        deleteActiveRow();
+      }
+      if (event.key === 'F5') {
         event.preventDefault();
         deleteActiveRow();
       }
@@ -167,6 +336,7 @@ export default function SaleEntryPage({
         clearWorksheet();
       }
       if (event.key === 'Escape') {
+        if (partyListOpenRef.current) return;
         event.preventDefault();
         navigate(-1);
       }
@@ -174,10 +344,23 @@ export default function SaleEntryPage({
         event.preventDefault();
         window.print();
       }
+      if (event.key === 'u' && event.ctrlKey && canManageUnlock) {
+        event.preventDefault();
+        toggleFieldUnlock();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [useLegacyShell, type, deleteActiveRow, clearWorksheet, navigate]);
+  }, [
+    useLegacyShell,
+    type,
+    deleteActiveRow,
+    clearWorksheet,
+    navigate,
+    saving,
+    canManageUnlock,
+    toggleFieldUnlock,
+  ]);
 
   useEffect(() => {
     void refreshBuyerSummary();
@@ -190,17 +373,9 @@ export default function SaleEntryPage({
     }
   }, [drawId, openDraws]);
 
-  useEffect(() => {
-    setRows((current) =>
-      current.map((row) => ({
-        ...row,
-        rate: row.rate || defaultRate,
-      })),
-    );
-  }, [defaultRate]);
-
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (saving) return;
     if (companyId == null || user == null || drawId == null || buyerId == null || memoId == null) {
       showToast('Complete all required fields.', 'error');
       return;
@@ -243,10 +418,15 @@ export default function SaleEntryPage({
       if (result.success) {
         showToast(`${ticketCount} tickets saved.`, 'success');
         setRows(emptySaleRangeRows(defaultRate));
+        setActiveRowIndex(0);
+        setFieldsUnlocked(false);
+        setAbsoluteToArmed(false);
+        setPartyFocusRequest((n) => n + 1);
         await refreshMemo();
         await refreshBuyerSummary();
       } else {
         showToast(result.error, 'error');
+        setFocusItemRequest((n) => n + 1);
       }
     } catch {
       showToast('Failed to save.', 'error');
@@ -262,7 +442,21 @@ export default function SaleEntryPage({
     const totalAmount = totalSaleRangeAmount(rows);
     const isReturn = type === 'sale_return';
 
+    const unlockActions = canManageUnlock
+      ? [
+          {
+            label: fieldsUnlocked ? 'Lock Fields' : 'Unlock Fields',
+            onClick: toggleFieldUnlock,
+          },
+          {
+            label: absoluteToArmed ? 'Absolute To Armed' : 'Arm Absolute To',
+            onClick: armAbsoluteTo,
+          },
+        ]
+      : [];
+
     return (
+      <>
       <LegacyTransactionShell
         formRef={formRef}
         pageTitle={isReturn ? 'Sale Return' : 'Add Sale'}
@@ -278,12 +472,20 @@ export default function SaleEntryPage({
         memoId={memoId}
         entryDate={entryDate}
         onEntryDateChange={setEntryDate}
-        buyerId={buyerId}
-        onBuyerIdChange={setBuyerId}
-        buyers={buyers}
+        parties={buyers.map((b) => ({
+          id: b.id,
+          name: b.name,
+          detail: b.type === 'stockist' ? 'Stocker' : 'Seller',
+        }))}
+        partyId={buyerId}
+        onPartyIdChange={setBuyerId}
         drawId={drawId}
         onDrawIdChange={setDrawId}
         draws={openDraws}
+        partyFocusRequest={partyFocusRequest}
+        drawFocusRequest={drawFocusRequest}
+        partyListOpenRef={partyListOpenRef}
+        onRequestCreateParty={onRequestCreateParty}
         alerts={
           drawPastClose && selectedDraw ? (
             <div
@@ -319,7 +521,6 @@ export default function SaleEntryPage({
           isReturn
             ? [
                 'F2 Save',
-                'F3 Delete Row',
                 'F5 Delete Row',
                 'F6 Make Sale',
                 'F7 Search',
@@ -329,11 +530,12 @@ export default function SaleEntryPage({
               ]
             : undefined
         }
-        extraActions={
-          isReturn
+        extraActions={[
+          ...unlockActions,
+          ...(isReturn
             ? [{ label: 'Make Sale (F6)', onClick: () => navigate('/transactions/sale-entry') }]
-            : []
-        }
+            : []),
+        ]}
         onSubmit={handleSubmit}
         onDeleteRow={deleteActiveRow}
         onClear={clearWorksheet}
@@ -346,8 +548,27 @@ export default function SaleEntryPage({
           defaultRate={defaultRate}
           variant="blueSpreadsheet"
           onActiveRowChange={setActiveRowIndex}
+          drawDateLabel={drawDateLabel}
+          drawDayLabel={drawDayLabel}
+          fieldsUnlocked={fieldsUnlocked}
+          absoluteToArmed={absoluteToArmed}
+          onAbsoluteToConsumed={() => setAbsoluteToArmed(false)}
+          onRowError={(message) => showToast(message, 'error')}
+          focusItemRequest={focusItemRequest}
+          onBeforeAddRow={onBeforeAddRow}
         />
       </LegacyTransactionShell>
+      {confirm ? (
+        <ConfirmDialog
+          message={confirm.message}
+          onConfirm={applyConfirm}
+          onCancel={cancelConfirm}
+          confirmLabel={
+            confirm.kind === 'dup' ? 'Continue' : confirm.kind === 'createParty' ? 'Create' : 'Confirm'
+          }
+        />
+      ) : null}
+      </>
     );
   }
 
@@ -429,6 +650,12 @@ export default function SaleEntryPage({
           onChange={setRows}
           items={items}
           defaultRate={defaultRate}
+          drawDateLabel={drawDateLabel}
+          drawDayLabel={drawDayLabel}
+          fieldsUnlocked={fieldsUnlocked}
+          absoluteToArmed={absoluteToArmed}
+          onAbsoluteToConsumed={() => setAbsoluteToArmed(false)}
+          onRowError={(message) => showToast(message, 'error')}
         />
       </section>
 

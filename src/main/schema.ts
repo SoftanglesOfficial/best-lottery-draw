@@ -163,6 +163,7 @@ export const items = pgTable('items', {
   length: integer('length'),
   ratePer100: numeric('rate_per_100', { precision: 12, scale: 2 }),
   defaultSeries: text('default_series'),
+  prefix: text('prefix'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

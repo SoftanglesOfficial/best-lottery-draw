@@ -72,7 +72,7 @@ export async function updateItemGroup(id: number, data: ItemGroupInput, companyI
     const db = getDb();
     const [updated] = await db
       .update(itemGroups)
-      .set(data)
+      .set({ name: data.name })
       .where(and(eq(itemGroups.id, id), eq(itemGroups.companyId, scoped.companyId)))
       .returning();
     if (!updated) return { success: false as const, error: 'Item group not found' };
@@ -122,6 +122,7 @@ export async function listItems(companyId: number) {
         length: items.length,
         ratePer100: items.ratePer100,
         defaultSeries: items.defaultSeries,
+        prefix: items.prefix,
         createdAt: items.createdAt,
         updatedAt: items.updatedAt,
       })
@@ -150,6 +151,7 @@ function itemValues(data: ItemInput) {
     length: data.length ?? null,
     ratePer100: data.ratePer100 != null ? String(data.ratePer100) : null,
     defaultSeries: data.defaultSeries ?? null,
+    prefix: data.prefix ?? null,
   };
 }
 
@@ -236,11 +238,20 @@ export async function listItemSchemes(companyId: number) {
   }
 }
 
-export async function listItemSchemesByItem(itemId: number) {
+export async function listItemSchemesByItem(ctx: SessionContext, itemId: number) {
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
+    const [item] = await db
+      .select({ companyId: items.companyId })
+      .from(items)
+      .where(eq(items.id, itemId))
+      .limit(1);
+    if (!item) return { success: false as const, error: 'Item not found' };
+    const denied = assertCompanyAccess(ctx, item.companyId);
+    if (denied) return { success: false as const, error: 'Item not found' };
+
     const rows = await db
       .select({
         id: itemSchemes.id,
@@ -265,11 +276,20 @@ export async function listItemSchemesByItem(itemId: number) {
   }
 }
 
-export async function getItemSchemePrizes(itemSchemeId: number) {
+export async function getItemSchemePrizes(ctx: SessionContext, itemSchemeId: number) {
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
+    const [row] = await db
+      .select({ companyId: itemSchemes.companyId })
+      .from(itemSchemes)
+      .where(eq(itemSchemes.id, itemSchemeId))
+      .limit(1);
+    if (!row) return { success: false as const, error: 'Scheme not found' };
+    const denied = assertCompanyAccess(ctx, row.companyId);
+    if (denied) return { success: false as const, error: 'Scheme not found' };
+
     const rows = await db
       .select()
       .from(itemSchemePrizes)
@@ -299,11 +319,15 @@ async function loadItemSchemeWithPrizes(id: number) {
     .where(eq(itemSchemes.id, id))
     .limit(1);
   if (!scheme) return { success: false as const, error: 'Scheme not found' };
-  const prizesResult = await getItemSchemePrizes(id);
-  if (!prizesResult.success) return prizesResult;
+  // Internal load after company assert — prizes queried without re-check.
+  const prizes = await db
+    .select()
+    .from(itemSchemePrizes)
+    .where(eq(itemSchemePrizes.itemSchemeId, id))
+    .orderBy(asc(itemSchemePrizes.prizeRank));
   return {
     success: true as const,
-    scheme: { ...scheme, prizeCount: prizesResult.prizes.length, prizes: prizesResult.prizes } as ItemSchemeWithPrizes,
+    scheme: { ...scheme, prizeCount: prizes.length, prizes } as ItemSchemeWithPrizes,
   };
 }
 
@@ -327,11 +351,21 @@ export async function getItemScheme(ctx: SessionContext, id: number) {
   }
 }
 
-export async function createItemScheme(data: ItemSchemeInput) {
+export async function createItemScheme(ctx: SessionContext, data: ItemSchemeInput) {
+  const denied = assertCompanyAccess(ctx, data.companyId);
+  if (denied) return denied;
   const connection = await ensureConnected();
   if (!connection.success) return { success: false as const, error: connection.error ?? 'Database is not connected' };
   try {
     const db = getDb();
+    const [item] = await db
+      .select({ companyId: items.companyId })
+      .from(items)
+      .where(eq(items.id, data.itemId))
+      .limit(1);
+    if (!item || item.companyId !== data.companyId) {
+      return { success: false as const, error: 'Item not found' };
+    }
     const result = await db.transaction(async (tx) => {
       const [scheme] = await tx
         .insert(itemSchemes)

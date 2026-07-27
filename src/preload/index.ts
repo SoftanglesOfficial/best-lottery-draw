@@ -86,9 +86,6 @@ const PUBLIC_CHANNELS = new Set([
   'db-reconnect',
   'prefs-get',
   'lan-get-status',
-  'lan-set-mode',
-  'lan-start-broadcast',
-  'lan-stop-broadcast',
   'lan-discover-server',
   'auth-login',
   'auth-logout',
@@ -521,6 +518,8 @@ const api: Api = {
     const result = await invokeIpc('auth-login', username, password);
     if (result.success && result.sessionToken) {
       sessionToken = result.sessionToken;
+      const { sessionToken: _token, ...safe } = result;
+      return safe;
     }
     return result;
   },
@@ -528,6 +527,8 @@ const api: Api = {
     const result = await invokeIpc('auth-restore');
     if (result.success && result.sessionToken) {
       sessionToken = result.sessionToken;
+      const { sessionToken: _token, ...safe } = result;
+      return safe;
     }
     return result;
   },

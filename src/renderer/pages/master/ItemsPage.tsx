@@ -26,6 +26,7 @@ function emptyForm(companyId: number, groupId: number): ItemInput {
     length: null,
     ratePer100: null,
     defaultSeries: '',
+    prefix: '',
   };
 }
 
@@ -107,6 +108,7 @@ export default function ItemsPage() {
       length: item.length,
       ratePer100: item.ratePer100 != null ? Number(item.ratePer100) : null,
       defaultSeries: item.defaultSeries ?? '',
+      prefix: item.prefix ?? '',
     });
     setModalOpen(true);
   };
@@ -134,6 +136,7 @@ export default function ItemsPage() {
         length: form.length ?? null,
         ratePer100: form.ratePer100 ?? null,
         defaultSeries: form.defaultSeries?.trim() || null,
+        prefix: form.prefix?.trim() || null,
       };
       const result = editing
         ? await api.itemsUpdate(editing.id, payload)
@@ -330,6 +333,11 @@ export default function ItemsPage() {
                   noOfSeries: e.target.value === '' ? null : Number(e.target.value),
                 })
               }
+            />
+            <Input
+              label="Prefix"
+              value={form.prefix ?? ''}
+              onChange={(e) => setForm({ ...form, prefix: e.target.value })}
             />
             <Input
               label="Default Series"

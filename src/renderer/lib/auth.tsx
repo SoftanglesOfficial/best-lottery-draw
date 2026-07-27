@@ -17,6 +17,8 @@ interface AuthContextValue {
   activeShift: ActiveShift | null;
   isAuthenticated: boolean;
   isRestoring: boolean;
+  mustChangePassword: boolean;
+  clearMustChangePassword: () => void;
   login: (username: string, password: string) => Promise<{
     success: boolean;
     error?: string;
@@ -46,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeCompanyName, setActiveCompanyName] = useState<string | null>(null);
   const [activeShift, setActiveShift] = useState<ActiveShift | null>(null);
   const [isRestoring, setIsRestoring] = useState(true);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -60,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(toSessionUser(result.user));
           setActiveCompanyName(result.companyName ?? null);
           setActiveShift(restoredShift);
+          setMustChangePassword(Boolean(result.mustChangePassword));
         }
       } finally {
         setIsRestoring(false);
@@ -77,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(sessionUser);
     setActiveCompanyName(null);
     setActiveShift(null);
+    setMustChangePassword(Boolean(result.mustChangePassword));
     return { success: true, redirectTo: '/dashboard' as const };
   }, []);
 
@@ -85,8 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setActiveCompanyName(null);
     setActiveShift(null);
+    setMustChangePassword(false);
     navigate('/');
   }, [navigate]);
+
+  const clearMustChangePassword = useCallback(() => setMustChangePassword(false), []);
 
   const setActiveCompany = useCallback((updatedUser: SessionUser, companyName: string) => {
     setUser(toSessionUser(updatedUser));
@@ -101,12 +109,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       activeShift,
       isAuthenticated: user !== null,
       isRestoring,
+      mustChangePassword,
+      clearMustChangePassword,
       login,
       logout,
       setActiveCompany,
       setActiveShift,
     }),
-    [user, activeCompanyName, activeShift, isRestoring, login, logout, setActiveCompany],
+    [
+      user,
+      activeCompanyName,
+      activeShift,
+      isRestoring,
+      mustChangePassword,
+      clearMustChangePassword,
+      login,
+      logout,
+      setActiveCompany,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

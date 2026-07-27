@@ -617,6 +617,9 @@ export async function listAuditLogs(
     const scopedFilters = { ...filters };
     if (ctx.role !== 'admin') {
       scopedFilters.companyId = ctx.activeCompanyId ?? undefined;
+      if (scopedFilters.companyId == null) {
+        return { success: false, error: 'Open a company before viewing audit logs.' };
+      }
     }
     if (scopedFilters.companyId != null) {
       const denied = assertCompanyAccess(ctx, scopedFilters.companyId);

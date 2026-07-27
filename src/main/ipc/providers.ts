@@ -47,7 +47,7 @@ export async function updateProviderGroup(id: number, data: ProviderGroupInput, 
     const db = getDb();
     const [updated] = await db
       .update(providerGroups)
-      .set(data)
+      .set({ name: data.name })
       .where(and(eq(providerGroups.id, id), eq(providerGroups.companyId, scoped.companyId)))
       .returning();
     if (!updated) return { success: false as const, error: 'Provider group not found' };

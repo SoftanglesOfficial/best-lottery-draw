@@ -18,7 +18,9 @@ import {
 import { getDrawById } from './drawValidation';
 import { requireCompanyId } from './companyScope';
 import { extractTicketNumbers } from '../../shared/ticketData';
-import type { SessionContext } from './sessionContext';
+import { toLocalDateString } from '../../shared/localDate';
+import { isWinningTicket } from '../../shared/winnerMatch';
+import { assertCompanyAccess, type SessionContext } from './sessionContext';
 import type {
   AuditLogRecord,
   DrawInput,
@@ -31,9 +33,8 @@ import type {
 } from '../../shared/types';
 
 function formatDrawDateLabel(value: string | Date): string {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return date.toISOString().slice(0, 10);
+  const label = toLocalDateString(value);
+  return label || String(value);
 }
 
 async function fetchDrawRecord(drawId: number): Promise<DrawRecord | null> {
@@ -499,11 +500,17 @@ export async function listWinningTickets(drawId: number, companyId: number | nul
 }
 
 export async function createWinningTickets(drawId: number, tickets: WinningTicketInput[], companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
   }
   try {
+    const draw = await getDrawById(drawId);
+    if (!draw || draw.companyId !== scoped.companyId) {
+      return { success: false as const, error: 'Draw not found' };
+    }
     const db = getDb();
     if (tickets.length === 0) {
       return { success: true as const, tickets: [] as WinningTicketRecord[] };
@@ -551,7 +558,7 @@ export async function deleteWinningTicket(id: number) {
   }
 }
 
-export async function findWinners(drawId: number) {
+export async function findWinners(ctx: SessionContext, drawId: number) {
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
@@ -560,6 +567,8 @@ export async function findWinners(drawId: number) {
     const db = getDb();
     const draw = await getDrawById(drawId);
     if (!draw) return { success: false as const, error: 'Draw not found' };
+    const denied = assertCompanyAccess(ctx, draw.companyId);
+    if (denied) return { success: false as const, error: denied.error };
     if (!draw.itemId) return { success: false as const, error: 'Draw has no item assigned.' };
 
     const [scheme] = await db
@@ -614,14 +623,8 @@ export async function findWinners(drawId: number) {
         const ticketNumbers = extractTicketNumbers(txn.ticketData);
 
         for (const ticketNo of ticketNumbers) {
-          let isWinner = false;
-
-          if (result.prizeLevel === 1 || result.prizeLevel === 2) {
-            isWinner = ticketNo === winningNum;
-          } else {
-            const matchLength = prize?.prizeNoLength ?? 4;
-            isWinner = ticketNo.slice(-matchLength) === winningNum.slice(-matchLength);
-          }
+          const matchLength = prize?.prizeNoLength ?? 4;
+          const isWinner = isWinningTicket(ticketNo, winningNum, result.prizeLevel, matchLength);
 
           if (isWinner) {
             winners.push({

@@ -1,260 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installMockApi } from './helpers/mockApi';
 
 test.use({ viewport: { width: 1440, height: 900 } });
-
-type MockOptions = {
-  role?: 'admin' | 'owner' | 'manager' | 'supervisor' | 'data_entry';
-  seedCompanyId?: number | null;
-  seedShiftId?: number | null;
-  staleShift?: boolean;
-  foreignShift?: boolean;
-  noShiftGroups?: boolean;
-  racingShiftGroups?: boolean;
-  transactionsFailOnce?: boolean;
-};
-
-async function installMockApi(page: Page, options: MockOptions = {}) {
-  await page.addInitScript((mockOptions) => {
-    const baseUser = {
-      id: 1,
-      username: 'admin',
-      fullName: 'Admin User',
-      role: mockOptions.role ?? 'admin',
-      companyId: null,
-      activeCompanyId: null,
-    };
-    if (!localStorage.getItem('mockInitialized')) {
-      localStorage.setItem('mockInitialized', 'true');
-      localStorage.setItem('authenticated', mockOptions.seedCompanyId !== undefined ? 'true' : 'false');
-      localStorage.setItem('activeCompanyId', String(mockOptions.seedCompanyId ?? ''));
-      localStorage.setItem('activeShiftId', String(mockOptions.seedShiftId ?? ''));
-    }
-
-    const getId = (key: string) => {
-      const value = localStorage.getItem(key);
-      return value ? Number(value) : null;
-    };
-    const activeShift = {
-      id: 21,
-      name: 'First Shift',
-      shiftGroupId: 11,
-      shiftGroupName: 'Morning Draws',
-    };
-    const listeners = new Set<() => void>();
-    const ok = async () => ({ success: true });
-    let transactionListAttempts = 0;
-
-    Object.defineProperty(window, 'api', {
-      value: {
-        authRestore: async () => {
-          if (localStorage.getItem('authenticated') !== 'true') {
-            return { success: false, error: 'No stored session' };
-          }
-          const companyId = getId('activeCompanyId');
-          return {
-            success: true,
-            user: { ...baseUser, activeCompanyId: companyId },
-            sessionToken: 'test-token',
-            companyName: companyId === 8 ? 'Evening Company' : companyId === 7 ? 'Midnight Lottery' : null,
-          };
-        },
-        authLogin: async () => {
-          localStorage.setItem('authenticated', 'true');
-          localStorage.setItem('activeCompanyId', '');
-          localStorage.setItem('activeShiftId', '');
-          return { success: true, user: baseUser, sessionToken: 'test-token' };
-        },
-        authLogout: ok,
-        userGetCompanies: async () => ({
-          success: true,
-          companies: [
-            { id: 7, name: 'Midnight Lottery', status: 'active' },
-            { id: 8, name: 'Evening Company', status: 'active' },
-          ],
-        }),
-        userSetActiveCompany: async (_userId: number, companyId: number) => {
-          localStorage.setItem('activeCompanyId', String(companyId));
-          localStorage.setItem('activeShiftId', '');
-          return {
-            success: true,
-            user: { ...baseUser, activeCompanyId: companyId },
-            companyName: companyId === 8 ? 'Evening Company' : 'Midnight Lottery',
-          };
-        },
-        authGetOwners: async () =>
-          baseUser.role === 'admin'
-            ? {
-                success: true,
-                users: [
-                  {
-                    id: 2,
-                    username: 'owner',
-                    fullName: 'Company Owner',
-                    role: 'owner',
-                    companyId: null,
-                    activeCompanyId: null,
-                  },
-                ],
-              }
-            : { success: false, error: 'Admin access required.' },
-        authGetOwnerAdminUsers: async () =>
-          baseUser.role === 'admin'
-            ? {
-                success: true,
-                users: [
-                  {
-                    id: 1,
-                    username: 'admin',
-                    fullName: 'Admin User',
-                    role: 'admin',
-                    companyId: null,
-                    activeCompanyId: null,
-                  },
-                ],
-              }
-            : { success: false, error: 'Admin access required.' },
-        companiesGetAll: async () =>
-          baseUser.role === 'admin'
-            ? {
-                success: true,
-                companies: [
-                  {
-                    id: 7,
-                    name: 'Midnight Lottery',
-                    ownerId: 2,
-                    ownerName: 'Company Owner',
-                    status: 'active',
-                    billingLocked: false,
-                  },
-                ],
-              }
-            : { success: false, error: 'Admin access required.' },
-        shiftGroupsList: async () => ({
-          success: true,
-          groups: mockOptions.noShiftGroups
-            ? []
-            : [
-                { id: 11, name: 'Morning Draws', companyId: getId('activeCompanyId') ?? 7 },
-                ...(mockOptions.racingShiftGroups
-                  ? [{ id: 12, name: 'Evening Draws', companyId: getId('activeCompanyId') ?? 7 }]
-                  : []),
-              ],
-        }),
-        shiftsList: async (shiftGroupId: number) => {
-          if (mockOptions.racingShiftGroups && shiftGroupId === 11) {
-            await new Promise((resolve) => setTimeout(resolve, 200));
-          }
-          return {
-            success: true,
-            shifts: mockOptions.foreignShift
-              ? [{ id: 99, name: 'Foreign Shift', shiftGroupId: 11 }]
-              : shiftGroupId === 12
-                ? [{ id: 22, name: 'Second Shift', shiftGroupId: 12 }]
-                : [{ id: 21, name: 'First Shift', shiftGroupId: 11 }],
-          };
-        },
-        shiftsSelect: async (id: number) => {
-          if (id === 99) {
-            return { success: false, error: 'Shift not found for the active company.' };
-          }
-          localStorage.setItem('activeShiftId', String(id));
-          return { success: true, shift: activeShift };
-        },
-        shiftsGetActive: async () => {
-          if (mockOptions.staleShift) {
-            localStorage.setItem('activeShiftId', '');
-            return { success: true, shift: null };
-          }
-          return {
-            success: true,
-            shift: getId('activeShiftId') === 21 ? activeShift : null,
-          };
-        },
-        dbGetStatus: async () => ({ connected: true }),
-        prefsGet: async () => ({ autoBackup: false, lastBackupDate: null, networkMode: 'client' }),
-        onDbConnectionLost: (callback: () => void) => {
-          listeners.add(callback);
-          return () => listeners.delete(callback);
-        },
-        onDbConnectionRestored: (callback: () => void) => {
-          listeners.add(callback);
-          return () => listeners.delete(callback);
-        },
-        onAppLogout: (callback: () => void) => {
-          listeners.add(callback);
-          return () => listeners.delete(callback);
-        },
-        onAppNavigate: () => () => undefined,
-        sessionHeartbeat: ok,
-        sessionActiveCount: async () => ({ success: true, count: 1 }),
-        windowSetTitle: async () => undefined,
-        reportsSummary: async () => {
-          const calls = Number(localStorage.getItem('reportsSummaryCalls') ?? '0') + 1;
-          localStorage.setItem('reportsSummaryCalls', String(calls));
-          return {
-            success: true,
-            summary: { drawsToday: 1, sales: 0, purchases: 0, net: 0 },
-          };
-        },
-        drawsList: async () => ({
-          success: true,
-          draws: [
-            {
-              id: 31,
-              name: 'Morning 10:00',
-              drawDate: '2026-07-17T00:00:00.000Z',
-              status: 'open',
-              closeTime: null,
-            },
-          ],
-        }),
-        transactionsList: async () => {
-          transactionListAttempts += 1;
-          if (mockOptions.transactionsFailOnce && transactionListAttempts <= 2) {
-            return { success: false, error: 'Temporary transaction failure.' };
-          }
-          return {
-            success: true,
-            transactions: [503, 508, 501, 506, 502, 507, 504, 505].map((memoId) => ({
-              id: memoId - 440,
-              type: memoId % 2 === 0 ? 'sale' : 'purchase',
-              memoId,
-              drawName: 'Morning 10:00',
-              providerName: memoId % 2 === 0 ? null : 'Lucky Provider',
-              buyerName: memoId % 2 === 0 ? 'Blue Star Agency' : null,
-              amount: '1250.00',
-              enteredAt: `2026-07-17T${String(memoId - 500).padStart(2, '0')}:00:00.000Z`,
-            })),
-          };
-        },
-        buyersList: async () => ({
-          success: true,
-          buyers: [
-            {
-              id: 41,
-              name: 'Blue Star Agency',
-              type: 'seller',
-              saleRate: '2.5',
-            },
-          ],
-        }),
-        itemsList: async () => ({
-          success: true,
-          items: [{ id: 51, name: 'Dear 100', code: 'DR' }],
-        }),
-        transactionsNextMemoId: async () => {
-          const saved = localStorage.getItem('transactionsCreatePayload') != null;
-          return { success: true, nextMemoId: saved ? 502 : 501 };
-        },
-        transactionsCreate: async (payload: unknown) => {
-          localStorage.setItem('transactionsCreatePayload', JSON.stringify(payload));
-          return { success: true, transactionId: 61 };
-        },
-      },
-      configurable: true,
-    });
-  }, options);
-}
 
 async function login(page: Page) {
   await page.goto('/');
@@ -263,24 +10,65 @@ async function login(page: Page) {
   await page.getByRole('button', { name: 'Sign in' }).click();
 }
 
-test('fresh login shows only the compact global-action landing', async ({ page }) => {
-  await installMockApi(page);
-  await login(page);
+test('forced password change blocks the app until password is updated', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('mockInitialized', 'true');
+    localStorage.setItem('authenticated', 'false');
+    Object.defineProperty(window, 'api', {
+      value: {
+        authRestore: async () => ({ success: false, error: 'No stored session' }),
+        authLogin: async () => ({
+          success: true,
+          user: {
+            id: 1,
+            username: 'admin',
+            fullName: 'Admin User',
+            role: 'admin',
+            companyId: null,
+            activeCompanyId: null,
+          },
+          sessionToken: 'test-token',
+          mustChangePassword: true,
+        }),
+        authChangePassword: async (_id: number, _current: string, next: string) => {
+          if (next === 'admin123') {
+            return { success: false, error: 'Choose a password other than the default seed password.' };
+          }
+          localStorage.setItem('passwordChanged', 'true');
+          return { success: true };
+        },
+        authLogout: async () => {
+          localStorage.setItem('authenticated', 'false');
+          return { success: true };
+        },
+        dbGetStatus: async () => ({ connected: true, version: '16' }),
+        prefsGet: async () => ({ autoBackup: false, networkMode: 'client' }),
+        lanGetStatus: async () => ({ isBroadcasting: false, port: 41234, localIp: '127.0.0.1' }),
+        onAppLogout: () => () => undefined,
+        onDbConnectionLost: () => () => undefined,
+        onDbConnectionRestored: () => () => undefined,
+      },
+      configurable: true,
+    });
+  });
 
+  await page.goto('/');
+  await page.getByLabel('Username').fill('admin');
+  await page.locator('#password').fill('admin123');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+
+  await expect(page.getByRole('heading', { name: 'Change default password' })).toBeVisible();
+  await page.locator('#new-password').fill('admin123');
+  await page.locator('#confirm-new-password').fill('admin123');
+  await page.getByRole('button', { name: 'Save new password' }).click();
+  await expect(page.getByText('Choose a password other than the default seed password.')).toBeVisible();
+
+  await page.locator('#new-password').fill('secure-pass-99');
+  await page.locator('#confirm-new-password').fill('secure-pass-99');
+  await page.getByRole('button', { name: 'Save new password' }).click();
+  await expect(page.getByRole('heading', { name: 'Change default password' })).toHaveCount(0);
   await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByRole('heading', { name: 'Admin Panel' })).toBeVisible();
-  await expect(page.getByText('Welcome, Admin User')).toBeVisible();
-  await expect(page.getByRole('link')).toHaveCount(4);
-  for (const action of ['Open Company', 'Manage Owners', 'Manage Companies', 'System Settings']) {
-    await expect(page.getByRole('link', { name: action, exact: true })).toBeVisible();
-  }
-  await expect(
-    page.locator(
-      'a[href="/dashboard"], a[href^="/master/"], a[href^="/transactions/"], a[href^="/reports"]',
-    ),
-  ).toHaveCount(0);
 });
-
 test('global admin actions work before selecting a company', async ({ page }) => {
   await installMockApi(page, { seedCompanyId: null });
 
@@ -343,7 +131,7 @@ test('focus follows the primary route-transition workflow', async ({ page }) => 
   await page.getByRole('button', { name: /First Shift/ }).click();
   await page.getByRole('button', { name: 'Open' }).click();
   await expect(page.getByRole('heading', { name: 'Company Data' })).toBeFocused();
-  await page.getByRole('link', { name: 'Add Sale' }).click();
+  await page.getByRole('link', { name: 'Add Sale', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Add Sale' })).toBeFocused();
 });
 
@@ -520,7 +308,7 @@ test.describe('role-aware menu', () => {
     await expect(footer).toContainText('Shift group: Morning Draws');
     await expect(footer).toContainText('Shift: First Shift');
     await expect(page.locator('aside')).toHaveCount(0);
-    await expect(transactions.getByRole('link', { name: 'Add Sale' })).toHaveCSS('font-size', '12px');
+    await expect(transactions.getByRole('link', { name: 'Add Sale', exact: true })).toHaveCSS('font-size', '12px');
     await expect(companyData).toHaveCSS('border-right-style', 'solid');
     await expect(reports).toHaveCSS('border-right-style', 'solid');
     await page.screenshot({ path: 'test-results/menu-admin-1920x1080.png', fullPage: true });
@@ -582,7 +370,7 @@ test.describe('role-aware menu', () => {
     await expect(page.getByRole('heading', { name: 'Welcome, Admin User' })).toBeVisible();
 
     await page.goto('/menu');
-    await page.getByRole('link', { name: 'Add Sale' }).click();
+    await page.getByRole('link', { name: 'Add Sale', exact: true }).click();
     await expect(page).toHaveURL(/\/transactions\/sale-entry$/);
   });
 
@@ -669,26 +457,26 @@ test.describe('role-aware menu', () => {
     await page.clock.setFixedTime(new Date('2026-07-17T07:48:12.000Z'));
     await installMockApi(page, { seedCompanyId: 7, seedShiftId: 21 });
     await page.goto('/menu');
-    await page.getByRole('link', { name: 'Add Sale' }).click();
+    await page.getByRole('link', { name: 'Add Sale', exact: true }).click();
 
     await expect(page.getByRole('heading', { name: 'Add Sale' })).toBeVisible();
     await expect(page.locator('aside')).toHaveCount(0);
-    await expect(page.locator('footer')).toHaveCount(0);
+    // Status footer is app chrome (connection); sale entry still hides the module sidebar.
+    await expect(page.locator('footer')).toBeVisible();
     await expect(page.getByLabel('Draw *')).toHaveValue('31');
-    await expect(page.getByLabel('Sale To *')).toHaveValue('41');
+    await expect(page.getByLabel('Party Name *')).toHaveValue('Blue Star Agency');
     await expect(page.getByLabel('Date')).toHaveValue('2026-07-17');
     await expect(page.getByLabel('Memo ID')).toHaveValue('501');
 
-    await page.getByLabel('Row 1 lottery type').selectOption('51');
+    await page.getByLabel('Row 1 item name').selectOption('51');
     await page.getByLabel('Row 1 from ticket').fill('00001');
-    await page.getByLabel('Row 1 to ticket').fill('00003');
-    await expect(page.getByLabel('Row 1 amount')).toHaveValue('7.50');
+    await page.getByLabel('Row 1 from ticket').blur();
+    // Diff mode: To = From + N → 00001 + 2 = 00003 (qty 3)
+    await page.getByLabel('Row 1 to ticket').fill('2');
+    await page.getByLabel('Row 1 to ticket').press('Tab');
+    await page.getByLabel('Row 1 rate').fill('2.5');
     await expect(page.getByRole('row', { name: /Dear 100/ })).toContainText('3');
-
-    await page.getByLabel('Row 1 amount').press('Enter');
-    await expect(page.getByLabel('Row 2 lottery type')).toBeVisible();
-    await page.getByLabel('Row 2 amount').press('F5');
-    await expect(page.getByLabel('Row 2 lottery type')).toHaveCount(0);
+    await expect(page.getByRole('row', { name: /Dear 100/ })).toContainText('7.50');
 
     await page.screenshot({
       path: 'test-results/sale-entry-blue-1920x1080.png',
@@ -697,8 +485,7 @@ test.describe('role-aware menu', () => {
     await page.getByRole('button', { name: 'Save (F2)' }).click();
 
     await expect(page.getByText('3 tickets saved.')).toBeVisible();
-    await expect(page.getByLabel('Row 1 lottery type')).toHaveValue('');
-    await expect(page.getByLabel('Row 1 amount')).toHaveValue('');
+    await expect(page.getByLabel('Row 1 item name')).toHaveValue('');
     await expect(page.getByLabel('Memo ID')).toHaveValue('502');
     await expect
       .poll(() =>

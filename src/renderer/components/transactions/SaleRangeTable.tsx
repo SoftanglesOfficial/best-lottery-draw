@@ -1,14 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import { rangeCount } from '../../lib/transactionDisplay';
-import { isAtLeastRole } from '../../lib/roles';
-import { useAuth } from '../../lib/auth';
-import { padTicketDigits, sanitizeTicketInput } from '../../lib/ticketAutoComplete';
-import { SPREADSHEET_MIN_ROWS } from './TicketRangeTable';
+import {
+  calculateAmount,
+  calculateQuantity,
+  matchItemByCode,
+  resolveTo,
+  validateRange,
+  isFiveDigitTicket,
+} from '../../../shared/ticketMath';
+import { padTicketDigits } from '../../lib/ticketAutoComplete';
 import type { ItemRecord } from '../../../shared/types';
 
 export type SaleRangeRow = {
   itemId: number | null;
   code: string;
+  prefix: string;
+  series: string;
   from: string;
   to: string;
   rate: string;
@@ -21,30 +27,60 @@ type SaleRangeTableProps = {
   defaultRate: string;
   onActiveRowChange?: (index: number) => void;
   variant?: 'default' | 'blueSpreadsheet';
+  drawDateLabel?: string;
+  drawDayLabel?: string;
+  fieldsUnlocked?: boolean;
+  absoluteToArmed?: boolean;
+  onAbsoluteToConsumed?: () => void;
+  onRowError?: (message: string) => void;
+  focusItemRequest?: number;
+  /** Return false to abort new-row advance (e.g. dup cancel). */
+  onBeforeAddRow?: (index: number) => boolean | Promise<boolean>;
 };
 
+/** code, item, prefix, series, from, to, rate */
+const FOCUS_COLS = 7;
+const COL = { code: 0, item: 1, prefix: 2, series: 3, from: 4, to: 5, rate: 6 } as const;
+
+const salesTokenStyle = {
+  ['--sales-header' as string]: '#f1b900',
+  ['--sales-header-text' as string]: '#071b4d',
+  ['--sales-sheet' as string]: '#e8f5e9',
+  ['--sales-stripe' as string]: '#dcedc8',
+  ['--sales-active-row' as string]: '#dc2626',
+  ['--sales-active-text' as string]: '#ffffff',
+  ['--sales-focus' as string]: '#ffd447',
+  ['--sales-error' as string]: '#dc2626',
+  ['--sales-readonly' as string]: '#c8e6c9',
+  ['--sales-locked' as string]: '#a5d6a7',
+  ['--sales-border' as string]: '#81c784',
+  ['--sales-totals' as string]: '#1b5e20',
+} as const;
+
 function rowQty(row: SaleRangeRow) {
-  const from = padTicketDigits(row.from);
-  const to = padTicketDigits(row.to);
-  if (!from || !to) return 0;
-  return rangeCount(from, to);
+  return calculateQuantity(padTicketDigits(row.from), padTicketDigits(row.to));
 }
 
 function rowAmount(row: SaleRangeRow) {
-  const qty = rowQty(row);
-  const rate = Number(row.rate);
-  if (qty <= 0 || Number.isNaN(rate)) return 0;
-  return qty * rate;
+  return calculateAmount(rowQty(row), row.rate);
 }
 
 export function emptySaleRangeRow(defaultRate = ''): SaleRangeRow {
-  return { itemId: null, code: '', from: '', to: '', rate: defaultRate };
+  return {
+    itemId: null,
+    code: '',
+    prefix: '',
+    series: '',
+    from: '',
+    to: '',
+    rate: defaultRate,
+  };
 }
 
-/** Match purchase/BEST-10 sheet density — empty trailing rows ignored on save */
+/** Match purchase sheet density — empty trailing rows ignored on save */
 export function emptySaleRangeRows(
   defaultRate = '',
-  count = SPREADSHEET_MIN_ROWS,
+  count = 18, // ponytail: same count as TicketRangeTable.SPREADSHEET_MIN_ROWS
 ): SaleRangeRow[] {
   return Array.from({ length: count }, () => emptySaleRangeRow(defaultRate));
 }
@@ -55,11 +91,13 @@ export function saleRangesToTicketData(rows: SaleRangeRow[]) {
     .map((row) => {
       const from = padTicketDigits(row.from);
       const to = padTicketDigits(row.to);
-      const qty = rangeCount(from, to);
+      const qty = calculateQuantity(from, to);
       const rate = Number(row.rate) || 0;
       return {
         itemId: row.itemId,
-        code: row.code,
+        code: row.code || undefined,
+        prefix: row.prefix || undefined,
+        series: row.series || undefined,
         from,
         to,
         qty,
@@ -86,22 +124,12 @@ export function validateSaleRangeRows(rows: SaleRangeRow[]): string | null {
 
   for (let index = 0; index < validRows.length; index += 1) {
     const row = validRows[index];
-    const rowNo = index + 1;
-    if (row.itemId == null) {
-      return `Row ${rowNo}: select a lottery type.`;
-    }
-    const from = padTicketDigits(row.from);
-    const to = padTicketDigits(row.to);
-    if (!from || !to) {
-      return `Row ${rowNo}: From and To are required.`;
-    }
-    const rate = Number(row.rate);
-    if (Number.isNaN(rate) || rate <= 0) {
-      return `Row ${rowNo}: Rate must be greater than zero.`;
-    }
-    if (rangeCount(from, to) <= 0) {
-      return `Row ${rowNo}: To must be greater than or equal to From.`;
-    }
+    const error = validateRange({
+      ...row,
+      from: padTicketDigits(row.from),
+      to: padTicketDigits(row.to),
+    });
+    if (error) return `Row ${index + 1}: ${error}`;
   }
 
   if (totalSaleRangeQty(validRows) <= 0) {
@@ -111,6 +139,10 @@ export function validateSaleRangeRows(rows: SaleRangeRow[]): string | null {
   return null;
 }
 
+export function rowHasSaleData(row: SaleRangeRow): boolean {
+  return Boolean(row.itemId != null || row.from || row.to || row.code || row.prefix || row.series);
+}
+
 export default function SaleRangeTable({
   rows,
   onChange,
@@ -118,17 +150,84 @@ export default function SaleRangeTable({
   defaultRate,
   onActiveRowChange,
   variant = 'default',
+  drawDateLabel = '—',
+  drawDayLabel = '—',
+  fieldsUnlocked = false,
+  absoluteToArmed = false,
+  onAbsoluteToConsumed,
+  onRowError,
+  focusItemRequest = 0,
+  onBeforeAddRow,
 }: SaleRangeTableProps) {
-  const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const inputRefs = useRef<Array<HTMLInputElement | HTMLSelectElement | null>>([]);
   const [activeRowIndex, setActiveRowIndex] = useState(0);
-  const { user } = useAuth();
-  const canEditRate = user ? isAtLeastRole(user.role, 'manager') : false;
-  const blueSpreadsheet = variant === 'blueSpreadsheet';
-  const blueField =
-    'h-7 w-full border border-[#315aa8] bg-[#f7fbff] px-1.5 font-mono text-xs text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]';
+  const [toDraft, setToDraft] = useState<{ index: number; value: string } | null>(null);
+  const [invalidCell, setInvalidCell] = useState<string | null>(null);
+  // Spec: Rate on sale fast path for all roles that can open Add Sale
+  const canEditRate = true;
+  const dense = variant === 'blueSpreadsheet';
+
+  /** # ponytail: 350ms settle; bump if operators clip multi-digit diffs */
+  const TO_SETTLE_MS = 350;
+  const toSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearToSettleTimer = () => {
+    if (toSettleTimerRef.current != null) {
+      clearTimeout(toSettleTimerRef.current);
+      toSettleTimerRef.current = null;
+    }
+  };
+
+  const fieldClass = dense
+    ? 'h-7 w-full border border-[color:var(--sales-border)] bg-white px-1.5 font-mono text-xs text-[#071b4d] outline-none focus:border-[color:var(--sales-focus)] focus:ring-1 focus:ring-[color:var(--sales-focus)]'
+    : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20';
+  const lockedClass = dense
+    ? `${fieldClass} bg-[color:var(--sales-locked)] text-[#33517f]`
+    : `${fieldClass} bg-surface-high text-content-subtle`;
+  const errorClass = dense
+    ? 'border-[color:var(--sales-error)] ring-1 ring-[color:var(--sales-error)]'
+    : 'border-cyber-error ring-2 ring-cyber-error/30';
+
   const setActiveRow = (index: number) => {
     setActiveRowIndex(index);
     onActiveRowChange?.(index);
+  };
+
+  const focusCell = (rowIndex: number, col: number) => {
+    setTimeout(() => inputRefs.current[rowIndex * FOCUS_COLS + col]?.focus(), 0);
+  };
+
+  const nextTypingCol = (fromCol: number): number | 'add' => {
+    for (let col = fromCol + 1; col < FOCUS_COLS; col += 1) {
+      if ((col === COL.prefix || col === COL.series) && !fieldsUnlocked) continue;
+      if (col === COL.rate && !canEditRate) return 'add';
+      return col;
+    }
+    return 'add';
+  };
+
+  const editableColOrder = (): number[] =>
+    fieldsUnlocked ? [0, 1, 2, 3, 4, 5, 6] : [0, 1, 4, 5, 6];
+
+  const nextEditableCol = (col: number): number | null => {
+    const order = editableColOrder();
+    const i = order.indexOf(col);
+    return i >= 0 && i < order.length - 1 ? order[i + 1] : null;
+  };
+
+  const prevEditableCol = (col: number): number | null => {
+    const order = editableColOrder();
+    const i = order.indexOf(col);
+    return i > 0 ? order[i - 1] : null;
+  };
+
+  const advanceFrom = (rowIndex: number, fromCol: number) => {
+    const next = nextTypingCol(fromCol);
+    if (next === 'add') {
+      void tryAdvanceFromRate(rowIndex);
+      return;
+    }
+    focusCell(rowIndex, next);
   };
 
   const updateRow = (index: number, patch: Partial<SaleRangeRow>) => {
@@ -137,29 +236,19 @@ export default function SaleRangeTable({
   };
 
   const addRow = (afterIndex: number) => {
+    const prev = rows[afterIndex];
+    const blank = {
+      ...emptySaleRangeRow(defaultRate),
+      code: prev?.code ?? '',
+      itemId: prev?.itemId ?? null,
+      prefix: prev?.prefix ?? '',
+      series: prev?.series ?? '',
+    };
     const next = [...rows];
-    next.splice(afterIndex + 1, 0, emptySaleRangeRow(defaultRate));
+    next.splice(afterIndex + 1, 0, blank);
     onChange(next);
-    setTimeout(() => inputRefs.current[(afterIndex + 1) * 4]?.focus(), 0);
-  };
-
-  const removeRow = (index: number) => {
-    if (rows.length <= 1) {
-      onChange(blueSpreadsheet ? emptySaleRangeRows(defaultRate) : [emptySaleRangeRow(defaultRate)]);
-      setActiveRow(0);
-      return;
-    }
-    const next = rows.filter((_, i) => i !== index);
-    const padded =
-      blueSpreadsheet && next.length < SPREADSHEET_MIN_ROWS
-        ? [...next, ...emptySaleRangeRows(defaultRate, SPREADSHEET_MIN_ROWS - next.length)]
-        : next.length
-          ? next
-          : [emptySaleRangeRow(defaultRate)];
-    onChange(padded);
-    const focusIndex = Math.max(0, index - 1);
-    setActiveRow(focusIndex);
-    setTimeout(() => inputRefs.current[focusIndex * 4]?.focus(), 0);
+    setActiveRow(afterIndex + 1);
+    focusCell(afterIndex + 1, COL.from);
   };
 
   const handleItemChange = (index: number, itemId: number | null) => {
@@ -167,256 +256,607 @@ export default function SaleRangeTable({
     updateRow(index, {
       itemId,
       code: item?.code ?? '',
+      prefix: item?.prefix ?? '',
+      series: item?.defaultSeries ?? '',
     });
+  };
+
+  const commitTo = (index: number, rawInput: string): boolean => {
+    const row = rows[index];
+    if (rawInput.trim() === '') {
+      // empty draft = cancel edit; keep existing To
+      setToDraft(null);
+      setInvalidCell(null);
+      return true;
+    }
+    const mode = absoluteToArmed ? 'absolute' : 'diff';
+    const result = resolveTo(row.from, rawInput, mode);
+    if (!result.ok) {
+      if (result.error !== 'empty') {
+        setInvalidCell(`${index}:to`);
+        onRowError?.(result.error);
+      }
+      return false;
+    }
+    updateRow(index, { to: result.to });
+    setToDraft(null);
+    setInvalidCell(null);
+    if (absoluteToArmed) onAbsoluteToConsumed?.();
+    return true;
+  };
+
+  /** Commit To then focus Rate (same row). Add-row happens on Rate Enter. */
+  const commitToAndAdvance = (index: number, rawInput: string) => {
+    clearToSettleTimer();
+    const row = rows[index];
+
+    if (rawInput.trim() === '') {
+      setToDraft(null);
+      setInvalidCell(null);
+      return;
+    }
+    const mode = absoluteToArmed ? 'absolute' : 'diff';
+    const result = resolveTo(row.from, rawInput, mode);
+    if (!result.ok) {
+      if (result.error !== 'empty') {
+        setInvalidCell(`${index}:to`);
+        onRowError?.(result.error);
+      }
+      return;
+    }
+
+    updateRow(index, { to: result.to });
+    setToDraft(null);
+    if (absoluteToArmed) onAbsoluteToConsumed?.();
+
+    if (row.itemId == null) {
+      setInvalidCell(`${index}:item`);
+      onRowError?.('Select a lottery type.');
+      return;
+    }
+
+    setInvalidCell(null);
+    focusCell(index, COL.rate);
+  };
+
+  const tryAdvanceFromRate = async (index: number) => {
+    const row = rows[index];
+    // Fallback rate before validate
+    let finalRate = row.rate;
+    const rateNum = Number(finalRate);
+    if (!finalRate || Number.isNaN(rateNum) || rateNum <= 0) {
+      finalRate = defaultRate;
+    }
+    const toValidate = { ...row, rate: finalRate };
+    const error = validateRange(toValidate);
+    if (error) {
+      setInvalidCell(`${index}:rate`);
+      onRowError?.(error);
+      return;
+    }
+    setInvalidCell(null);
+    // Write rate if we applied fallback
+    if (finalRate !== row.rate) {
+      updateRow(index, { rate: finalRate });
+    }
+    if (onBeforeAddRow) {
+      const ok = await onBeforeAddRow(index);
+      if (!ok) {
+        focusCell(index, fieldsUnlocked ? COL.prefix : COL.code);
+        return;
+      }
+    }
+    addRow(index);
+  };
+
+  const settleToBeforeLeave = (rowIndex: number, fromCol: number) => {
+    if (fromCol !== COL.to) return;
+    clearToSettleTimer();
+    if (toDraft?.index === rowIndex) {
+      commitTo(rowIndex, toDraft.value);
+    }
+  };
+
+  const handleCellArrow = (
+    index: number,
+    col: number,
+    event: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    const key = event.key;
+    if (key !== 'ArrowUp' && key !== 'ArrowDown' && key !== 'ArrowLeft' && key !== 'ArrowRight') {
+      return;
+    }
+
+    if (key === 'ArrowUp' || key === 'ArrowDown') {
+      event.preventDefault();
+      const nextRow = key === 'ArrowUp' ? index - 1 : index + 1;
+      if (nextRow < 0 || nextRow >= rows.length) return;
+      settleToBeforeLeave(index, col);
+      setActiveRow(nextRow);
+      focusCell(nextRow, col);
+      return;
+    }
+
+    if (col === COL.item) {
+      event.preventDefault();
+      const targetCol = key === 'ArrowLeft' ? prevEditableCol(col) : nextEditableCol(col);
+      if (targetCol == null) return;
+      settleToBeforeLeave(index, col);
+      setActiveRow(index);
+      focusCell(index, targetCol);
+      return;
+    }
+
+    const target = event.currentTarget;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    const { selectionStart, selectionEnd, value } = target;
+    if (selectionStart == null || selectionEnd == null) return;
+    if (selectionStart !== selectionEnd) return;
+
+    if (key === 'ArrowLeft') {
+      if (selectionStart !== 0) return;
+      const prev = prevEditableCol(col);
+      event.preventDefault();
+      if (prev == null) return;
+      settleToBeforeLeave(index, col);
+      setActiveRow(index);
+      focusCell(index, prev);
+      return;
+    }
+
+    if (key === 'ArrowRight') {
+      if (selectionStart !== value.length) return;
+      const next = nextEditableCol(col);
+      event.preventDefault();
+      if (next == null) return;
+      settleToBeforeLeave(index, col);
+      setActiveRow(index);
+      focusCell(index, next);
+    }
   };
 
   const totalQty = totalSaleRangeQty(rows);
   const totalAmount = totalSaleRangeAmount(rows);
 
   useEffect(() => {
-    if (rows.length === 0) {
-      onChange(blueSpreadsheet ? emptySaleRangeRows(defaultRate) : [emptySaleRangeRow(defaultRate)]);
-      return;
-    }
-    // ponytail: same sheet density as purchase return (SPREADSHEET_MIN_ROWS)
-    if (blueSpreadsheet && rows.length < SPREADSHEET_MIN_ROWS) {
-      onChange([
-        ...rows,
-        ...emptySaleRangeRows(defaultRate, SPREADSHEET_MIN_ROWS - rows.length),
-      ]);
-    }
-  }, [rows, onChange, defaultRate, blueSpreadsheet]);
+    if (rows.length === 0) onChange([emptySaleRangeRow(defaultRate)]);
+  }, [rows.length, onChange, defaultRate]);
 
   useEffect(() => {
     setActiveRowIndex((current) => Math.min(current, Math.max(0, rows.length - 1)));
   }, [rows.length]);
 
+  useEffect(() => {
+    if (focusItemRequest > 0) focusCell(0, COL.item);
+  }, [focusItemRequest]);
+
+  useEffect(() => () => clearToSettleTimer(), []);
+
+  useEffect(() => {
+    clearToSettleTimer();
+  }, [activeRowIndex]);
+
   return (
-    <div className={blueSpreadsheet ? 'flex h-full min-h-0 flex-col' : undefined}>
-      <div className={blueSpreadsheet ? 'min-h-0 flex-1 overflow-auto border border-[#3f68ba] bg-[#071b5d]' : 'max-w-full overflow-x-auto rounded-cyber border border-line'}>
-      <table className={blueSpreadsheet ? 'w-full table-fixed border-collapse text-xs' : 'min-w-[980px] w-full text-sm'}>
-        {blueSpreadsheet ? (
-          <colgroup>
-            <col className="w-10" />
-            <col className="w-[22%]" />
-            <col className="w-14" />
-            <col className="w-[12%]" />
-            <col className="w-[12%]" />
-            <col className="w-12" />
-            <col className="w-14" />
-            <col className="w-[12%]" />
-            <col className="w-12" />
-          </colgroup>
-        ) : null}
-        <thead className={blueSpreadsheet ? 'sticky top-0 z-10 bg-white shadow-sm' : 'bg-surface-high'}>
-          <tr className={blueSpreadsheet ? 'border-b-2 border-[#071b4d] text-left text-[#071b4d]' : 'border-b border-line text-left'}>
-            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide' : 'w-12 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Sr</th>
-            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-[10px] font-bold uppercase tracking-wide' : 'min-w-[140px] px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Item</th>
-            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-[10px] font-bold uppercase tracking-wide' : 'w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Code</th>
-            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-[10px] font-bold uppercase tracking-wide' : 'w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>From</th>
-            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-[10px] font-bold uppercase tracking-wide' : 'w-24 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>To</th>
-            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-right text-[10px] font-bold uppercase tracking-wide' : 'w-16 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Qty</th>
-            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-right text-[10px] font-bold uppercase tracking-wide' : 'w-20 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Rate</th>
-            <th className={blueSpreadsheet ? 'border-r border-[#071b4d] px-1 py-1.5 text-right text-[10px] font-bold uppercase tracking-wide' : 'w-24 px-2 py-2 text-right font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Amt</th>
-            <th className={blueSpreadsheet ? 'px-1 py-1.5 text-center text-[10px] font-bold uppercase tracking-wide' : 'w-20 px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'}>Del</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line">
-          {rows.map((row, index) => {
-            const qty = rowQty(row);
-            const amount = rowAmount(row);
-            const isActive = blueSpreadsheet && activeRowIndex === index;
-            const rowBg = blueSpreadsheet
-              ? isActive
-                ? 'bg-[#e85d04] text-white'
-                : index % 2 === 0
-                  ? 'bg-[#dceaff] text-[#071b4d]'
-                  : 'bg-[#c9dcfb] text-[#071b4d]'
-              : '';
-            const activeField = isActive
-              ? 'h-7 w-full border border-[#ffd447] bg-white px-1.5 font-mono text-xs text-[#071b4d] outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447]'
-              : blueField;
-            return (
-              <tr key={index} className={blueSpreadsheet ? `${rowBg} border-b border-[#83a5da]` : 'bg-surface-raised hover:bg-surface-high'}>
-                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-2 py-1 text-center font-mono font-bold' : 'px-2 py-2 font-mono text-content-subtle'}>{index + 1}</td>
-                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-2 py-2'}>
-                  <select
-                    value={row.itemId ?? ''}
-                    onChange={(event) =>
-                      handleItemChange(index, Number(event.target.value) || null)
+    <div
+      className={dense ? 'flex h-full min-h-0 flex-col' : undefined}
+      style={dense ? salesTokenStyle : undefined}
+    >
+      <div
+        className={
+          dense
+            ? 'min-h-0 flex-1 overflow-auto border border-[color:var(--sales-border)] bg-[color:var(--sales-sheet)]'
+            : 'max-w-full overflow-x-auto rounded-cyber border border-line'
+        }
+      >
+        <table
+          className={
+            dense
+              ? 'w-full min-w-[1100px] table-fixed border-collapse text-xs'
+              : 'min-w-[1100px] w-full text-sm'
+          }
+        >
+          <thead
+            className={
+              dense
+                ? 'sticky top-0 z-10 bg-[color:var(--sales-header)] text-[color:var(--sales-header-text)]'
+                : 'bg-surface-high'
+            }
+          >
+            <tr className={dense ? 'text-left' : 'border-b border-line text-left'}>
+              {[
+                ['Sr No', 'w-12 text-center'],
+                ['Code', 'w-16 sticky left-0 z-[1]'],
+                ['Item Name', 'w-[16%] sticky left-16 z-[1]'],
+                ['Draw Date', 'w-24'],
+                ['Day', 'w-14'],
+                ['Prefix', 'w-16'],
+                ['Series', 'w-16'],
+                ['From', 'w-[9%]'],
+                ['To', 'w-[9%]'],
+                ['Quantity', 'w-16 text-right'],
+                ['Rate', 'w-16 text-right'],
+                ['Amount', 'w-20 text-right'],
+              ].map(([label, width]) => (
+                <th
+                  key={label}
+                  className={
+                    dense
+                      ? `${width} border-r border-[#745600] px-1 py-1 text-[10px] font-bold uppercase`
+                      : 'px-2 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.05em] text-content-muted'
+                  }
+                >
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => {
+              const qty = rowQty(row);
+              const amount = rowAmount(row);
+              const isActive = dense && activeRowIndex === index;
+              const rowBg = dense
+                ? isActive
+                  ? 'bg-[color:var(--sales-active-row)] text-[color:var(--sales-active-text)]'
+                  : index % 2 === 0
+                    ? 'bg-[color:var(--sales-sheet)] text-[#071b4d]'
+                    : 'bg-[color:var(--sales-stripe)] text-[#071b4d]'
+                : 'bg-surface-raised hover:bg-surface-high';
+              const toDisplay =
+                toDraft?.index === index ? toDraft.value : row.to;
+              const cellErr = (key: string) =>
+                invalidCell === `${index}:${key}` ? errorClass : '';
+
+              return (
+                <tr
+                  key={index}
+                  className={dense ? `${rowBg} border-b border-[color:var(--sales-border)]` : rowBg}
+                >
+                  <td
+                    className={
+                      dense
+                        ? 'border-r border-[color:var(--sales-border)] px-2 py-1 text-center font-mono font-bold'
+                        : 'px-2 py-2 font-mono text-content-subtle'
                     }
-                    onFocus={() => setActiveRow(index)}
-                    className={blueSpreadsheet ? activeField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
-                    aria-label={`Row ${index + 1} lottery type`}
                   >
-                    <option value="">Select item</option>
-                    {items.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-2 py-2'}>
-                  <input
-                    value={row.code}
-                    onChange={(event) => updateRow(index, { code: event.target.value })}
-                    onFocus={() => setActiveRow(index)}
-                    className={blueSpreadsheet ? activeField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-sm text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
-                    aria-label={`Row ${index + 1} item code`}
-                  />
-                </td>
-                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-2 py-2'}>
-                  <input
-                    ref={(el) => {
-                      inputRefs.current[index * 4] = el;
-                    }}
-                    value={row.from}
-                    onChange={(event) =>
-                      updateRow(index, {
-                        from: sanitizeTicketInput(event.target.value),
-                      })
+                    {index + 1}
+                  </td>
+                  <td
+                    className={
+                      dense
+                        ? 'sticky left-0 z-[1] border-r border-[color:var(--sales-border)] bg-inherit px-1.5 py-1'
+                        : 'px-2 py-2'
                     }
-                    onBlur={() => {
-                      const padded = padTicketDigits(row.from);
-                      if (!padded) return;
-                      // ponytail: single-ticket entry — copy From→To so qty/amount appear
-                      const patch: Partial<SaleRangeRow> = {};
-                      if (padded !== row.from) patch.from = padded;
-                      if (!row.to) patch.to = padded;
-                      if (Object.keys(patch).length > 0) updateRow(index, patch);
-                    }}
-                    onFocus={() => setActiveRow(index)}
-                    className={blueSpreadsheet ? activeField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
-                    inputMode="numeric"
-                    aria-label={`Row ${index + 1} from ticket`}
-                  />
-                </td>
-                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-2 py-2'}>
-                  <input
-                    ref={(el) => {
-                      inputRefs.current[index * 4 + 1] = el;
-                    }}
-                    value={row.to}
-                    onChange={(event) =>
-                      updateRow(index, {
-                        to: sanitizeTicketInput(event.target.value),
-                      })
-                    }
-                    onBlur={() => {
-                      const padded = padTicketDigits(row.to);
-                      if (padded && padded !== row.to) updateRow(index, { to: padded });
-                    }}
-                    onFocus={() => setActiveRow(index)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
+                  >
+                    <input
+                      ref={(el) => {
+                        inputRefs.current[index * FOCUS_COLS + COL.code] = el;
+                      }}
+                      value={row.code}
+                      onChange={(event) => updateRow(index, { code: event.target.value })}
+                      onFocus={() => setActiveRow(index)}
+                      onKeyDown={(event) => {
+                        handleCellArrow(index, COL.code, event);
+                        if (event.key !== 'Enter') return;
                         event.preventDefault();
-                        const paddedTo = padTicketDigits(row.to) || padTicketDigits(row.from);
-                        if (paddedTo && paddedTo !== row.to) {
-                          updateRow(index, { to: paddedTo });
+                        event.stopPropagation();
+                        const match = matchItemByCode(items, row.code);
+                        if (match.status === 'none') {
+                          onRowError?.(row.code.trim() ? 'No item matches this code.' : 'Enter an item code.');
+                          return;
                         }
-                        addRow(index);
-                      }
-                      if (event.key === 'F5') {
-                        event.preventDefault();
-                        removeRow(index);
-                      }
-                    }}
-                    className={blueSpreadsheet ? activeField : 'w-full rounded-cyber border border-line-control bg-canvas px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'}
-                    inputMode="numeric"
-                    aria-label={`Row ${index + 1} to ticket`}
-                  />
-                </td>
-                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-2 py-1 text-right font-mono font-bold tabular-nums' : 'px-2 py-2 text-right font-mono tabular-nums text-content'}>{qty || '—'}</td>
-                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-2 py-2'}>
-                  <input
-                    ref={(el) => {
-                      inputRefs.current[index * 4 + 2] = el;
-                    }}
-                    value={row.rate}
-                    onChange={(event) =>
-                      updateRow(index, {
-                        rate: event.target.value.replace(/[^\d.]/g, ''),
-                      })
-                    }
-                    onFocus={() => setActiveRow(index)}
-                    readOnly={!canEditRate}
+                        if (match.status === 'ambiguous') {
+                          onRowError?.('Multiple items share this code. Pick the item from the list.');
+                          return;
+                        }
+                        handleItemChange(index, match.item.id);
+                        focusCell(index, COL.from);
+                      }}
+                      className={fieldClass}
+                      aria-label={`Row ${index + 1} code`}
+                    />
+                  </td>
+                  <td
                     className={
-                      blueSpreadsheet
-                        ? `${activeField} ${!canEditRate ? 'bg-[#b8cbed] text-[#33517f]' : ''}`
-                        : `w-full rounded-cyber border border-line-control px-2 py-1 font-mono text-left text-content outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20 ${!canEditRate ? 'bg-surface-high text-content-subtle' : 'bg-canvas'}`
+                      dense
+                        ? 'sticky left-16 z-[1] border-r border-[color:var(--sales-border)] bg-inherit px-1.5 py-1'
+                        : 'px-2 py-2'
                     }
-                    inputMode="decimal"
-                    aria-label={`Row ${index + 1} rate`}
-                  />
-                </td>
-                <td className={blueSpreadsheet ? 'border-r border-[#9bb7e1] px-1.5 py-1' : 'px-2 py-2'}>
-                  <input
-                    ref={(el) => {
-                      inputRefs.current[index * 4 + 3] = el;
-                    }}
-                    value={amount > 0 ? amount.toFixed(2) : '—'}
-                    readOnly
-                    tabIndex={0}
-                    onFocus={() => setActiveRow(index)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        addRow(index);
-                      }
-                      if (event.key === 'F5') {
-                        event.preventDefault();
-                        removeRow(index);
-                      }
-                    }}
-                    // ponytail: amount is always qty×rate — never typed; "—" when From/To empty
-                    className={
-                      blueSpreadsheet
-                        ? `h-7 w-full cursor-default border border-[#315aa8] px-1.5 font-mono text-xs font-bold outline-none focus:border-[#ffd447] focus:ring-1 focus:ring-[#ffd447] ${
-                            isActive ? 'border-[#ffd447] bg-[#c2410c]/20 text-white' : 'bg-[#8eaddc] text-[#071b4d]'
-                          }`
-                        : 'w-full cursor-default rounded-cyber border border-line bg-surface-high px-2 py-1 font-mono text-left text-content-muted outline-none focus:border-cyber focus:ring-2 focus:ring-cyber/20'
-                    }
-                    aria-readonly="true"
-                    aria-label={`Row ${index + 1} amount (qty × rate)`}
-                    title={
-                      amount > 0
-                        ? 'Amount = Qty × Rate'
-                        : 'Fill From and To — amount calculates automatically'
-                    }
-                  />
-                </td>
-                <td className={blueSpreadsheet ? 'px-1.5 py-1 text-center' : 'px-2 py-2'}>
-                  <button
-                    type="button"
-                    className={blueSpreadsheet ? 'cursor-pointer px-1 py-0.5 text-[10px] font-bold uppercase text-[#9e1d32] hover:text-[#c93149] focus:outline-none focus:ring-1 focus:ring-[#ffd447]' : 'rounded-cyber px-1.5 py-1 text-cyber-error hover:bg-cyber-error/10 focus:outline-none focus:ring-2 focus:ring-cyber-error/30'}
-                    onClick={() => removeRow(index)}
                   >
-                    ×
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-        <tfoot>
-          <tr className={blueSpreadsheet ? 'border-t-2 border-[#8db3f2] bg-[#123d99] font-bold text-white' : 'border-t border-line bg-surface-high font-medium'}>
-            <td colSpan={5} className={blueSpreadsheet ? 'px-2 py-2 text-right text-xs uppercase tracking-wide' : 'px-2 py-2 text-right font-mono text-[10px] uppercase tracking-[0.05em] text-content-muted'}>
-              Totals
-            </td>
-            <td className={blueSpreadsheet ? 'px-2 py-2 text-right font-mono tabular-nums text-[#ffe16a]' : 'px-2 py-2 text-right font-mono tabular-nums text-cyber-hover'}>{totalQty}</td>
-            <td className="px-2 py-2" />
-            <td className={blueSpreadsheet ? 'px-2 py-2 text-right font-mono tabular-nums text-[#ffe16a]' : 'px-2 py-2 text-right font-mono tabular-nums text-cyber-hover'}>
-              {totalAmount > 0 ? totalAmount.toFixed(2) : '—'}
-            </td>
-            <td className="px-2 py-2" />
-          </tr>
-        </tfoot>
-      </table>
+                    <select
+                      ref={(el) => {
+                        inputRefs.current[index * FOCUS_COLS + COL.item] = el;
+                      }}
+                      value={row.itemId ?? ''}
+                      onChange={(event) => {
+                        handleItemChange(index, Number(event.target.value) || null);
+                        advanceFrom(index, COL.item);
+                      }}
+                      onFocus={(event) => {
+                        setActiveRow(index);
+                        const el = event.currentTarget;
+                        try {
+                          if (typeof el.showPicker === 'function') el.showPicker();
+                        } catch {
+                          // # ponytail: showPicker may throw; native focus still works
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        handleCellArrow(index, COL.item, event);
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          advanceFrom(index, COL.item);
+                        }
+                      }}
+                      className={`${fieldClass} ${cellErr('item')}`}
+                      aria-label={`Row ${index + 1} item name`}
+                    >
+                      <option value="">Select item</option>
+                      {items.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td
+                    className={
+                      dense
+                        ? 'border-r border-[color:var(--sales-border)] px-2 py-1 font-mono'
+                        : 'px-2 py-2 font-mono'
+                    }
+                  >
+                    {drawDateLabel}
+                  </td>
+                  <td
+                    className={
+                      dense
+                        ? 'border-r border-[color:var(--sales-border)] px-2 py-1 font-mono'
+                        : 'px-2 py-2 font-mono'
+                    }
+                  >
+                    {drawDayLabel}
+                  </td>
+                  <td
+                    className={
+                      dense
+                        ? 'border-r border-[color:var(--sales-border)] px-1.5 py-1'
+                        : 'px-2 py-2'
+                    }
+                  >
+                    <input
+                      ref={(el) => {
+                        inputRefs.current[index * FOCUS_COLS + COL.prefix] = el;
+                      }}
+                      value={row.prefix}
+                      readOnly={!fieldsUnlocked}
+                      tabIndex={fieldsUnlocked ? 0 : -1}
+                      onChange={(event) => updateRow(index, { prefix: event.target.value })}
+                      onFocus={() => setActiveRow(index)}
+                      onKeyDown={(event) => {
+                        handleCellArrow(index, COL.prefix, event);
+                        if (event.key === 'Enter' && fieldsUnlocked) {
+                          event.preventDefault();
+                          advanceFrom(index, COL.prefix);
+                        }
+                      }}
+                      className={fieldsUnlocked ? fieldClass : lockedClass}
+                      aria-label={`Row ${index + 1} prefix`}
+                    />
+                  </td>
+                  <td
+                    className={
+                      dense
+                        ? 'border-r border-[color:var(--sales-border)] px-1.5 py-1'
+                        : 'px-2 py-2'
+                    }
+                  >
+                    <input
+                      ref={(el) => {
+                        inputRefs.current[index * FOCUS_COLS + COL.series] = el;
+                      }}
+                      value={row.series}
+                      readOnly={!fieldsUnlocked}
+                      tabIndex={fieldsUnlocked ? 0 : -1}
+                      onChange={(event) => updateRow(index, { series: event.target.value })}
+                      onFocus={() => setActiveRow(index)}
+                      onKeyDown={(event) => {
+                        handleCellArrow(index, COL.series, event);
+                        if (event.key === 'Enter' && fieldsUnlocked) {
+                          event.preventDefault();
+                          advanceFrom(index, COL.series);
+                        }
+                      }}
+                      className={fieldsUnlocked ? fieldClass : lockedClass}
+                      aria-label={`Row ${index + 1} series`}
+                    />
+                  </td>
+                  <td
+                    className={
+                      dense
+                        ? 'border-r border-[color:var(--sales-border)] px-1.5 py-1'
+                        : 'px-2 py-2'
+                    }
+                  >
+                    <input
+                      ref={(el) => {
+                        inputRefs.current[index * FOCUS_COLS + COL.from] = el;
+                      }}
+                      value={row.from}
+                      onChange={(event) => {
+                        const from = event.target.value.replace(/\D/g, '').slice(0, 5);
+                        if (invalidCell === `${index}:from`) setInvalidCell(null);
+                        updateRow(index, { from });
+                        if (isFiveDigitTicket(from)) focusCell(index, COL.to);
+                      }}
+                      onBlur={() => {
+                        const padded = padTicketDigits(row.from);
+                        if (padded && padded !== row.from) updateRow(index, { from: padded });
+                      }}
+                      onFocus={() => setActiveRow(index)}
+                      onKeyDown={(event) => {
+                        handleCellArrow(index, COL.from, event);
+                        if (event.key !== 'Enter') return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (!isFiveDigitTicket(row.from)) {
+                          setInvalidCell(`${index}:from`);
+                          onRowError?.('From must be exactly 5 digits.');
+                          return;
+                        }
+                        focusCell(index, COL.to);
+                      }}
+                      className={`${fieldClass} ${cellErr('from')}`}
+                      inputMode="numeric"
+                      aria-label={`Row ${index + 1} from ticket`}
+                    />
+                  </td>
+                  <td
+                    className={
+                      dense
+                        ? 'border-r border-[color:var(--sales-border)] px-1.5 py-1'
+                        : 'px-2 py-2'
+                    }
+                  >
+                    <input
+                      ref={(el) => {
+                        inputRefs.current[index * FOCUS_COLS + COL.to] = el;
+                      }}
+                      value={toDisplay}
+                      onChange={(event) => {
+                        const maxLen = absoluteToArmed ? 5 : 6;
+                        const value = event.target.value.replace(/\D/g, '').slice(0, maxLen);
+                        setToDraft({ index, value });
+                        clearToSettleTimer();
+                        if (absoluteToArmed) {
+                          if (value.length === 5) commitToAndAdvance(index, value);
+                          return;
+                        }
+                        // diff: settle only — never commit on first keystroke alone without pause
+                        toSettleTimerRef.current = setTimeout(() => {
+                          toSettleTimerRef.current = null;
+                          commitToAndAdvance(index, value);
+                        }, TO_SETTLE_MS);
+                      }}
+                      onFocus={() => {
+                        clearToSettleTimer();
+                        setActiveRow(index);
+                        setToDraft({ index, value: '' });
+                      }}
+                      onBlur={() => {
+                        clearToSettleTimer();
+                        if (toDraft?.index === index) {
+                          // empty draft = cancel (existing commitTo); do not advance on empty
+                          if (toDraft.value.trim() === '') {
+                            commitTo(index, toDraft.value);
+                            return;
+                          }
+                          commitToAndAdvance(index, toDraft.value);
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        handleCellArrow(index, COL.to, event);
+                        if (event.key === 'Escape') {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          clearToSettleTimer();
+                          setToDraft(null);
+                          setInvalidCell(null);
+                          return;
+                        }
+                        if (event.key !== 'Enter') return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (toDraft?.index === index) {
+                          commitToAndAdvance(index, toDraft.value);
+                        }
+                      }}
+                      className={`${fieldClass} ${cellErr('to')}`}
+                      inputMode="numeric"
+                      title={absoluteToArmed ? 'Absolute To (5 digits)' : 'Enter difference from From'}
+                      aria-label={`Row ${index + 1} to ticket`}
+                    />
+                  </td>
+                  <td
+                    className={
+                      dense
+                        ? 'border-r border-[color:var(--sales-border)] px-2 py-1 text-right font-mono font-bold tabular-nums'
+                        : 'px-2 py-2 text-right font-mono tabular-nums'
+                    }
+                  >
+                    {qty || '—'}
+                  </td>
+                  <td
+                    className={
+                      dense
+                        ? 'border-r border-[color:var(--sales-border)] px-1.5 py-1'
+                        : 'px-2 py-2'
+                    }
+                  >
+                    <input
+                      ref={(el) => {
+                        inputRefs.current[index * FOCUS_COLS + COL.rate] = el;
+                      }}
+                      value={row.rate}
+                      onChange={(event) =>
+                        updateRow(index, {
+                          rate: event.target.value.replace(/[^\d.]/g, ''),
+                        })
+                      }
+                      onFocus={() => setActiveRow(index)}
+                      readOnly={!canEditRate}
+                      tabIndex={canEditRate ? 0 : -1}
+                      onKeyDown={(event) => {
+                        handleCellArrow(index, COL.rate, event);
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void tryAdvanceFromRate(index);
+                        }
+                      }}
+                      className={`${canEditRate ? fieldClass : lockedClass} ${cellErr('rate')}`}
+                      inputMode="decimal"
+                      aria-label={`Row ${index + 1} rate`}
+                    />
+                  </td>
+                  <td
+                    className={
+                      dense
+                        ? 'px-2 py-1 text-right font-mono font-bold tabular-nums'
+                        : 'px-2 py-2 text-right font-mono tabular-nums'
+                    }
+                  >
+                    {amount > 0 ? amount.toFixed(2) : '—'}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr
+              className={
+                dense
+                  ? 'border-t-2 border-[color:var(--sales-border)] bg-[color:var(--sales-totals)] font-bold text-white'
+                  : 'border-t border-line bg-surface-high font-medium'
+              }
+            >
+              <td colSpan={9} className="px-2 py-2 text-right text-xs uppercase tracking-wide">
+                Totals
+              </td>
+              <td className="px-2 py-2 text-right font-mono tabular-nums text-[#ffe16a]">
+                {totalQty}
+              </td>
+              <td className="px-2 py-2" />
+              <td className="px-2 py-2 text-right font-mono tabular-nums text-[#ffe16a]">
+                {totalAmount > 0 ? totalAmount.toFixed(2) : '—'}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
-      {!blueSpreadsheet ? (
+      {!dense ? (
         <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.05em] text-content-subtle">
-          Enter on Amount adds a new row · F5 deletes the current row
+          Enter on Rate adds a new row · Ctrl+Delete removes the active row
         </p>
       ) : null}
     </div>

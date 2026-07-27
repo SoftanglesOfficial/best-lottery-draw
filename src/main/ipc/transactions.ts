@@ -1,11 +1,15 @@
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
-import { buyers, companies, draws, providers, transactions, users } from '../schema';
+import { buyers, companies, draws, items, providers, transactions, users } from '../schema';
 import { formatDbError } from './ipcUtils';
-import { validateDrawOpen } from './drawValidation';
+import { getDrawById, validateDrawOpen } from './drawValidation';
 import { assertCompanyAccess, type SessionContext } from './sessionContext';
 import { requireActiveShiftForCompany } from './shifts';
 import { countFromTicketData, extractTicketNumbers, parseTicketData } from '../../shared/ticketData';
+import {
+  validateSaleTicketSnapshot,
+} from '../../shared/ticketMath';
+import { toLocalDateString } from '../../shared/localDate';
 import type {
   BuyerSaleSummary,
   ProviderPurchaseSummary,
@@ -17,6 +21,16 @@ import type {
 } from '../../shared/types';
 
 export { validateDrawOpen } from './drawValidation';
+
+/** Re-validate sale/return range payload — do not trust the renderer. */
+export function assertSaleTicketDataIntegrity(
+  ticketData: string | null | undefined,
+  itemById: Map<number, { code: string | null; prefix: string | null; defaultSeries: string | null }>,
+) {
+  const { ranges } = parseTicketData(ticketData);
+  const error = validateSaleTicketSnapshot(ranges, itemById);
+  if (error) throw new Error(error);
+}
 
 async function fetchTransactionRecord(id: number): Promise<TransactionRecord | null> {
   const db = getDb();
@@ -72,7 +86,7 @@ async function resolveDrawId(data: TransactionInput): Promise<number> {
     throw new Error('Draw or item is required.');
   }
 
-  const entryDate = data.entryDate ?? data.enteredAt ?? new Date().toISOString().slice(0, 10);
+  const entryDate = data.entryDate ?? data.enteredAt ?? toLocalDateString();
   const dayStart = new Date(entryDate);
   dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(entryDate);
@@ -224,6 +238,39 @@ async function validateTransactionCreate(
     if (data.buyerId == null) {
       throw new Error('Buyer is required for sale/booking entries.');
     }
+  }
+
+  if (data.type === 'sale' || data.type === 'sale_return') {
+    const itemIds = [
+      ...new Set(
+        parseTicketData(data.ticketData)
+          .ranges.map((range) => range.itemId)
+          .filter((id): id is number => id != null),
+      ),
+    ];
+    const itemById = new Map<
+      number,
+      { code: string | null; prefix: string | null; defaultSeries: string | null }
+    >();
+    if (itemIds.length > 0) {
+      const rows = await db
+        .select({
+          id: items.id,
+          code: items.code,
+          prefix: items.prefix,
+          defaultSeries: items.defaultSeries,
+        })
+        .from(items)
+        .where(inArray(items.id, itemIds));
+      for (const row of rows) {
+        itemById.set(row.id, {
+          code: row.code,
+          prefix: row.prefix,
+          defaultSeries: row.defaultSeries,
+        });
+      }
+    }
+    assertSaleTicketDataIntegrity(data.ticketData, itemById);
   }
 
   const ticketCount =
@@ -563,12 +610,20 @@ export async function deleteTransaction(id: number, ctx: SessionContext) {
   }
 }
 
-export async function validateTicketsSold(drawId: number, ticketNumbers: string[]) {
+export async function validateTicketsSold(
+  ctx: SessionContext,
+  drawId: number,
+  ticketNumbers: string[],
+) {
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
   }
   try {
+    const draw = await getDrawById(drawId);
+    if (!draw) return { success: false as const, error: 'Draw not found' };
+    const denied = assertCompanyAccess(ctx, draw.companyId);
+    if (denied) return { success: false as const, error: denied.error };
     const sold = await getSoldTicketNumbers(drawId);
     const valid: string[] = [];
     const invalid: string[] = [];
@@ -587,13 +642,21 @@ export async function validateTicketsSold(drawId: number, ticketNumbers: string[
   }
 }
 
-export async function getBuyerSaleSummary(buyerId: number, drawId: number) {
+export async function getBuyerSaleSummary(ctx: SessionContext, buyerId: number, drawId: number) {
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
   }
   try {
     const db = getDb();
+    const [buyer] = await db.select().from(buyers).where(eq(buyers.id, buyerId)).limit(1);
+    if (!buyer) return { success: false as const, error: 'Buyer not found' };
+    const deniedBuyer = assertCompanyAccess(ctx, buyer.companyId);
+    if (deniedBuyer) return { success: false as const, error: deniedBuyer.error };
+    const draw = await getDrawById(drawId);
+    if (!draw) return { success: false as const, error: 'Draw not found' };
+    const deniedDraw = assertCompanyAccess(ctx, draw.companyId);
+    if (deniedDraw) return { success: false as const, error: deniedDraw.error };
 
     const [salesRow] = await db
       .select({
@@ -637,12 +700,26 @@ export async function getBuyerSaleSummary(buyerId: number, drawId: number) {
   }
 }
 
-export async function getProviderPurchaseSummary(providerId: number, drawId: number) {
+export async function getProviderPurchaseSummary(
+  ctx: SessionContext,
+  providerId: number,
+  drawId: number,
+) {
   const connection = await ensureConnected();
   if (!connection.success) {
     return { success: false as const, error: connection.error ?? 'Database is not connected' };
   }
   try {
+    const db = getDb();
+    const [provider] = await db.select().from(providers).where(eq(providers.id, providerId)).limit(1);
+    if (!provider) return { success: false as const, error: 'Provider not found' };
+    const deniedProvider = assertCompanyAccess(ctx, provider.companyId);
+    if (deniedProvider) return { success: false as const, error: deniedProvider.error };
+    const draw = await getDrawById(drawId);
+    if (!draw) return { success: false as const, error: 'Draw not found' };
+    const deniedDraw = assertCompanyAccess(ctx, draw.companyId);
+    if (deniedDraw) return { success: false as const, error: deniedDraw.error };
+
     const totalPurchased = await sumTicketCounts(drawId, {
       providerId,
       types: ['purchase'],

@@ -20,6 +20,17 @@ export function isAtLeastRole(role: UserRole, minimum: UserRole): boolean {
   return ROLE_RANK[role] >= ROLE_RANK[minimum];
 }
 
+/** Reject assigning a role above the caller's rank (owners cannot create admins). */
+export function assertAssignableRole(
+  actorRole: UserRole,
+  targetRole: UserRole,
+): { success: false; error: string } | null {
+  if (ROLE_RANK[targetRole] > ROLE_RANK[actorRole]) {
+    return { success: false, error: 'Cannot assign a role above your own.' };
+  }
+  return null;
+}
+
 export function canAccessCompany(ctx: SessionContext, companyId: number): boolean {
   return ctx.role === 'admin' || ctx.activeCompanyId === companyId;
 }

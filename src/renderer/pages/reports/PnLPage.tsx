@@ -8,6 +8,7 @@ import { printReport } from '../../lib/exportPdf';
 import { canViewPnL } from '../../lib/roles';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useAuth } from '../../lib/auth';
+import { toLocalDateString } from '../../../shared/localDate';
 import type { PnLReport } from '../../../shared/types';
 
 function formatCurrency(value: number) {
@@ -21,7 +22,7 @@ function formatDate(value: Date | string | null | undefined) {
 }
 
 function toDateInputValue(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return toLocalDateString(date);
 }
 
 function marginPercent(profit: number, sales: number) {

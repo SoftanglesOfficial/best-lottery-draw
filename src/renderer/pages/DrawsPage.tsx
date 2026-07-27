@@ -13,6 +13,7 @@ import { useRoleGuard } from '../lib/useRoleGuard';
 import { isAdminOrOwner, isAtLeastRole } from '../lib/roles';
 import { api } from '../lib/api';
 import { isDrawClosingWithin } from '../lib/drawCloseTime';
+import { toLocalDateString } from '../../shared/localDate';
 import type { AuditLogRecord, DrawInput, DrawRecord, ItemRecord } from '../../shared/types';
 
 function formatDate(value: Date | string | null | undefined) {
@@ -24,9 +25,7 @@ function formatDate(value: Date | string | null | undefined) {
 
 function formatDateInput(value: Date | string | null | undefined) {
   if (!value) return '';
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toISOString().slice(0, 10);
+  return toLocalDateString(value);
 }
 
 function formatAuditTimestamp(value: Date | string | null | undefined) {
@@ -42,7 +41,7 @@ function emptyForm(companyId: number, itemId: number): DrawInput {
     name: '',
     companyId,
     itemId,
-    drawDate: new Date().toISOString().slice(0, 10),
+    drawDate: toLocalDateString(),
     closeTime: '',
   };
 }

@@ -12,7 +12,6 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const MAIN_RUNTIME_ROOT_DEPS = [
   'drizzle-orm',
-  'electron-log',
   'electron-squirrel-startup',
   'pg',
   'update-electron-app',

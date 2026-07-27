@@ -77,6 +77,7 @@ export async function changeProviderRate(
 }
 
 export async function changeCommission(
+  ctx: SessionContext,
   partyType: 'buyer' | 'provider',
   partyId: number,
   newRate: number,
@@ -92,6 +93,10 @@ export async function changeCommission(
   try {
     const db = getDb();
     if (partyType === 'buyer') {
+      const [buyer] = await db.select().from(buyers).where(eq(buyers.id, partyId)).limit(1);
+      if (!buyer) return { success: false, error: 'Buyer not found' };
+      const denied = assertCompanyAccess(ctx, buyer.companyId);
+      if (denied) return { success: false, error: 'Buyer not found' };
       const [updated] = await db
         .update(buyers)
         .set({ commission: String(newRate), updatedAt: new Date() })
@@ -104,6 +109,10 @@ export async function changeCommission(
       });
       return { success: true, party: updated as BuyerRecord };
     }
+    const [provider] = await db.select().from(providers).where(eq(providers.id, partyId)).limit(1);
+    if (!provider) return { success: false, error: 'Provider not found' };
+    const denied = assertCompanyAccess(ctx, provider.companyId);
+    if (denied) return { success: false, error: 'Provider not found' };
     const [updated] = await db
       .update(providers)
       .set({ commission: String(newRate), updatedAt: new Date() })

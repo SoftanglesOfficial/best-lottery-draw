@@ -42,7 +42,7 @@ export async function updateBuyerGroup(id: number, data: BuyerGroupInput, compan
     const db = getDb();
     const [updated] = await db
       .update(buyerGroups)
-      .set(data)
+      .set({ name: data.name })
       .where(and(eq(buyerGroups.id, id), eq(buyerGroups.companyId, scoped.companyId)))
       .returning();
     if (!updated) return { success: false as const, error: 'Buyer group not found' };
