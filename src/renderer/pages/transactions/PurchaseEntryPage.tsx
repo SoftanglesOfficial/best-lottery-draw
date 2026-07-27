@@ -345,6 +345,10 @@ export default function PurchaseEntryPage({
         event.preventDefault();
         toggleFieldUnlock();
       }
+      if ((event.key === 'a' || event.key === 'A') && event.ctrlKey && canManageUnlock) {
+        event.preventDefault();
+        armAbsoluteTo();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -357,6 +361,7 @@ export default function PurchaseEntryPage({
     saving,
     canManageUnlock,
     toggleFieldUnlock,
+    armAbsoluteTo,
   ]);
 
   useEffect(() => {
@@ -444,11 +449,11 @@ export default function PurchaseEntryPage({
     const unlockActions = canManageUnlock
       ? [
           {
-            label: fieldsUnlocked ? 'Lock Fields' : 'Unlock Fields',
+            label: fieldsUnlocked ? 'Lock Fields' : 'Unlock Fields (Ctrl+U)',
             onClick: toggleFieldUnlock,
           },
           {
-            label: absoluteToArmed ? 'Absolute To Armed' : 'Arm Absolute To',
+            label: absoluteToArmed ? 'Absolute To Armed' : 'Arm Absolute To (Ctrl+A)',
             onClick: armAbsoluteTo,
           },
         ]
