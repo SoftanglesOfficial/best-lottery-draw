@@ -124,6 +124,14 @@ export function resolveTo(
   return { ok: true, to: String(toNum).padStart(5, '0') };
 }
 
+/** Save/filter: sticky item-only pad rows are not completable. */
+export function isCompletableSaleRangeRow(row: {
+  from?: string | null;
+  to?: string | null;
+}): boolean {
+  return String(row.from ?? '').trim() !== '' && String(row.to ?? '').trim() !== '';
+}
+
 export function validateRange(row: SaleRangeFields): string | null {
   if (row.itemId == null) {
     return 'Select a lottery type.';

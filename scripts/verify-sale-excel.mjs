@@ -13,7 +13,7 @@ const compiled = ts.transpileModule(source, {
 const module = { exports: {} };
 new Function('exports', 'module', compiled)(module.exports, module);
 
-const { findDuplicatePrefixCodeIndex } = module.exports;
+const { findDuplicatePrefixCodeIndex, isCompletableSaleRangeRow } = module.exports;
 
 const rows = [
   { code: 'M10', prefix: 'AB' },
@@ -42,5 +42,32 @@ assert.equal(
 const sticky = { code: 'M10', prefix: '', series: '', from: '', to: '', rate: '' };
 const next = { ...sticky, code: sticky.code };
 assert.equal(next.code, 'M10');
+
+assert.equal(
+  typeof isCompletableSaleRangeRow,
+  'function',
+  'isCompletableSaleRangeRow exported',
+);
+
+assert.equal(
+  isCompletableSaleRangeRow({ from: '', to: '', itemId: 1, code: 'M10' }),
+  false,
+  'sticky itemId alone not completable',
+);
+assert.equal(
+  isCompletableSaleRangeRow({ from: '12345', to: '', itemId: 1 }),
+  false,
+  'from-only not completable',
+);
+assert.equal(
+  isCompletableSaleRangeRow({ from: '12345', to: '12350', itemId: null }),
+  true,
+  'span completable even if itemId null (validateRange still fails item later)',
+);
+assert.equal(
+  isCompletableSaleRangeRow({ from: ' 12345 ', to: ' 12350 ' }),
+  true,
+  'trim whitespace',
+);
 
 console.log('verify-sale-excel: ok');
