@@ -168,6 +168,13 @@ const createWindow = () => {
 
   registerWindowHandlers(mainWindow);
 
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+    if (input.key === 'F2' || input.key === 'F5' || input.key === 'F7' || input.key === 'F8') {
+      event.preventDefault();
+    }
+  });
+
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event, url) => {
     const allowed =
