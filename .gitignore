@@ -105,3 +105,6 @@ config.json
 db-config.json
 credentials.json
 *.pem
+
+# Git worktrees (local isolation)
+.worktrees/
