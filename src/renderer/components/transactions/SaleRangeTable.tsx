@@ -435,7 +435,8 @@ export default function SaleRangeTable({
   }, [focusItemRequest]);
 
   useEffect(() => {
-    if (focusFromRequest > 0) focusCell(0, COL.from);
+    // ponytail: row0 empty → Code (Code→Enter→From); else From
+    if (focusFromRequest > 0) focusCell(0, rows[0]?.itemId == null ? COL.code : COL.from);
   }, [focusFromRequest]);
 
   useEffect(() => () => clearToSettleTimer(), []);

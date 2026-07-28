@@ -137,6 +137,8 @@ export default function SaleEntryPage({
       if (buyersResult.success) {
         setBuyers(buyersResult.buyers);
         setBuyerId((current) => current ?? buyersResult.buyers[0]?.id ?? null);
+        // ponytail: mount focus raced empty party; reselect after name fills
+        if (useLegacyShell) setPartyFocusRequest((n) => n + 1);
       }
       if (itemsResult.success) {
         setItems(itemsResult.items);
@@ -145,7 +147,7 @@ export default function SaleEntryPage({
     } catch {
       showToast('Failed to load form data.', 'error');
     }
-  }, [companyId, refreshMemo, showToast]);
+  }, [companyId, refreshMemo, showToast, useLegacyShell]);
 
   const refreshBuyerSummary = useCallback(async () => {
     if (type !== 'sale_return' || drawId == null || buyerId == null) {
@@ -496,7 +498,6 @@ export default function SaleEntryPage({
         onDrawIdChange={setDrawId}
         draws={openDraws}
         partyFocusRequest={partyFocusRequest}
-        drawFocusRequest={0}
         partyListOpenRef={partyListOpenRef}
         onRequestCreateParty={onRequestCreateParty}
         alerts={
