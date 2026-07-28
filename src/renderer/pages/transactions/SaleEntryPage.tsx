@@ -167,6 +167,11 @@ export default function SaleEntryPage({
     return () => window.clearInterval(timer);
   }, [useLegacyShell]);
 
+  useEffect(() => {
+    if (!useLegacyShell) return;
+    setPartyFocusRequest((n) => n + 1);
+  }, [useLegacyShell]);
+
   const deleteActiveRow = useCallback(() => {
     const row = rows[activeRowIndex];
     const doDelete = () => {
