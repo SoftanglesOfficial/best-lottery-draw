@@ -91,8 +91,8 @@ export default function SaleEntryPage({
   const [fieldsUnlocked, setFieldsUnlocked] = useState(false);
   const [absoluteToArmed, setAbsoluteToArmed] = useState(false);
   const [partyFocusRequest, setPartyFocusRequest] = useState(0);
-  const [drawFocusRequest, setDrawFocusRequest] = useState(0);
   const [focusItemRequest, setFocusItemRequest] = useState(0);
+  const [focusFromRequest, setFocusFromRequest] = useState(0);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const partyListOpenRef = useRef(false);
@@ -253,7 +253,7 @@ export default function SaleEntryPage({
       const listResult = await api.buyersList(companyId);
       if (listResult.success) setBuyers(listResult.buyers);
       setBuyerId(createResult.buyer.id);
-      setDrawFocusRequest((n) => n + 1);
+      setFocusFromRequest((n) => n + 1);
     }
   }, [activeRowIndex, companyId, confirm, defaultRate, rows, showToast]);
 
@@ -488,12 +488,15 @@ export default function SaleEntryPage({
           detail: b.type === 'stockist' ? 'Stocker' : 'Seller',
         }))}
         partyId={buyerId}
-        onPartyIdChange={setBuyerId}
+        onPartyIdChange={(id) => {
+          setBuyerId(id);
+          if (id != null) setFocusFromRequest((n) => n + 1);
+        }}
         drawId={drawId}
         onDrawIdChange={setDrawId}
         draws={openDraws}
         partyFocusRequest={partyFocusRequest}
-        drawFocusRequest={drawFocusRequest}
+        drawFocusRequest={0}
         partyListOpenRef={partyListOpenRef}
         onRequestCreateParty={onRequestCreateParty}
         alerts={
@@ -565,6 +568,7 @@ export default function SaleEntryPage({
           onAbsoluteToConsumed={() => setAbsoluteToArmed(false)}
           onRowError={(message) => showToast(message, 'error')}
           focusItemRequest={focusItemRequest}
+          focusFromRequest={focusFromRequest}
           onBeforeAddRow={onBeforeAddRow}
         />
       </LegacyTransactionShell>
