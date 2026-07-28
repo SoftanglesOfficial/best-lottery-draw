@@ -91,8 +91,8 @@ export default function SaleEntryPage({
   const [fieldsUnlocked, setFieldsUnlocked] = useState(false);
   const [absoluteToArmed, setAbsoluteToArmed] = useState(false);
   const [partyFocusRequest, setPartyFocusRequest] = useState(0);
-  const [drawFocusRequest, setDrawFocusRequest] = useState(0);
   const [focusItemRequest, setFocusItemRequest] = useState(0);
+  const [focusFromRequest, setFocusFromRequest] = useState(0);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const partyListOpenRef = useRef(false);
@@ -137,6 +137,8 @@ export default function SaleEntryPage({
       if (buyersResult.success) {
         setBuyers(buyersResult.buyers);
         setBuyerId((current) => current ?? buyersResult.buyers[0]?.id ?? null);
+        // ponytail: mount focus raced empty party; reselect after name fills
+        if (useLegacyShell) setPartyFocusRequest((n) => n + 1);
       }
       if (itemsResult.success) {
         setItems(itemsResult.items);
@@ -145,7 +147,7 @@ export default function SaleEntryPage({
     } catch {
       showToast('Failed to load form data.', 'error');
     }
-  }, [companyId, refreshMemo, showToast]);
+  }, [companyId, refreshMemo, showToast, useLegacyShell]);
 
   const refreshBuyerSummary = useCallback(async () => {
     if (type !== 'sale_return' || drawId == null || buyerId == null) {
@@ -165,6 +167,11 @@ export default function SaleEntryPage({
     if (!useLegacyShell) return;
     const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
+  }, [useLegacyShell]);
+
+  useEffect(() => {
+    if (!useLegacyShell) return;
+    setPartyFocusRequest((n) => n + 1);
   }, [useLegacyShell]);
 
   const deleteActiveRow = useCallback(() => {
@@ -248,7 +255,7 @@ export default function SaleEntryPage({
       const listResult = await api.buyersList(companyId);
       if (listResult.success) setBuyers(listResult.buyers);
       setBuyerId(createResult.buyer.id);
-      setDrawFocusRequest((n) => n + 1);
+      setFocusFromRequest((n) => n + 1);
     }
   }, [activeRowIndex, companyId, confirm, defaultRate, rows, showToast]);
 
@@ -483,12 +490,14 @@ export default function SaleEntryPage({
           detail: b.type === 'stockist' ? 'Stocker' : 'Seller',
         }))}
         partyId={buyerId}
-        onPartyIdChange={setBuyerId}
+        onPartyIdChange={(id) => {
+          setBuyerId(id);
+          if (id != null) setFocusFromRequest((n) => n + 1);
+        }}
         drawId={drawId}
         onDrawIdChange={setDrawId}
         draws={openDraws}
         partyFocusRequest={partyFocusRequest}
-        drawFocusRequest={drawFocusRequest}
         partyListOpenRef={partyListOpenRef}
         onRequestCreateParty={onRequestCreateParty}
         alerts={
@@ -560,6 +569,7 @@ export default function SaleEntryPage({
           onAbsoluteToConsumed={() => setAbsoluteToArmed(false)}
           onRowError={(message) => showToast(message, 'error')}
           focusItemRequest={focusItemRequest}
+          focusFromRequest={focusFromRequest}
           onBeforeAddRow={onBeforeAddRow}
         />
       </LegacyTransactionShell>

@@ -35,6 +35,7 @@ type SaleRangeTableProps = {
   onAbsoluteToConsumed?: () => void;
   onRowError?: (message: string) => void;
   focusItemRequest?: number;
+  focusFromRequest?: number;
   /** Return false to abort new-row advance (e.g. dup cancel). */
   onBeforeAddRow?: (index: number) => boolean | Promise<boolean>;
 };
@@ -158,6 +159,7 @@ export default function SaleRangeTable({
   onAbsoluteToConsumed,
   onRowError,
   focusItemRequest = 0,
+  focusFromRequest = 0,
   onBeforeAddRow,
 }: SaleRangeTableProps) {
   const inputRefs = useRef<Array<HTMLInputElement | HTMLSelectElement | null>>([]);
@@ -431,6 +433,11 @@ export default function SaleRangeTable({
   useEffect(() => {
     if (focusItemRequest > 0) focusCell(0, COL.item);
   }, [focusItemRequest]);
+
+  useEffect(() => {
+    // ponytail: row0 empty → Code (Code→Enter→From); else From
+    if (focusFromRequest > 0) focusCell(0, rows[0]?.itemId == null ? COL.code : COL.from);
+  }, [focusFromRequest]);
 
   useEffect(() => () => clearToSettleTimer(), []);
 
