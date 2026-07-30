@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { Download } from 'lucide-react';
 import Badge, { statusBadgeColor } from '../../components/Badge';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { FullPageLoading } from '../../components/LoadingSpinner';
@@ -9,6 +10,7 @@ import { Button, Input, PageHeader } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
+import { downloadCsv } from '../../lib/exportCsv';
 import type { EntityStatus, ProviderGroupRecord, ProviderInput, ProviderRecord } from '../../../shared/types';
 
 function emptyForm(companyId: number, groupId: number): ProviderInput {
@@ -147,6 +149,23 @@ export default function ProvidersPage() {
     }
   };
 
+  const handleExportCsv = () => {
+    downloadCsv(
+      'providers.csv',
+      ['ID', 'Name', 'Group', 'Purchase Rate', 'Commission', 'Status', 'Phone', 'Address'],
+      providers.map((row) => [
+        String(row.id),
+        row.name,
+        row.groupName ?? '',
+        row.purchaseRate ?? '',
+        row.commission ?? '',
+        row.status ?? '',
+        row.phone ?? '',
+        row.address ?? '',
+      ]),
+    );
+  };
+
   const handleToggleStatus = async (provider: ProviderRecord) => {
     const nextStatus: EntityStatus = provider.status === 'active' ? 'locked' : 'active';
     try {
@@ -231,9 +250,21 @@ export default function ProvidersPage() {
         title="Providers"
         subtitle="Manage provider records and purchase terms."
         actions={
-          <Button type="button" onClick={openCreate}>
-            New Provider
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="flex items-center gap-2"
+              onClick={handleExportCsv}
+              disabled={loading}
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button type="button" onClick={openCreate}>
+              New Provider
+            </Button>
+          </div>
         }
       />
 

@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { Download } from 'lucide-react';
 import Badge, { statusBadgeColor } from '../../components/Badge';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { FullPageLoading } from '../../components/LoadingSpinner';
@@ -9,6 +10,7 @@ import { Button, Input, PageHeader } from '../../components/ui';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
 import { api } from '../../lib/api';
+import { downloadCsv } from '../../lib/exportCsv';
 import type { BuyerGroupRecord, BuyerInput, BuyerRecord, BuyerType, EntityStatus } from '../../../shared/types';
 
 function emptyForm(companyId: number, groupId: number): BuyerInput {
@@ -161,6 +163,24 @@ export default function BuyersPage() {
     }
   };
 
+  const handleExportCsv = () => {
+    downloadCsv(
+      'buyers.csv',
+      ['ID', 'Name', 'Type', 'Group', 'Sale Rate', 'Commission', 'Status', 'Phone', 'Address'],
+      buyers.map((row) => [
+        String(row.id),
+        row.name,
+        row.type,
+        row.groupName ?? '',
+        row.saleRate ?? '',
+        row.commission ?? '',
+        row.status ?? '',
+        row.phone ?? '',
+        row.address ?? '',
+      ]),
+    );
+  };
+
   const handleToggleStatus = async (buyer: BuyerRecord) => {
     const nextStatus: EntityStatus = buyer.status === 'active' ? 'locked' : 'active';
     try {
@@ -251,9 +271,21 @@ export default function BuyersPage() {
         title="Buyers"
         subtitle="Manage buyer records and sales terms."
         actions={
-          <Button type="button" onClick={openCreate}>
-            New Buyer
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="flex items-center gap-2"
+              onClick={handleExportCsv}
+              disabled={loading}
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button type="button" onClick={openCreate}>
+              New Buyer
+            </Button>
+          </div>
         }
       />
 
