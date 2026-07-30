@@ -114,6 +114,26 @@ async function resolveDrawId(data: TransactionInput): Promise<number> {
   return draw.id;
 }
 
+async function resolveTransactionEntryDate(
+  data: TransactionInput,
+  drawId: number,
+  db = getDb(),
+): Promise<Date> {
+  const [draw] = await db
+    .select({ drawDate: draws.drawDate })
+    .from(draws)
+    .where(eq(draws.id, drawId))
+    .limit(1);
+  if (!draw) throw new Error('Draw not found.');
+
+  const drawDate = toLocalDateString(draw.drawDate);
+  const entryDate = data.entryDate ?? data.enteredAt;
+  if (entryDate != null && toLocalDateString(entryDate) !== drawDate) {
+    throw new Error('Entry date must match draw date.');
+  }
+  return new Date(`${drawDate}T00:00:00`);
+}
+
 async function assertCompanyCanTransact(companyId: number): Promise<void> {
   const db = getDb();
   const [company] = await db
@@ -468,6 +488,7 @@ export async function createTransaction(data: TransactionInput, ctx: SessionCont
 
     const created = await db.transaction(async (tx) => {
       await tx.execute(sql`SELECT id FROM draws WHERE id = ${drawId} FOR UPDATE`);
+      const enteredAt = await resolveTransactionEntryDate(data, drawId, tx);
       await validateTransactionCreate(data, drawId, undefined, tx);
 
       await tx.execute(sql`SELECT pg_advisory_xact_lock(${data.companyId})`);
@@ -495,7 +516,7 @@ export async function createTransaction(data: TransactionInput, ctx: SessionCont
           ticketCount,
           ticketData: data.ticketData ?? null,
           voucherNo: data.voucherNo ?? null,
-          enteredAt: data.enteredAt ? new Date(data.enteredAt) : new Date(),
+          enteredAt,
         })
         .returning();
 
@@ -546,6 +567,7 @@ export async function updateTransaction(
 
     const [updated] = await db.transaction(async (tx) => {
       await tx.execute(sql`SELECT id FROM draws WHERE id = ${drawId} FOR UPDATE`);
+      const enteredAt = await resolveTransactionEntryDate(data, drawId, tx);
       await validateDrawOpen(drawId);
       await validateTransactionCreate({ ...data, drawId }, drawId, id, tx);
 
@@ -561,7 +583,7 @@ export async function updateTransaction(
           ticketCount,
           ticketData: data.ticketData ?? existing.ticketData,
           voucherNo: data.voucherNo ?? existing.voucherNo,
-          enteredAt: data.enteredAt ? new Date(data.enteredAt) : existing.enteredAt,
+          enteredAt,
           updatedAt: new Date(),
         })
         .where(eq(transactions.id, id))
