@@ -1,5 +1,10 @@
 /** Calendar YYYY-MM-DD in the runtime's local timezone (not UTC). */
 export function toLocalDateString(value: Date | string = new Date()): string {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    // ponytail: date-only UI strings — skip UTC Date parse (shifts day in UTC-)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  }
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   const y = date.getFullYear();

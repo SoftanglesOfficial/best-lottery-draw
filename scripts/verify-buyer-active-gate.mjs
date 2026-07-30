@@ -10,13 +10,23 @@ assert.match(
 );
 assert.match(
   txSource,
-  /async function assertBuyerCanTransact[\s\S]*?\.select\(\{ status: buyers\.status \}\)/,
-  'assertBuyerCanTransact must load buyers.status',
+  /async function assertBuyerCanTransact\(buyerId: number, companyId: number/,
+  'assertBuyerCanTransact must take companyId for company scoping',
+);
+assert.match(
+  txSource,
+  /async function assertBuyerCanTransact[\s\S]*?\.select\(\{ status: buyers\.status, companyId: buyers\.companyId \}\)/,
+  'assertBuyerCanTransact must load buyers.status and companyId',
 );
 assert.match(
   txSource,
   /async function assertBuyerCanTransact[\s\S]*?Buyer not found\./,
   'assertBuyerCanTransact must throw when buyer is missing',
+);
+assert.match(
+  txSource,
+  /async function assertBuyerCanTransact[\s\S]*?companyId !== companyId[\s\S]*?Buyer does not belong to this company\./,
+  'assertBuyerCanTransact must reject cross-company buyers',
 );
 assert.match(
   txSource,
@@ -26,7 +36,7 @@ assert.match(
 
 assert.match(
   txSource,
-  /async function validateTransactionCreate[\s\S]*?data\.type === 'sale' \|\| data\.type === 'sale_return' \|\| data\.type === 'booking'[\s\S]*?assertBuyerCanTransact\(data\.buyerId,\s*db\)/,
+  /async function validateTransactionCreate[\s\S]*?data\.type === 'sale' \|\| data\.type === 'sale_return' \|\| data\.type === 'booking'[\s\S]*?assertBuyerCanTransact\(data\.buyerId,\s*data\.companyId,\s*db\)/,
   'validateTransactionCreate must call assertBuyerCanTransact for sale/sale_return/booking',
 );
 

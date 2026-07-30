@@ -146,13 +146,16 @@ async function assertCompanyCanTransact(companyId: number): Promise<void> {
   if (company.status !== 'active') throw new Error('Company is not active.');
 }
 
-async function assertBuyerCanTransact(buyerId: number, db = getDb()): Promise<void> {
+async function assertBuyerCanTransact(buyerId: number, companyId: number, db = getDb()): Promise<void> {
   const [buyer] = await db
-    .select({ status: buyers.status })
+    .select({ status: buyers.status, companyId: buyers.companyId })
     .from(buyers)
     .where(eq(buyers.id, buyerId))
     .limit(1);
   if (!buyer) throw new Error('Buyer not found.');
+  if (buyer.companyId !== companyId) {
+    throw new Error('Buyer does not belong to this company.');
+  }
   if (buyer.status !== 'active') throw new Error('Buyer is not active.');
 }
 
@@ -268,7 +271,7 @@ async function validateTransactionCreate(
     if (data.buyerId == null) {
       throw new Error('Buyer is required for sale/booking entries.');
     }
-    await assertBuyerCanTransact(data.buyerId, db);
+    await assertBuyerCanTransact(data.buyerId, data.companyId, db);
   }
 
   if (data.type === 'sale' || data.type === 'sale_return') {

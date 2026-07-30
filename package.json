@@ -13,7 +13,7 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
-    "test": "node scripts/verify-schema-sync.mjs && node scripts/verify-phase1-session.mjs && node scripts/verify-ticket-math.mjs && node scripts/verify-sale-excel.mjs && node scripts/verify-winner-match.mjs && node scripts/verify-auth-gates.mjs && node scripts/verify-company-isolation.mjs && node scripts/verify-role-ceiling.mjs && node scripts/verify-buyer-active-gate.mjs && node scripts/verify-entry-date-draw-date.mjs",
+    "test": "node scripts/verify-schema-sync.mjs && node scripts/verify-phase1-session.mjs && node scripts/verify-ticket-math.mjs && node scripts/verify-sale-excel.mjs && node scripts/verify-winner-match.mjs && node scripts/verify-auth-gates.mjs && node scripts/verify-company-isolation.mjs && node scripts/verify-role-ceiling.mjs && node scripts/verify-buyer-active-gate.mjs && node scripts/verify-entry-date-draw-date.mjs && node scripts/verify-local-date.mjs",
     "typecheck": "tsc --noEmit",
     "test:phase1-session": "node scripts/verify-phase1-session.mjs",
     "test:e2e:install": "playwright install chromium",
