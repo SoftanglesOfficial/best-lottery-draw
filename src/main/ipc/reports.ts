@@ -27,29 +27,24 @@ import type {
   ReportsDashboardData,
   ReportsSummary,
 } from '../../shared/types';
+import { endOfLocalDay, startOfLocalDay, toLocalDateString } from '../../shared/localDate';
 
 function toNumber(value: string | number | null | undefined): number {
   if (value == null) return 0;
   return Number(value) || 0;
 }
 
-function endOfDay(dateStr: string) {
-  const date = new Date(dateStr);
-  date.setHours(23, 59, 59, 999);
-  return date;
-}
-
 function txnDateFilter(dateFrom?: string, dateTo?: string) {
   const parts = [];
-  if (dateFrom) parts.push(gte(transactions.enteredAt, new Date(dateFrom)));
-  if (dateTo) parts.push(lte(transactions.enteredAt, endOfDay(dateTo)));
+  if (dateFrom) parts.push(gte(transactions.enteredAt, startOfLocalDay(dateFrom)));
+  if (dateTo) parts.push(lte(transactions.enteredAt, endOfLocalDay(dateTo)));
   return parts.length ? and(...parts) : undefined;
 }
 
 function pwtDateFilter(dateFrom?: string, dateTo?: string) {
   const parts = [];
-  if (dateFrom) parts.push(gte(winningTickets.createdAt, new Date(dateFrom)));
-  if (dateTo) parts.push(lte(winningTickets.createdAt, endOfDay(dateTo)));
+  if (dateFrom) parts.push(gte(winningTickets.createdAt, startOfLocalDay(dateFrom)));
+  if (dateTo) parts.push(lte(winningTickets.createdAt, endOfLocalDay(dateTo)));
   return parts.length ? and(...parts) : undefined;
 }
 
@@ -430,8 +425,8 @@ export async function getReportsSummary(
 
   try {
     const db = getDb();
-    const from = new Date(dateFrom);
-    const to = endOfDay(dateTo);
+    const from = startOfLocalDay(dateFrom);
+    const to = endOfLocalDay(dateTo);
 
     const [txnSummary] = await db
       .select({
@@ -521,8 +516,7 @@ export async function getReportsDashboard(
 
   try {
     const db = getDb();
-    const end = new Date(dateTo);
-    end.setHours(23, 59, 59, 999);
+    const end = endOfLocalDay(dateTo);
     const start = new Date(end);
     start.setDate(start.getDate() - 6);
     start.setHours(0, 0, 0, 0);
@@ -549,7 +543,7 @@ export async function getReportsDashboard(
     for (let i = 0; i < 7; i += 1) {
       const day = new Date(start);
       day.setDate(start.getDate() + i);
-      const key = day.toISOString().slice(0, 10);
+      const key = toLocalDateString(day);
       const row = chartMap.get(key);
       chartData.push({
         date: `${String(day.getDate()).padStart(2, '0')}/${String(day.getMonth() + 1).padStart(2, '0')}`,
@@ -586,7 +580,7 @@ export async function getReportsDashboard(
       .leftJoin(buyers, eq(transactions.buyerId, buyers.id))
       .leftJoin(users, eq(transactions.userId, users.id))
       .where(eq(transactions.companyId, companyId))
-      .orderBy(desc(transactions.enteredAt))
+      .orderBy(desc(transactions.enteredAt), desc(transactions.id))
       .limit(10);
 
     return {
@@ -632,8 +626,8 @@ export async function listAuditLogs(
     if (scopedFilters.entity) conditions.push(eq(auditLogs.entity, scopedFilters.entity));
     if (scopedFilters.entityId != null) conditions.push(eq(auditLogs.entityId, scopedFilters.entityId));
     if (scopedFilters.userId != null) conditions.push(eq(auditLogs.userId, scopedFilters.userId));
-    if (scopedFilters.dateFrom) conditions.push(gte(auditLogs.timestamp, new Date(scopedFilters.dateFrom)));
-    if (scopedFilters.dateTo) conditions.push(lte(auditLogs.timestamp, endOfDay(scopedFilters.dateTo)));
+    if (scopedFilters.dateFrom) conditions.push(gte(auditLogs.timestamp, startOfLocalDay(scopedFilters.dateFrom)));
+    if (scopedFilters.dateTo) conditions.push(lte(auditLogs.timestamp, endOfLocalDay(scopedFilters.dateTo)));
 
     if (scopedFilters.companyId != null) {
       const companyDraws = await db

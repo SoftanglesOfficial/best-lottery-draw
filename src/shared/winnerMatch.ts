@@ -5,5 +5,6 @@ export function isWinningTicket(
   prizeLevel: number,
   matchLength = 4,
 ): boolean {
-  return ticketNo === winningNum;
+  const normalize = (value: string) => value.replace(/^0+(?=\d)/, '');
+  return normalize(ticketNo) === normalize(winningNum);
 }

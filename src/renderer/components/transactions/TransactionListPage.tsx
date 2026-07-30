@@ -15,6 +15,7 @@ import {
   formatRanges,
   formatTxnDate,
 } from '../../lib/transactionDisplay';
+import { endOfLocalDay, startOfLocalDay } from '../../../shared/localDate';
 import type { DrawRecord, TransactionRecord, TransactionType } from '../../../shared/types';
 
 type TransactionListPageProps = {
@@ -92,12 +93,8 @@ export default function TransactionListPage({
         if (showProvider && String(row.providerId) !== partyFilter) return false;
         if (showBuyer && String(row.buyerId) !== partyFilter) return false;
       }
-      if (dateFrom && row.enteredAt && new Date(row.enteredAt) < new Date(dateFrom)) return false;
-      if (dateTo) {
-        const to = new Date(dateTo);
-        to.setHours(23, 59, 59, 999);
-        if (row.enteredAt && new Date(row.enteredAt) > to) return false;
-      }
+      if (dateFrom && row.enteredAt && new Date(row.enteredAt) < startOfLocalDay(dateFrom)) return false;
+      if (dateTo && row.enteredAt && new Date(row.enteredAt) > endOfLocalDay(dateTo)) return false;
       return true;
     });
   }, [rows, drawFilter, partyFilter, dateFrom, dateTo, showProvider, showBuyer]);

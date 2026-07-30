@@ -8,6 +8,19 @@ export function toLocalDateString(value: Date | string = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
+/** Start of a YYYY-MM-DD filter day in the runtime's local timezone. */
+export function startOfLocalDay(value: string): Date {
+  const dateStr = value.slice(0, 10);
+  return new Date(`${dateStr}T00:00:00`);
+}
+
+/** End of a YYYY-MM-DD filter day in the runtime's local timezone. */
+export function endOfLocalDay(value: string): Date {
+  const date = startOfLocalDay(value);
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+
 /** Compare a Date/ISO value to a YYYY-MM-DD calendar day in local time. */
 export function isSameCalendarDay(value: Date | string, dateStr: string): boolean {
   return toLocalDateString(value) === dateStr;

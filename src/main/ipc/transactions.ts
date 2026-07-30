@@ -436,7 +436,7 @@ export async function listTransactions(
       .leftJoin(buyers, eq(transactions.buyerId, buyers.id))
       .leftJoin(users, eq(transactions.userId, users.id))
       .where(and(...conditions))
-      .orderBy(desc(transactions.enteredAt));
+      .orderBy(desc(transactions.enteredAt), desc(transactions.id));
 
     return { success: true as const, transactions: rows as TransactionRecord[] };
   } catch (error) {
