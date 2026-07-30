@@ -126,6 +126,16 @@ async function assertCompanyCanTransact(companyId: number): Promise<void> {
   if (company.status !== 'active') throw new Error('Company is not active.');
 }
 
+async function assertBuyerCanTransact(buyerId: number, db = getDb()): Promise<void> {
+  const [buyer] = await db
+    .select({ status: buyers.status })
+    .from(buyers)
+    .where(eq(buyers.id, buyerId))
+    .limit(1);
+  if (!buyer) throw new Error('Buyer not found.');
+  if (buyer.status !== 'active') throw new Error('Buyer is not active.');
+}
+
 async function getSoldTicketNumbers(
   drawId: number,
   excludeTransactionId?: number,
@@ -238,6 +248,7 @@ async function validateTransactionCreate(
     if (data.buyerId == null) {
       throw new Error('Buyer is required for sale/booking entries.');
     }
+    await assertBuyerCanTransact(data.buyerId, db);
   }
 
   if (data.type === 'sale' || data.type === 'sale_return') {
