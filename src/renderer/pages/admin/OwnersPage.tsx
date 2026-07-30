@@ -29,6 +29,7 @@ export default function OwnersPage() {
   const [form, setForm] = useState<UserInput>(EMPTY_OWNER);
   const [editing, setEditing] = useState<UserRecord | null>(null);
   const [saving, setSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -153,6 +154,15 @@ export default function OwnersPage() {
 
   if (!allowed) return null;
 
+  const query = searchQuery.trim().toLowerCase();
+  const filteredOwners = query
+    ? owners.filter(
+        (owner) =>
+          (owner.fullName ?? '').toLowerCase().includes(query) ||
+          owner.username.toLowerCase().includes(query),
+      )
+    : owners;
+
   return (
     <div className="space-y-4 text-content">
       <PageHeader
@@ -166,10 +176,17 @@ export default function OwnersPage() {
         }
       />
 
+      <Input
+        label="Search"
+        placeholder="Filter by name or username…"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
+
       {loading ? (
         <p className="rounded-cyber border border-line bg-surface-raised px-4 py-8 text-center text-sm text-content-subtle">Loading owners…</p>
       ) : (
-        <Table columns={columns} data={owners} rowKey={(row) => row.id} />
+        <Table columns={columns} data={filteredOwners} rowKey={(row) => row.id} />
       )}
 
       {modalOpen ? (
