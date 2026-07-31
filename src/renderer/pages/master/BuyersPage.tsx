@@ -55,6 +55,7 @@ export default function BuyersPage() {
   const [deleteTarget, setDeleteTarget] = useState<BuyerRecord | null>(null);
   const [form, setForm] = useState<BuyerInput | null>(null);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     if (companyId == null) {
@@ -264,6 +265,10 @@ export default function BuyersPage() {
     );
   }
 
+  const filteredBuyers = buyers.filter((buyer) =>
+    buyer.name.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -289,10 +294,17 @@ export default function BuyersPage() {
         }
       />
 
+      <Input
+        label="Search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by name"
+      />
+
       {loading ? (
         <FullPageLoading message="Loading buyers…" />
       ) : (
-        <Table columns={columns} data={buyers} rowKey={(row) => row.id} />
+        <Table columns={columns} data={filteredBuyers} rowKey={(row) => row.id} />
       )}
 
       {modalOpen && form ? (

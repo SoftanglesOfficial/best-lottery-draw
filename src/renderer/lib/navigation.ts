@@ -46,6 +46,7 @@ export function buildNavigation(role: UserRole) {
         { label: 'Providers', path: '/master/providers' },
         { label: 'Buyer Groups', path: '/master/buyer-groups' },
         { label: 'Buyers', path: '/master/buyers' },
+        { label: 'Stockist Status', path: '/master/stockist-status' },
         { label: 'Sale Quotas', path: '/master/sale-quotas' },
         { label: 'Item Groups', path: '/master/item-groups' },
         { label: 'Items', path: '/master/items' },

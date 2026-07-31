@@ -26,6 +26,7 @@ export default function CompaniesPage() {
   const [editing, setEditing] = useState<CompanyRecord | null>(null);
   const [form, setForm] = useState<CompanyInput>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -184,6 +185,10 @@ export default function CompaniesPage() {
 
   if (!allowed) return null;
 
+  const filteredCompanies = companies.filter((company) =>
+    company.name.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+
   return (
     <div className="space-y-4 text-content">
       <PageHeader
@@ -197,10 +202,17 @@ export default function CompaniesPage() {
         }
       />
 
+      <Input
+        label="Search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by name"
+      />
+
       {loading ? (
         <p className="rounded-cyber border border-line bg-surface-raised px-4 py-8 text-center text-sm text-content-subtle">Loading companies…</p>
       ) : (
-        <Table columns={columns} data={companies} rowKey={(row) => row.id} />
+        <Table columns={columns} data={filteredCompanies} rowKey={(row) => row.id} />
       )}
 
       {modalOpen ? (

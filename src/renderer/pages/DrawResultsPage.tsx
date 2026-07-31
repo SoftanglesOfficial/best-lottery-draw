@@ -7,7 +7,7 @@ import { Button, Input, PageHeader } from '../components/ui';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { useActiveCompany } from '../lib/useActiveCompany';
-import { isAtLeastRole } from '../lib/roles';
+import { isAtLeastRole, isAdminOrOwner } from '../lib/roles';
 import { useRoleGuard } from '../lib/useRoleGuard';
 import type { DrawRecord, DrawResultInput } from '../../shared/types';
 
@@ -74,6 +74,7 @@ export default function DrawResultsPage() {
   const [existingKeyInput, setExistingKeyInput] = useState('');
   const canManageResultKey = user != null && isAtLeastRole(user.role, 'owner');
   const canImportEncrypted = user != null && isAtLeastRole(user.role, 'manager');
+  const canPlainImport = user != null && isAdminOrOwner(user.role);
 
   const load = useCallback(async () => {
     if (companyId == null || drawId == null) {
@@ -166,6 +167,10 @@ export default function DrawResultsPage() {
 
   const handleImport = async (event: FormEvent) => {
     event.preventDefault();
+    if (!canPlainImport) {
+      showToast('Plain import requires owner or admin. Use encrypted import.', 'error');
+      return;
+    }
     if (drawId == null || draw == null) {
       showToast('Draw not found.', 'error');
       return;
@@ -549,9 +554,15 @@ export default function DrawResultsPage() {
         </section>
 
         <div className="flex justify-end border-t border-line pt-4">
-          <Button type="submit" disabled={formDisabled}>
-            {saving ? 'Importing…' : 'Import Results'}
-          </Button>
+          {canPlainImport ? (
+            <Button type="submit" disabled={formDisabled}>
+              {saving ? 'Importing…' : 'Import Results (owner)'}
+            </Button>
+          ) : (
+            <p className="font-mono text-xs text-content-muted">
+              Plain import is owner/admin only. Managers import encrypted .b12r files.
+            </p>
+          )}
         </div>
       </form>
 

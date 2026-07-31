@@ -34,6 +34,7 @@ import SaleQuotasPage from './pages/master/SaleQuotasPage';
 import ItemGroupsPage from './pages/master/ItemGroupsPage';
 import ItemsPage from './pages/master/ItemsPage';
 import ItemSchemesPage from './pages/master/ItemSchemesPage';
+import StockistStatusPage from './pages/master/StockistStatusPage';
 import ItemSchemePage from './pages/ItemSchemePage';
 import DrawsPage from './pages/DrawsPage';
 import DrawResultsPage from './pages/DrawResultsPage';
@@ -132,6 +133,7 @@ export default function App() {
               <Route path="/master/providers" element={<ProvidersPage />} />
               <Route path="/master/buyer-groups" element={<BuyerGroupsPage />} />
               <Route path="/master/buyers" element={<BuyersPage />} />
+              <Route path="/master/stockist-status" element={<StockistStatusPage />} />
               <Route path="/master/sale-quotas" element={<SaleQuotasPage />} />
               <Route path="/master/item-groups" element={<ItemGroupsPage />} />
               <Route path="/master/items" element={<ItemsPage />} />
