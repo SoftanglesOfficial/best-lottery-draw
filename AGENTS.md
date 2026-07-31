@@ -103,9 +103,13 @@ Local config: `configStore.ts` (DB creds, window bounds). Prefs: auto-backup 23:
 
 ## Remaining Work
 
-**Blocked on product spec**: `stock_transfer` UI — `txn_type` enum in DB/schema/types; create path rejects until spec (parties, ledger). No UI until spec.
+**Accepted drift (M1):** PDF VPS/Tauri/Mongo/internet sync skipped — LAN Electron + Postgres is the offline-first stack.
 
-**Deferred**: triple schema *merge* (Drizzle + inline SQL stays; `npm test` → `scripts/verify-schema-sync.mjs` enum drift). Linux DEB/RPM in `forge.config.ts` untested on Linux CI.
+**Milestone 2:** fat reporting suite (30+ reports) — not M1.
+
+**Ledger:** party ledgers are **computed from transactions** (including `stock_transfer` in unsold/stock math). `ledger_entries` table is backup-only; no double-entry write path.
+
+**Deferred:** Linux DEB/RPM in `forge.config.ts` untested on Linux CI. Triple schema merge (Drizzle + inline SQL; `npm test` enum drift).
 
 **Done this cycle**: `lib/api.ts` = `export const api = window.api`; renderer uses `api.*` directly.
 [PHASE 1] [COMPLETE] [2026-07-17] — Login, company, server-authorized shift flow

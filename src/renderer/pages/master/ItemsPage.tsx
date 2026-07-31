@@ -50,6 +50,7 @@ export default function ItemsPage() {
   const [deleteTarget, setDeleteTarget] = useState<ItemRecord | null>(null);
   const [form, setForm] = useState<ItemInput | null>(null);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     if (companyId == null) {
@@ -219,6 +220,10 @@ export default function ItemsPage() {
     );
   }
 
+  const filteredItems = items.filter((item) =>
+    item.name.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -232,10 +237,17 @@ export default function ItemsPage() {
         }
       />
 
+      <Input
+        label="Search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by name"
+      />
+
       {loading ? (
         <FullPageLoading message="Loading items…" />
       ) : (
-        <Table columns={columns} data={items} rowKey={(row) => row.id} />
+        <Table columns={columns} data={filteredItems} rowKey={(row) => row.id} />
       )}
 
       {modalOpen && form ? (

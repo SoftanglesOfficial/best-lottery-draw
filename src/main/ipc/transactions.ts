@@ -5,7 +5,8 @@ import { formatDbError } from './ipcUtils';
 import { getDrawById, validateDrawOpen } from './drawValidation';
 import { assertCompanyAccess, type SessionContext } from './sessionContext';
 import { requireActiveShiftForCompany } from './shifts';
-import { countFromTicketData, extractTicketNumbers, parseTicketData } from '../../shared/ticketData';
+import { insertAuditLog } from './auditLog';
+import { countFromTicketData, extractTicketNumbers, parseTicketData, removeTicketsFromData } from '../../shared/ticketData';
 import {
   validateSaleTicketSnapshot,
 } from '../../shared/ticketMath';
@@ -649,6 +650,14 @@ export async function createTransaction(data: TransactionInput, ctx: SessionCont
 
     if (!created) return { success: false as const, error: 'Failed to create transaction' };
     const record = await fetchTransactionRecord(created.id);
+    if (data.type === 'stock_transfer' && record) {
+      await insertAuditLog(ctx.userId, 'STOCK_TRANSFER', 'transactions', record.id, {
+        drawId: record.drawId,
+        fromProviderId: data.providerId,
+        toProviderId: data.toProviderId,
+        ticketCount: record.ticketCount,
+      });
+    }
     return { success: true as const, transaction: record! };
   } catch (error) {
     return {
@@ -919,6 +928,7 @@ export async function searchTicket(companyId: number, ticketNumber: string) {
         drawDate: draws.drawDate,
         type: transactions.type,
         amount: transactions.amount,
+        buyerId: transactions.buyerId,
         buyerName: buyers.name,
         enteredAt: transactions.enteredAt,
         ticketData: transactions.ticketData,
@@ -940,6 +950,7 @@ export async function searchTicket(companyId: number, ticketNumber: string) {
             drawDate: row.drawDate,
             type: row.type,
             amount: row.amount,
+            buyerId: row.buyerId,
             buyerName: row.buyerName,
             enteredAt: row.enteredAt,
             ticketNumber: ticketNo,
@@ -1038,6 +1049,19 @@ export async function computeUnsoldPreview(
       .from(transactions)
       .where(and(...returnConditions));
 
+    const transferConditions = [
+      eq(transactions.drawId, drawId),
+      eq(transactions.type, 'stock_transfer'),
+    ];
+    const transferRows = await db
+      .select({
+        providerId: transactions.providerId,
+        toProviderId: transactions.toProviderId,
+        ticketData: transactions.ticketData,
+      })
+      .from(transactions)
+      .where(and(...transferConditions));
+
     const purchasesByProvider = new Map<number, { providerName: string | null; numbers: string[] }>();
     for (const row of purchaseRows) {
       if (row.providerId == null) continue;
@@ -1047,6 +1071,26 @@ export async function computeUnsoldPreview(
       };
       entry.numbers.push(...extractTicketNumbers(row.ticketData));
       purchasesByProvider.set(row.providerId, entry);
+    }
+
+    // Stock transfers move tickets providerId → toProviderId (computed stock ledger).
+    const transferredOutByProvider = new Map<number, string[]>();
+    for (const row of transferRows) {
+      if (row.providerId == null || row.toProviderId == null) continue;
+      const nums = extractTicketNumbers(row.ticketData);
+      if (providerId == null || row.providerId === providerId) {
+        const out = transferredOutByProvider.get(row.providerId) ?? [];
+        out.push(...nums);
+        transferredOutByProvider.set(row.providerId, out);
+      }
+      if (providerId == null || row.toProviderId === providerId) {
+        const toEntry = purchasesByProvider.get(row.toProviderId) ?? {
+          providerName: null,
+          numbers: [],
+        };
+        toEntry.numbers.push(...nums);
+        purchasesByProvider.set(row.toProviderId, toEntry);
+      }
     }
 
     const returnsByProvider = new Map<number, string[]>();
@@ -1061,7 +1105,11 @@ export async function computeUnsoldPreview(
     let totalTicketCount = 0;
 
     for (const [pid, { providerName, numbers }] of purchasesByProvider) {
-      const returned = returnsByProvider.get(pid) ?? [];
+      if (providerId != null && pid !== providerId) continue;
+      const returned = [
+        ...(returnsByProvider.get(pid) ?? []),
+        ...(transferredOutByProvider.get(pid) ?? []),
+      ];
       const unsold = unsoldCounts(numbers, soldOrBooked, returned, saleReturned);
       if (unsold.length === 0) continue;
       const ranges = numbersToRanges(unsold);

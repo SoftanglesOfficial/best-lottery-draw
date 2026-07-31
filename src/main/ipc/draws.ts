@@ -582,6 +582,12 @@ export async function findWinners(ctx: SessionContext, drawId: number) {
     const denied = assertCompanyAccess(ctx, draw.companyId);
     if (denied) return { success: false as const, error: denied.error };
     if (!draw.itemId) return { success: false as const, error: 'Draw has no item assigned.' };
+    if (!draw.resultImported) {
+      return {
+        success: false as const,
+        error: 'Import draw results before matching winners.',
+      };
+    }
 
     const [scheme] = await db
       .select()

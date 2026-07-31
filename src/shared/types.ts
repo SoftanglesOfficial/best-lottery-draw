@@ -378,6 +378,7 @@ export interface TicketSearchResult {
   drawDate: Date | null;
   type: string;
   amount: string | null;
+  buyerId: number | null;
   buyerName: string | null;
   enteredAt: Date | null;
   ticketNumber: string;

@@ -43,6 +43,7 @@ export default function ProvidersPage() {
   const [deleteTarget, setDeleteTarget] = useState<ProviderRecord | null>(null);
   const [form, setForm] = useState<ProviderInput | null>(null);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     if (companyId == null) {
@@ -243,6 +244,10 @@ export default function ProvidersPage() {
     );
   }
 
+  const filteredProviders = providers.filter((provider) =>
+    provider.name.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -268,10 +273,17 @@ export default function ProvidersPage() {
         }
       />
 
+      <Input
+        label="Search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by name"
+      />
+
       {loading ? (
         <FullPageLoading message="Loading providers…" />
       ) : (
-        <Table columns={columns} data={providers} rowKey={(row) => row.id} />
+        <Table columns={columns} data={filteredProviders} rowKey={(row) => row.id} />
       )}
 
       {modalOpen && form ? (

@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import LegacyTransactionShell from '../../components/transactions/LegacyTransactionShell';
 import SaleRangeTable, {
@@ -71,6 +71,8 @@ export default function SaleEntryPage({
   const { companyId } = useActiveCompany();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const prefillsApplied = useRef(false);
 
   const [draws, setDraws] = useState<DrawRecord[]>([]);
   const [buyers, setBuyers] = useState<BuyerRecord[]>([]);
@@ -162,6 +164,25 @@ export default function SaleEntryPage({
   useEffect(() => {
     if (allowed) void load();
   }, [allowed, load]);
+
+  useEffect(() => {
+    if (type !== 'sale_return' || prefillsApplied.current || draws.length === 0) return;
+    const ticket = searchParams.get('ticket')?.trim();
+    const drawParam = searchParams.get('drawId');
+    const buyerParam = searchParams.get('buyerId');
+    if (!ticket && !drawParam && !buyerParam) return;
+    prefillsApplied.current = true;
+    if (drawParam && Number.isFinite(Number(drawParam))) setDrawId(Number(drawParam));
+    if (buyerParam && Number.isFinite(Number(buyerParam))) setBuyerId(Number(buyerParam));
+    if (ticket) {
+      setRows((current) => {
+        const next = current.length > 0 ? [...current] : emptySaleRangeRows(defaultRate);
+        next[0] = { ...next[0], from: ticket, to: ticket };
+        return next;
+      });
+      setFocusFromRequest((n) => n + 1);
+    }
+  }, [type, searchParams, draws, defaultRate]);
 
   useEffect(() => {
     if (!useLegacyShell) return;

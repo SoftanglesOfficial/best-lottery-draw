@@ -122,7 +122,7 @@ export default function UnsoldPage() {
       <PageHeader
         eyebrow="Reports"
         title="Unsold Tickets"
-        subtitle="Preview purchased stock not covered by sales or bookings, then return in one step."
+        subtitle="Preview purchased stock not covered by sales or bookings. Auto return creates purchase returns for all (or filtered) providers."
       />
 
       <div className="flex flex-wrap items-end gap-4 rounded-cyber-lg border border-line bg-surface-raised p-4">
@@ -175,7 +175,7 @@ export default function UnsoldPage() {
           onClick={() => setConfirmReturn(true)}
           disabled={returning || totalTickets <= 0 || drawId === ''}
         >
-          Return unsold
+          {providerId === '' ? 'Auto return all' : 'Return unsold'}
         </Button>
       </div>
 
@@ -195,8 +195,12 @@ export default function UnsoldPage() {
 
       {confirmReturn ? (
         <ConfirmDialog
-          message={`Create purchase return memo(s) for ${totalTickets} ticket(s)?`}
-          confirmLabel="Return"
+          message={
+            providerId === ''
+              ? `Auto return: create purchase return memo(s) for all ${totalTickets} unsold ticket(s)?`
+              : `Create purchase return memo(s) for ${totalTickets} ticket(s)?`
+          }
+          confirmLabel={providerId === '' ? 'Auto return' : 'Return'}
           onConfirm={() => void handleReturn()}
           onCancel={() => setConfirmReturn(false)}
         />

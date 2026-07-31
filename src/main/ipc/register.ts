@@ -762,7 +762,7 @@ export function registerIpcHandlers(): void {
   );
   ipcMain.handle('draw-results-create', async (_e, ...args) =>
     withSession(args, (ctx, drawId, results) =>
-      createDrawResults(drawId as number, results as DrawResultInput[], ctx.activeCompanyId), 'supervisor'),
+      createDrawResults(drawId as number, results as DrawResultInput[], ctx.activeCompanyId), 'owner'),
   );
   ipcMain.handle('result-key-get-status', async (_e, ...args) =>
     withSession(args, (ctx) => getResultKeyStatus(ctx.activeCompanyId), 'manager'),
