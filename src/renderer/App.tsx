@@ -30,6 +30,7 @@ import ProviderGroupsPage from './pages/master/ProviderGroupsPage';
 import ProvidersPage from './pages/master/ProvidersPage';
 import BuyerGroupsPage from './pages/master/BuyerGroupsPage';
 import BuyersPage from './pages/master/BuyersPage';
+import SaleQuotasPage from './pages/master/SaleQuotasPage';
 import ItemGroupsPage from './pages/master/ItemGroupsPage';
 import ItemsPage from './pages/master/ItemsPage';
 import ItemSchemesPage from './pages/master/ItemSchemesPage';
@@ -49,6 +50,7 @@ import BookingsListPage from './pages/transactions/BookingsListPage';
 import DrawResultsListPage from './pages/transactions/DrawResultsListPage';
 import WinningTicketsPage from './pages/transactions/WinningTicketsPage';
 import TicketSearchPage from './pages/transactions/TicketSearchPage';
+import StockTransferPage from './pages/transactions/StockTransferPage';
 import AuditLogsPage from './pages/admin/AuditLogsPage';
 import BackupsPage from './pages/admin/BackupsPage';
 import DiagnosticsPage from './pages/admin/DiagnosticsPage';
@@ -66,6 +68,7 @@ const ReportsSummaryPage = lazy(() => import('./pages/reports/ReportsSummaryPage
 const PnLPage = lazy(() => import('./pages/reports/PnLPage'));
 const BuyerLedgerPage = lazy(() => import('./pages/reports/BuyerLedgerPage'));
 const ProviderLedgerPage = lazy(() => import('./pages/reports/ProviderLedgerPage'));
+const UnsoldPage = lazy(() => import('./pages/reports/UnsoldPage'));
 
 const AppRouter = window.location.protocol === 'file:' ? HashRouter : BrowserRouter;
 
@@ -129,6 +132,7 @@ export default function App() {
               <Route path="/master/providers" element={<ProvidersPage />} />
               <Route path="/master/buyer-groups" element={<BuyerGroupsPage />} />
               <Route path="/master/buyers" element={<BuyersPage />} />
+              <Route path="/master/sale-quotas" element={<SaleQuotasPage />} />
               <Route path="/master/item-groups" element={<ItemGroupsPage />} />
               <Route path="/master/items" element={<ItemsPage />} />
               <Route path="/master/item-schemes-list" element={<ItemSchemesPage />} />
@@ -143,6 +147,7 @@ export default function App() {
               <Route path="/transactions/purchase" element={<PurchaseListPage />} />
               <Route path="/transactions/purchase-return" element={<PurchaseReturnPage />} />
               <Route path="/transactions/purchase-returns" element={<PurchaseReturnsListPage />} />
+              <Route path="/transactions/stock-transfer" element={<StockTransferPage />} />
               <Route path="/transactions/sale-entry" element={<SaleEntryPage />} />
               <Route path="/transactions/sale" element={<SaleListPage />} />
               <Route path="/transactions/sale-return" element={<SaleReturnPage />} />
@@ -183,6 +188,14 @@ export default function App() {
                 element={
                   <Suspense fallback={<FullPageLoading />}>
                     <ProviderLedgerPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/reports/unsold"
+                element={
+                  <Suspense fallback={<FullPageLoading />}>
+                    <UnsoldPage />
                   </Suspense>
                 }
               />

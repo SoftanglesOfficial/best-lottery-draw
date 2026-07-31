@@ -21,6 +21,9 @@ import type {
   TransactionType,
   BuyerSaleSummary,
   ProviderPurchaseSummary,
+  SaleQuotaInput,
+  SaleQuotaRecord,
+  UnsoldPreview,
   TicketValidationResult,
   ItemGroupInput,
   ItemGroupRecord,
@@ -339,6 +342,17 @@ interface Api {
     data: BuyerInput,
   ) => Promise<{ success: true; buyer: BuyerRecord } | { success: false; error: string }>;
   buyersDelete: (id: number) => Promise<{ success: true } | { success: false; error: string }>;
+  saleQuotasList: (
+    companyId: number,
+  ) => Promise<{ success: true; quotas: SaleQuotaRecord[] } | { success: false; error: string }>;
+  saleQuotasCreate: (
+    data: SaleQuotaInput,
+  ) => Promise<{ success: true; quota: SaleQuotaRecord } | { success: false; error: string }>;
+  saleQuotasUpdate: (
+    id: number,
+    data: SaleQuotaInput,
+  ) => Promise<{ success: true; quota: SaleQuotaRecord } | { success: false; error: string }>;
+  saleQuotasDelete: (id: number) => Promise<{ success: true } | { success: false; error: string }>;
   itemGroupsList: (
     companyId: number,
   ) => Promise<{ success: true; groups: ItemGroupRecord[] } | { success: false; error: string }>;
@@ -415,6 +429,23 @@ interface Api {
     drawId: number,
     results: DrawResultInput[],
   ) => Promise<{ success: true; draw: DrawRecord } | { success: false; error: string }>;
+  resultKeyGetStatus: () => Promise<
+    { success: true; hasKey: boolean } | { success: false; error: string }
+  >;
+  resultKeySet: (options: {
+    generate?: boolean;
+    keyBase64?: string;
+  }) => Promise<{ success: true; keyBase64: string } | { success: false; error: string }>;
+  drawResultsExportEncrypted: (
+    drawId: number,
+    plainText?: string,
+  ) => Promise<
+    { success: true; envelope: import('../../shared/resultCrypto').ResultEnvelopeV1 } | { success: false; error: string }
+  >;
+  drawResultsImportEncrypted: (
+    drawId: number,
+    envelopeJson: string,
+  ) => Promise<{ success: true; draw: DrawRecord } | { success: false; error: string }>;
   winningTicketsList: (
     drawId: number,
   ) => Promise<{ success: true; tickets: WinningTicketRecord[] } | { success: false; error: string }>;
@@ -469,6 +500,24 @@ interface Api {
     drawId: number,
   ) => Promise<
     { success: true; summary: ProviderPurchaseSummary } | { success: false; error: string }
+  >;
+  transactionsUnsoldPreview: (
+    companyId: number,
+    drawId: number,
+    providerId?: number,
+  ) => Promise<{ success: true; preview: UnsoldPreview } | { success: false; error: string }>;
+  transactionsUnsoldReturn: (
+    companyId: number,
+    drawId: number,
+    providerId?: number,
+  ) => Promise<
+    | { success: true; transactions: TransactionRecord[]; count: number }
+    | {
+        success: false;
+        error: string;
+        partialCount?: number;
+        transactions?: TransactionRecord[];
+      }
   >;
 }
 

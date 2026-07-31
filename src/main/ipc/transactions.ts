@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { ensureConnected, getDb } from '../db';
-import { buyers, companies, draws, items, providers, transactions, users } from '../schema';
+import { buyers, companies, draws, items, providers, saleQuotas, transactions, users } from '../schema';
 import { formatDbError } from './ipcUtils';
 import { getDrawById, validateDrawOpen } from './drawValidation';
 import { assertCompanyAccess, type SessionContext } from './sessionContext';
@@ -10,6 +10,8 @@ import {
   validateSaleTicketSnapshot,
 } from '../../shared/ticketMath';
 import { toLocalDateString } from '../../shared/localDate';
+import { numbersToRanges, unsoldCounts } from '../../shared/unsoldTickets';
+import { assertWithinQuota, qtyByItemId } from '../../shared/saleQuota';
 import type {
   BuyerSaleSummary,
   ProviderPurchaseSummary,
@@ -18,6 +20,8 @@ import type {
   TransactionInput,
   TransactionRecord,
   TransactionType,
+  UnsoldPreview,
+  UnsoldProviderPreview,
 } from '../../shared/types';
 
 export { validateDrawOpen } from './drawValidation';
@@ -42,6 +46,7 @@ async function fetchTransactionRecord(id: number): Promise<TransactionRecord | n
       drawName: draws.name,
       providerId: transactions.providerId,
       providerName: providers.name,
+      toProviderId: transactions.toProviderId,
       buyerId: transactions.buyerId,
       buyerName: buyers.name,
       companyId: transactions.companyId,
@@ -159,6 +164,23 @@ async function assertBuyerCanTransact(buyerId: number, companyId: number, db = g
   if (buyer.status !== 'active') throw new Error('Buyer is not active.');
 }
 
+async function assertProviderCanTransact(
+  providerId: number,
+  companyId: number,
+  db = getDb(),
+): Promise<void> {
+  const [provider] = await db
+    .select({ status: providers.status, companyId: providers.companyId })
+    .from(providers)
+    .where(eq(providers.id, providerId))
+    .limit(1);
+  if (!provider) throw new Error('Provider not found.');
+  if (provider.companyId !== companyId) {
+    throw new Error('Provider does not belong to this company.');
+  }
+  if (provider.status !== 'active') throw new Error('Provider is not active.');
+}
+
 async function getSoldTicketNumbers(
   drawId: number,
   excludeTransactionId?: number,
@@ -249,6 +271,83 @@ async function sumTicketCounts(
   return Number(row?.total ?? 0);
 }
 
+async function usedQtyByItemForBuyer(
+  drawId: number,
+  buyerId: number,
+  drawItemId: number | null,
+  excludeTransactionId: number | undefined,
+  db: ReturnType<typeof getDb>,
+): Promise<Map<number, number>> {
+  const conditions = [
+    eq(transactions.drawId, drawId),
+    eq(transactions.buyerId, buyerId),
+    inArray(transactions.type, ['sale', 'booking']),
+  ];
+  if (excludeTransactionId != null) {
+    conditions.push(ne(transactions.id, excludeTransactionId));
+  }
+
+  const rows = await db
+    .select({ ticketData: transactions.ticketData })
+    .from(transactions)
+    .where(and(...conditions));
+
+  const used = new Map<number, number>();
+  for (const row of rows) {
+    for (const [itemId, qty] of qtyByItemId(row.ticketData, drawItemId)) {
+      used.set(itemId, (used.get(itemId) ?? 0) + qty);
+    }
+  }
+  return used;
+}
+
+async function assertSaleQuotas(
+  data: TransactionInput,
+  drawId: number,
+  excludeTransactionId: number | undefined,
+  db: ReturnType<typeof getDb>,
+) {
+  if (data.type !== 'sale' && data.type !== 'booking') return;
+  if (data.buyerId == null) return;
+
+  const [draw] = await db
+    .select({ itemId: draws.itemId })
+    .from(draws)
+    .where(eq(draws.id, drawId))
+    .limit(1);
+  const drawItemId = draw?.itemId ?? null;
+
+  const addingByItem = qtyByItemId(data.ticketData, drawItemId);
+  if (addingByItem.size === 0) return;
+
+  const usedByItem = await usedQtyByItemForBuyer(
+    drawId,
+    data.buyerId,
+    drawItemId,
+    excludeTransactionId,
+    db,
+  );
+
+  for (const [itemId, addingQty] of addingByItem) {
+    const [quota] = await db
+      .select({ maxQty: saleQuotas.maxQty })
+      .from(saleQuotas)
+      .where(
+        and(
+          eq(saleQuotas.companyId, data.companyId),
+          eq(saleQuotas.buyerId, data.buyerId),
+          eq(saleQuotas.drawId, drawId),
+          eq(saleQuotas.itemId, itemId),
+        ),
+      )
+      .limit(1);
+    if (!quota) continue;
+
+    const usedQty = usedByItem.get(itemId) ?? 0;
+    assertWithinQuota(quota.maxQty, usedQty, addingQty);
+  }
+}
+
 async function validateTransactionCreate(
   data: TransactionInput,
   drawId: number,
@@ -256,7 +355,15 @@ async function validateTransactionCreate(
   db = getDb(),
 ) {
   if (data.type === 'stock_transfer') {
-    throw new Error('Stock transfer is not available.');
+    if (data.providerId == null || data.toProviderId == null) {
+      throw new Error('From and to providers are required for stock transfer.');
+    }
+    if (data.providerId === data.toProviderId) {
+      throw new Error('Cannot transfer to the same provider.');
+    }
+    await assertProviderCanTransact(data.providerId, data.companyId, db);
+    await assertProviderCanTransact(data.toProviderId, data.companyId, db);
+    // ponytail: no ledger posts until ledger spec
   }
 
   await validateDrawOpen(drawId);
@@ -264,6 +371,14 @@ async function validateTransactionCreate(
   if (data.type === 'purchase' || data.type === 'purchase_return') {
     if (data.providerId == null) {
       throw new Error('Provider is required for purchase entries.');
+    }
+  }
+
+  if (data.type === 'stock_transfer') {
+    const ticketCount =
+      data.ticketCount ?? (data.ticketData ? countFromTicketData(data.ticketData) : 0);
+    if (ticketCount <= 0) {
+      throw new Error('At least one ticket is required for a stock transfer.');
     }
   }
 
@@ -394,6 +509,10 @@ async function validateTransactionCreate(
       throw new Error('Return quantity exceeds purchased quantity for this provider in this draw.');
     }
   }
+
+  if (data.type === 'sale' || data.type === 'booking') {
+    await assertSaleQuotas(data, drawId, excludeTransactionId, db);
+  }
 }
 
 export async function listTransactions(
@@ -419,6 +538,7 @@ export async function listTransactions(
         drawName: draws.name,
         providerId: transactions.providerId,
         providerName: providers.name,
+        toProviderId: transactions.toProviderId,
         buyerId: transactions.buyerId,
         buyerName: buyers.name,
         companyId: transactions.companyId,
@@ -511,6 +631,7 @@ export async function createTransaction(data: TransactionInput, ctx: SessionCont
           type: data.type,
           drawId,
           providerId: data.providerId ?? null,
+          toProviderId: data.toProviderId ?? null,
           buyerId: data.buyerId ?? null,
           companyId: data.companyId,
           userId: ctx.userId,
@@ -580,6 +701,7 @@ export async function updateTransaction(
           type: data.type,
           drawId,
           providerId: data.providerId ?? null,
+          toProviderId: data.toProviderId ?? null,
           buyerId: data.buyerId ?? null,
           memoId: data.memoId ?? existing.memoId,
           amount: data.amount != null ? String(data.amount) : existing.amount,
@@ -837,4 +959,179 @@ export async function searchTicket(companyId: number, ticketNumber: string) {
 
 export async function assertDrawOpenForTransaction(drawId: number) {
   await validateDrawOpen(drawId);
+}
+
+async function loadDrawTicketNumbers(
+  drawId: number,
+  types: TransactionType[],
+  providerId?: number,
+  db = getDb(),
+): Promise<string[]> {
+  const conditions = [eq(transactions.drawId, drawId), inArray(transactions.type, types)];
+  if (providerId != null) conditions.push(eq(transactions.providerId, providerId));
+
+  const rows = await db
+    .select({ ticketData: transactions.ticketData })
+    .from(transactions)
+    .where(and(...conditions));
+
+  const numbers: string[] = [];
+  for (const row of rows) {
+    numbers.push(...extractTicketNumbers(row.ticketData));
+  }
+  return numbers;
+}
+
+export async function computeUnsoldPreview(
+  ctx: SessionContext,
+  companyId: number,
+  drawId: number,
+  providerId?: number,
+) {
+  const connection = await ensureConnected();
+  if (!connection.success) {
+    return { success: false as const, error: connection.error ?? 'Database is not connected' };
+  }
+  try {
+    const denied = assertCompanyAccess(ctx, companyId);
+    if (denied) return denied;
+
+    const draw = await getDrawById(drawId);
+    if (!draw) return { success: false as const, error: 'Draw not found' };
+    if (draw.companyId !== companyId) {
+      return { success: false as const, error: 'Draw does not belong to this company.' };
+    }
+
+    const db = getDb();
+    const [soldOrBooked, saleReturned] = await Promise.all([
+      loadDrawTicketNumbers(drawId, ['sale', 'booking'], undefined, db),
+      loadDrawTicketNumbers(drawId, ['sale_return'], undefined, db),
+    ]);
+
+    const purchaseConditions = [
+      eq(transactions.drawId, drawId),
+      eq(transactions.type, 'purchase'),
+    ];
+    if (providerId != null) purchaseConditions.push(eq(transactions.providerId, providerId));
+
+    const purchaseRows = await db
+      .select({
+        providerId: transactions.providerId,
+        providerName: providers.name,
+        ticketData: transactions.ticketData,
+      })
+      .from(transactions)
+      .leftJoin(providers, eq(transactions.providerId, providers.id))
+      .where(and(...purchaseConditions));
+
+    const returnConditions = [
+      eq(transactions.drawId, drawId),
+      eq(transactions.type, 'purchase_return'),
+    ];
+    if (providerId != null) returnConditions.push(eq(transactions.providerId, providerId));
+
+    const returnRows = await db
+      .select({
+        providerId: transactions.providerId,
+        ticketData: transactions.ticketData,
+      })
+      .from(transactions)
+      .where(and(...returnConditions));
+
+    const purchasesByProvider = new Map<number, { providerName: string | null; numbers: string[] }>();
+    for (const row of purchaseRows) {
+      if (row.providerId == null) continue;
+      const entry = purchasesByProvider.get(row.providerId) ?? {
+        providerName: row.providerName,
+        numbers: [],
+      };
+      entry.numbers.push(...extractTicketNumbers(row.ticketData));
+      purchasesByProvider.set(row.providerId, entry);
+    }
+
+    const returnsByProvider = new Map<number, string[]>();
+    for (const row of returnRows) {
+      if (row.providerId == null) continue;
+      const nums = returnsByProvider.get(row.providerId) ?? [];
+      nums.push(...extractTicketNumbers(row.ticketData));
+      returnsByProvider.set(row.providerId, nums);
+    }
+
+    const providersPreview: UnsoldProviderPreview[] = [];
+    let totalTicketCount = 0;
+
+    for (const [pid, { providerName, numbers }] of purchasesByProvider) {
+      const returned = returnsByProvider.get(pid) ?? [];
+      const unsold = unsoldCounts(numbers, soldOrBooked, returned, saleReturned);
+      if (unsold.length === 0) continue;
+      const ranges = numbersToRanges(unsold);
+      providersPreview.push({
+        providerId: pid,
+        providerName,
+        ranges,
+        ticketCount: unsold.length,
+      });
+      totalTicketCount += unsold.length;
+    }
+
+    providersPreview.sort((a, b) =>
+      (a.providerName ?? '').localeCompare(b.providerName ?? '', undefined, { sensitivity: 'base' }),
+    );
+
+    const preview: UnsoldPreview = { providers: providersPreview, totalTicketCount };
+    return { success: true as const, preview };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : 'Failed to compute unsold tickets',
+    };
+  }
+}
+
+export async function returnUnsold(
+  ctx: SessionContext,
+  companyId: number,
+  drawId: number,
+  providerId?: number,
+) {
+  const previewResult = await computeUnsoldPreview(ctx, companyId, drawId, providerId);
+  if (!previewResult.success) return previewResult;
+
+  if (previewResult.preview.totalTicketCount <= 0) {
+    return { success: false as const, error: 'No unsold tickets to return.' };
+  }
+
+  const created: TransactionRecord[] = [];
+  for (const row of previewResult.preview.providers) {
+    const ticketData = JSON.stringify({ ranges: row.ranges });
+    const result = await createTransaction(
+      {
+        type: 'purchase_return',
+        companyId,
+        userId: ctx.userId,
+        drawId,
+        providerId: row.providerId,
+        ticketCount: row.ticketCount,
+        ticketData,
+      },
+      ctx,
+    );
+    if (!result.success) {
+      const total = previewResult.preview.providers.length;
+      const succeeded = created.length;
+      const error =
+        succeeded > 0
+          ? `${result.error} (${succeeded} of ${total} returns already created)`
+          : result.error;
+      return {
+        success: false as const,
+        error,
+        partialCount: succeeded,
+        transactions: created,
+      };
+    }
+    if (result.transaction) created.push(result.transaction);
+  }
+
+  return { success: true as const, transactions: created, count: created.length };
 }

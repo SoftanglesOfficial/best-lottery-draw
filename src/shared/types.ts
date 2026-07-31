@@ -398,6 +398,8 @@ export interface TransactionRecord {
   drawName: string | null;
   providerId: number | null;
   providerName: string | null;
+  toProviderId?: number | null;
+  toProviderName?: string | null;
   buyerId: number | null;
   buyerName: string | null;
   companyId: number;
@@ -421,6 +423,7 @@ export interface TransactionInput {
   itemId?: number;
   entryDate?: string;
   providerId?: number | null;
+  toProviderId?: number | null;
   buyerId?: number | null;
   memoId?: number | null;
   amount?: number | null;
@@ -445,6 +448,46 @@ export interface ProviderPurchaseSummary {
   totalPurchased: number;
   totalReturned: number;
   net: number;
+}
+
+export interface UnsoldRange {
+  from: string;
+  to: string;
+  qty: number;
+}
+
+export interface UnsoldProviderPreview {
+  providerId: number;
+  providerName: string | null;
+  ranges: UnsoldRange[];
+  ticketCount: number;
+}
+
+export interface UnsoldPreview {
+  providers: UnsoldProviderPreview[];
+  totalTicketCount: number;
+}
+
+export interface SaleQuotaRecord {
+  id: number;
+  companyId: number;
+  buyerId: number;
+  buyerName: string | null;
+  drawId: number;
+  drawName: string | null;
+  itemId: number;
+  itemName: string | null;
+  maxQty: number;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface SaleQuotaInput {
+  companyId: number;
+  buyerId: number;
+  drawId: number;
+  itemId: number;
+  maxQty: number;
 }
 
 export interface LedgerDrawBreakdown {

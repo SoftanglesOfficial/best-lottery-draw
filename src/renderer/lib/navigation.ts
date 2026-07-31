@@ -46,6 +46,7 @@ export function buildNavigation(role: UserRole) {
         { label: 'Providers', path: '/master/providers' },
         { label: 'Buyer Groups', path: '/master/buyer-groups' },
         { label: 'Buyers', path: '/master/buyers' },
+        { label: 'Sale Quotas', path: '/master/sale-quotas' },
         { label: 'Item Groups', path: '/master/item-groups' },
         { label: 'Items', path: '/master/items' },
         { label: 'Item Schemes', path: '/master/item-schemes-list' },
@@ -58,6 +59,7 @@ export function buildNavigation(role: UserRole) {
     { label: 'Purchase List', path: '/transactions/purchase' },
     { label: 'Purchase Return', path: '/transactions/purchase-return' },
     { label: 'Purchase Returns', path: '/transactions/purchase-returns' },
+    { label: 'Stock Transfer', path: '/transactions/stock-transfer' },
     { label: 'Sale Entry', path: '/transactions/sale-entry' },
     { label: 'Sale List', path: '/transactions/sale' },
     { label: 'Sale Return', path: '/transactions/sale-return' },
@@ -71,14 +73,19 @@ export function buildNavigation(role: UserRole) {
       : []),
   ];
 
-  const reports: NavItem[] = isAtLeastRole(role, 'manager')
-    ? [
-        { label: 'Summary', path: '/reports' },
-        ...(canViewPnL(role) ? [{ label: 'P&L', path: '/reports/pnl' }] : []),
-        { label: 'Buyer Ledger', path: '/reports/buyer-ledger' },
-        { label: 'Provider Ledger', path: '/reports/provider-ledger' },
-      ]
-    : [];
+  const reports: NavItem[] = [
+    ...(isAtLeastRole(role, 'manager')
+      ? [
+          { label: 'Summary', path: '/reports' },
+          ...(canViewPnL(role) ? [{ label: 'P&L', path: '/reports/pnl' }] : []),
+          { label: 'Buyer Ledger', path: '/reports/buyer-ledger' },
+          { label: 'Provider Ledger', path: '/reports/provider-ledger' },
+        ]
+      : []),
+    ...(isAtLeastRole(role, 'supervisor')
+      ? [{ label: 'Unsold Tickets', path: '/reports/unsold' }]
+      : []),
+  ];
 
   return { admin, master, transactions, reports };
 }

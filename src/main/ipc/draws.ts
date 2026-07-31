@@ -20,6 +20,18 @@ import { requireCompanyId } from './companyScope';
 import { extractTicketNumbers } from '../../shared/ticketData';
 import { toLocalDateString } from '../../shared/localDate';
 import { isWinningTicket } from '../../shared/winnerMatch';
+import { formatResultTxt, parseResultTxt } from '../../shared/parseDrawResults';
+import {
+  decryptResultTxt,
+  encryptResultTxt,
+  generateResultKey,
+  type ResultEnvelopeV1,
+} from '../../shared/resultCrypto';
+import {
+  getCompanyResultKey,
+  hasCompanyResultKey,
+  setCompanyResultKey,
+} from '../resultKeyStore';
 import { assertCompanyAccess, type SessionContext } from './sessionContext';
 import type {
   AuditLogRecord,
@@ -757,6 +769,134 @@ export async function listDrawAuditLogs(drawId: number, companyId: number | null
     return {
       success: false as const,
       error: formatDbError(error),
+    };
+  }
+}
+
+export async function getResultKeyStatus(companyId: number | null) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
+  return { success: true as const, hasKey: hasCompanyResultKey(scoped.companyId) };
+}
+
+export async function setResultKey(
+  companyId: number | null,
+  options: { generate?: boolean; keyBase64?: string },
+) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
+  try {
+    let key32: Buffer;
+    if (options.generate) {
+      key32 = generateResultKey();
+    } else if (options.keyBase64) {
+      key32 = Buffer.from(options.keyBase64, 'base64');
+      if (key32.length !== 32) {
+        return { success: false as const, error: 'Result key must be 32 bytes (base64-encoded).' };
+      }
+    } else {
+      return { success: false as const, error: 'Provide generate: true or a base64 key.' };
+    }
+    setCompanyResultKey(scoped.companyId, key32);
+    return { success: true as const, keyBase64: key32.toString('base64') };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : 'Failed to set result key.',
+    };
+  }
+}
+
+async function resolveResultPlaintext(
+  drawId: number,
+  companyId: number,
+  plainText?: string | null,
+): Promise<{ success: true; plain: string } | { success: false; error: string }> {
+  if (plainText != null && plainText.trim()) {
+    return { success: true, plain: plainText };
+  }
+  const listed = await listDrawResults(drawId, companyId);
+  if (!listed.success) return listed;
+  if (listed.results.length === 0) {
+    return { success: false, error: 'No results to export. Enter results or import first.' };
+  }
+  return {
+    success: true,
+    plain: formatResultTxt(
+      listed.results.map((row) => ({
+        prizeLevel: row.prizeLevel,
+        winningNumber: row.winningNumber,
+        prizeAmount: row.prizeAmount != null ? Number(row.prizeAmount) : null,
+      })),
+    ),
+  };
+}
+
+export async function exportDrawResultsEncrypted(
+  drawId: number,
+  companyId: number | null,
+  plainText?: string | null,
+) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
+  const key32 = getCompanyResultKey(scoped.companyId);
+  if (!key32) {
+    return { success: false as const, error: 'Company result key is not set. Set a key before export.' };
+  }
+  const connection = await ensureConnected();
+  if (!connection.success) {
+    return { success: false as const, error: connection.error ?? 'Database is not connected' };
+  }
+  try {
+    const draw = await getDrawById(drawId);
+    if (!draw || draw.companyId !== scoped.companyId) {
+      return { success: false as const, error: 'Draw not found' };
+    }
+    const resolved = await resolveResultPlaintext(drawId, scoped.companyId, plainText);
+    if (!resolved.success) return resolved;
+    const envelope = encryptResultTxt(resolved.plain, key32);
+    return { success: true as const, envelope };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : 'Failed to export encrypted results.',
+    };
+  }
+}
+
+export async function importDrawResultsEncrypted(
+  drawId: number,
+  companyId: number | null,
+  envelopeJson: string,
+) {
+  const scoped = requireCompanyId(companyId);
+  if (!scoped.success) return scoped;
+  const key32 = getCompanyResultKey(scoped.companyId);
+  if (!key32) {
+    return { success: false as const, error: 'Company result key is not set. Set a key before import.' };
+  }
+  let envelope: ResultEnvelopeV1;
+  try {
+    envelope = JSON.parse(envelopeJson) as ResultEnvelopeV1;
+  } catch {
+    return { success: false as const, error: 'Invalid encrypted result file.' };
+  }
+  try {
+    const plain = decryptResultTxt(envelope, key32);
+    const results = parseResultTxt(plain);
+    if (results.length === 0) {
+      return { success: false as const, error: 'No results found in encrypted file.' };
+    }
+    return createDrawResults(drawId, results, scoped.companyId);
+  } catch (error) {
+    return {
+      success: false as const,
+      error:
+        error instanceof Error && /Unsupported state|unable to authenticate|bad decrypt/i.test(error.message)
+          ? 'Decryption failed. Wrong key or tampered file.'
+          : error instanceof Error
+            ? error.message
+            : 'Failed to import encrypted results.',
     };
   }
 }

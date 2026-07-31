@@ -40,8 +40,11 @@ import type {
   TransactionInput,
   TransactionRecord,
   TransactionType,
+  UnsoldPreview,
   BuyerSaleSummary,
   ProviderPurchaseSummary,
+  SaleQuotaInput,
+  SaleQuotaRecord,
   TicketValidationResult,
   LedgerListResult,
   LedgerAllSummary,
@@ -377,6 +380,17 @@ export interface Api {
     data: BuyerInput,
   ) => Promise<{ success: true; buyer: BuyerRecord } | { success: false; error: string }>;
   buyersDelete: (id: number) => Promise<{ success: true } | { success: false; error: string }>;
+  saleQuotasList: (
+    companyId: number,
+  ) => Promise<{ success: true; quotas: SaleQuotaRecord[] } | { success: false; error: string }>;
+  saleQuotasCreate: (
+    data: SaleQuotaInput,
+  ) => Promise<{ success: true; quota: SaleQuotaRecord } | { success: false; error: string }>;
+  saleQuotasUpdate: (
+    id: number,
+    data: SaleQuotaInput,
+  ) => Promise<{ success: true; quota: SaleQuotaRecord } | { success: false; error: string }>;
+  saleQuotasDelete: (id: number) => Promise<{ success: true } | { success: false; error: string }>;
   itemGroupsList: (
     companyId: number,
   ) => Promise<{ success: true; groups: ItemGroupRecord[] } | { success: false; error: string }>;
@@ -453,6 +467,23 @@ export interface Api {
     drawId: number,
     results: DrawResultInput[],
   ) => Promise<{ success: true; draw: DrawRecord } | { success: false; error: string }>;
+  resultKeyGetStatus: () => Promise<
+    { success: true; hasKey: boolean } | { success: false; error: string }
+  >;
+  resultKeySet: (options: {
+    generate?: boolean;
+    keyBase64?: string;
+  }) => Promise<{ success: true; keyBase64: string } | { success: false; error: string }>;
+  drawResultsExportEncrypted: (
+    drawId: number,
+    plainText?: string,
+  ) => Promise<
+    { success: true; envelope: import('../shared/resultCrypto').ResultEnvelopeV1 } | { success: false; error: string }
+  >;
+  drawResultsImportEncrypted: (
+    drawId: number,
+    envelopeJson: string,
+  ) => Promise<{ success: true; draw: DrawRecord } | { success: false; error: string }>;
   winningTicketsList: (
     drawId: number,
   ) => Promise<{ success: true; tickets: WinningTicketRecord[] } | { success: false; error: string }>;
@@ -507,6 +538,24 @@ export interface Api {
     drawId: number,
   ) => Promise<
     { success: true; summary: ProviderPurchaseSummary } | { success: false; error: string }
+  >;
+  transactionsUnsoldPreview: (
+    companyId: number,
+    drawId: number,
+    providerId?: number,
+  ) => Promise<{ success: true; preview: UnsoldPreview } | { success: false; error: string }>;
+  transactionsUnsoldReturn: (
+    companyId: number,
+    drawId: number,
+    providerId?: number,
+  ) => Promise<
+    | { success: true; transactions: TransactionRecord[]; count: number }
+    | {
+        success: false;
+        error: string;
+        partialCount?: number;
+        transactions?: TransactionRecord[];
+      }
   >;
 }
 
@@ -658,6 +707,10 @@ const api: Api = {
   buyersCreate: (data) => invokeIpc('buyers-create', data),
   buyersUpdate: (id, data) => invokeIpc('buyers-update', id, data),
   buyersDelete: (id) => invokeIpc('buyers-delete', id),
+  saleQuotasList: (companyId) => invokeIpc('sale-quotas-list', companyId),
+  saleQuotasCreate: (data) => invokeIpc('sale-quotas-create', data),
+  saleQuotasUpdate: (id, data) => invokeIpc('sale-quotas-update', id, data),
+  saleQuotasDelete: (id) => invokeIpc('sale-quotas-delete', id),
   itemGroupsList: (companyId) => invokeIpc('item-groups-list', companyId),
   itemGroupsCreate: (data) => invokeIpc('item-groups-create', data),
   itemGroupsUpdate: (id, data) => invokeIpc('item-groups-update', id, data),
@@ -684,6 +737,12 @@ const api: Api = {
     invokeIpc('draws-extend-time', drawId, userId, userRole, newCloseTime, reason),
   drawResultsList: (drawId) => invokeIpc('draw-results-list', drawId),
   drawResultsCreate: (drawId, results) => invokeIpc('draw-results-create', drawId, results),
+  resultKeyGetStatus: () => invokeIpc('result-key-get-status'),
+  resultKeySet: (options) => invokeIpc('result-key-set', options),
+  drawResultsExportEncrypted: (drawId, plainText) =>
+    invokeIpc('draw-results-export-encrypted', drawId, plainText),
+  drawResultsImportEncrypted: (drawId, envelopeJson) =>
+    invokeIpc('draw-results-import-encrypted', drawId, envelopeJson),
   winningTicketsList: (drawId) => invokeIpc('winning-tickets-list', drawId),
   winningTicketsCreate: (drawId, tickets) =>
     invokeIpc('winning-tickets-create', drawId, tickets),
@@ -705,6 +764,10 @@ const api: Api = {
     invokeIpc('transactions-get-buyer-sale-summary', buyerId, drawId),
   transactionsGetProviderPurchaseSummary: (providerId, drawId) =>
     invokeIpc('transactions-get-provider-purchase-summary', providerId, drawId),
+  transactionsUnsoldPreview: (companyId, drawId, providerId) =>
+    invokeIpc('transactions-unsold-preview', companyId, drawId, providerId),
+  transactionsUnsoldReturn: (companyId, drawId, providerId) =>
+    invokeIpc('transactions-unsold-return', companyId, drawId, providerId),
 };
 
 contextBridge.exposeInMainWorld('api', api);

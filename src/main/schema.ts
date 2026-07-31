@@ -233,6 +233,7 @@ export const transactions = pgTable('transactions', {
     .notNull()
     .references(() => draws.id, { onDelete: 'cascade' }),
   providerId: integer('provider_id').references(() => providers.id),
+  toProviderId: integer('to_provider_id').references(() => providers.id),
   buyerId: integer('buyer_id').references(() => buyers.id),
   companyId: integer('company_id')
     .notNull()
@@ -309,4 +310,23 @@ export const userSessions = pgTable('user_sessions', {
   companyId: integer('company_id').notNull(),
   lastSeen: timestamp('last_seen').defaultNow(),
   ipAddress: text('ip_address'),
+});
+
+export const saleQuotas = pgTable('sale_quotas', {
+  id: serial('id').primaryKey(),
+  companyId: integer('company_id')
+    .notNull()
+    .references(() => companies.id, { onDelete: 'cascade' }),
+  buyerId: integer('buyer_id')
+    .notNull()
+    .references(() => buyers.id, { onDelete: 'cascade' }),
+  drawId: integer('draw_id')
+    .notNull()
+    .references(() => draws.id, { onDelete: 'cascade' }),
+  itemId: integer('item_id')
+    .notNull()
+    .references(() => items.id, { onDelete: 'cascade' }),
+  maxQty: integer('max_qty').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 });

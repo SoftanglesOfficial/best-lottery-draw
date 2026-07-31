@@ -9,6 +9,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/reports/pnl': 'P&L',
   '/reports/buyer-ledger': 'Buyer Ledger',
   '/reports/provider-ledger': 'Provider Ledger',
+  '/reports/unsold': 'Unsold Tickets',
   '/draws': 'Draws',
   '/open-company': 'Open Company',
 };

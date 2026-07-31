@@ -49,3 +49,17 @@ export const PRIZE_LABELS: Record<number, string> = {
   4: '4th Prize',
   5: '5th Prize',
 };
+
+export function formatResultTxt(results: DrawResultInput[]): string {
+  const lines: string[] = [];
+  for (const level of [1, 2, 3, 4, 5]) {
+    const levelResults = results.filter((entry) => entry.prizeLevel === level);
+    if (levelResults.length === 0) continue;
+    lines.push(`${PRIZE_LABELS[level]}:`);
+    for (const entry of levelResults) {
+      lines.push(entry.winningNumber);
+    }
+    lines.push('');
+  }
+  return lines.join('\n').trimEnd();
+}

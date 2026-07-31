@@ -32,6 +32,12 @@ import {
   updateBuyerGroup,
 } from './buyers';
 import {
+  createSaleQuota,
+  deleteSaleQuota,
+  listSaleQuotas,
+  updateSaleQuota,
+} from './saleQuotas';
+import {
   createItem,
   createItemGroup,
   createItemScheme,
@@ -74,24 +80,30 @@ import {
   createWinningTickets,
   deleteDraw,
   deleteWinningTicket,
+  exportDrawResultsEncrypted,
   extendDrawTime,
   findWinners,
   getDrawById,
+  getResultKeyStatus,
+  importDrawResultsEncrypted,
   listDrawAuditLogs,
   listDrawResults,
   listDraws,
   listWinningTickets,
   lockDraw,
+  setResultKey,
   unlockDraw,
   updateDraw,
 } from './draws';
 import {
   createTransaction,
+  computeUnsoldPreview,
   deleteTransaction,
   getBuyerSaleSummary,
   getProviderPurchaseSummary,
   listTransactions,
   nextMemoId,
+  returnUnsold,
   searchTicket,
   updateTransaction,
   validateTicketsSold,
@@ -148,6 +160,7 @@ import type {
   ItemSchemeInput,
   ProviderGroupInput,
   ProviderInput,
+  SaleQuotaInput,
   ShiftGroupInput,
   ShiftInput,
   TransactionInput,
@@ -180,17 +193,21 @@ const IPC_CHANNELS = [
   'providers-list', 'providers-create', 'providers-update', 'providers-delete',
   'buyer-groups-list', 'buyer-groups-create', 'buyer-groups-update', 'buyer-groups-delete',
   'buyers-list', 'buyers-create', 'buyers-update', 'buyers-delete',
+  'sale-quotas-list', 'sale-quotas-create', 'sale-quotas-update', 'sale-quotas-delete',
   'item-groups-list', 'item-groups-create', 'item-groups-update', 'item-groups-delete',
   'items-list', 'items-create', 'items-update', 'items-delete',
   'itemSchemes-list', 'itemSchemes-listByItem', 'itemSchemes-create', 'itemSchemes-get',
   'itemSchemes-getPrizes', 'itemSchemes-update', 'itemSchemes-delete',
   'draws-list', 'draws-create', 'draws-update', 'draws-delete', 'draws-lock', 'draws-unlock',
   'draws-audit-list', 'draws-extend-time', 'draw-results-list', 'draw-results-create',
+  'result-key-get-status', 'result-key-set',
+  'draw-results-export-encrypted', 'draw-results-import-encrypted',
   'winning-tickets-list', 'winning-tickets-create', 'winning-tickets-delete',
   'winning-tickets-find-winners', 'transactions-search-ticket',
   'transactions-list', 'transactions-next-memo-id', 'transactions-create',
   'transactions-update', 'transactions-delete', 'transactions-validate-tickets-sold',
   'transactions-get-buyer-sale-summary', 'transactions-get-provider-purchase-summary',
+  'transactions-unsold-preview', 'transactions-unsold-return',
 ] as const;
 
 function scopedCompany(ctx: import('./sessionContext').SessionContext, companyId: number) {
@@ -596,6 +613,30 @@ export function registerIpcHandlers(): void {
     withSession(args, (ctx, id) => deleteBuyer(id as number, ctx.activeCompanyId), 'manager'),
   );
 
+  ipcMain.handle('sale-quotas-list', async (_e, ...args) =>
+    withSession(args, async (ctx, companyId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return listSaleQuotas(companyId as number);
+    }, 'manager'),
+  );
+  ipcMain.handle('sale-quotas-create', async (_e, ...args) =>
+    withSession(args, async (ctx, data) => {
+      const input = data as SaleQuotaInput;
+      const denied = scopedCompany(ctx, input.companyId);
+      if (denied) return denied;
+      return createSaleQuota(input);
+    }, 'manager'),
+  );
+  ipcMain.handle('sale-quotas-update', async (_e, ...args) =>
+    withSession(args, (ctx, id, data) =>
+      updateSaleQuota(id as number, data as SaleQuotaInput, ctx.activeCompanyId),
+    'manager'),
+  );
+  ipcMain.handle('sale-quotas-delete', async (_e, ...args) =>
+    withSession(args, (ctx, id) => deleteSaleQuota(id as number, ctx.activeCompanyId), 'manager'),
+  );
+
   ipcMain.handle('item-groups-list', async (_e, ...args) =>
     withSession(args, (ctx, companyId) => {
       const denied = scopedCompany(ctx, companyId as number);
@@ -723,6 +764,21 @@ export function registerIpcHandlers(): void {
     withSession(args, (ctx, drawId, results) =>
       createDrawResults(drawId as number, results as DrawResultInput[], ctx.activeCompanyId), 'supervisor'),
   );
+  ipcMain.handle('result-key-get-status', async (_e, ...args) =>
+    withSession(args, (ctx) => getResultKeyStatus(ctx.activeCompanyId), 'manager'),
+  );
+  ipcMain.handle('result-key-set', async (_e, ...args) =>
+    withSession(args, (ctx, options) =>
+      setResultKey(ctx.activeCompanyId, options as { generate?: boolean; keyBase64?: string }), 'owner'),
+  );
+  ipcMain.handle('draw-results-export-encrypted', async (_e, ...args) =>
+    withSession(args, (ctx, drawId, plainText) =>
+      exportDrawResultsEncrypted(drawId as number, ctx.activeCompanyId, plainText as string | undefined), 'owner'),
+  );
+  ipcMain.handle('draw-results-import-encrypted', async (_e, ...args) =>
+    withSession(args, (ctx, drawId, envelopeJson) =>
+      importDrawResultsEncrypted(drawId as number, ctx.activeCompanyId, envelopeJson as string), 'manager'),
+  );
   ipcMain.handle('winning-tickets-list', async (_e, ...args) =>
     withSession(args, (ctx, drawId) => listWinningTickets(drawId as number, ctx.activeCompanyId)),
   );
@@ -801,5 +857,29 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('transactions-get-provider-purchase-summary', async (_e, ...args) =>
     withSession(args, (ctx, providerId, drawId) =>
       getProviderPurchaseSummary(ctx, providerId as number, drawId as number)),
+  );
+  ipcMain.handle('transactions-unsold-preview', async (_e, ...args) =>
+    withSession(args, (ctx, companyId, drawId, providerId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return computeUnsoldPreview(
+        ctx,
+        companyId as number,
+        drawId as number,
+        providerId as number | undefined,
+      );
+    }, 'supervisor'),
+  );
+  ipcMain.handle('transactions-unsold-return', async (_e, ...args) =>
+    withSession(args, (ctx, companyId, drawId, providerId) => {
+      const denied = scopedCompany(ctx, companyId as number);
+      if (denied) return denied;
+      return returnUnsold(
+        ctx,
+        companyId as number,
+        drawId as number,
+        providerId as number | undefined,
+      );
+    }, 'supervisor'),
   );
 }

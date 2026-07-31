@@ -301,11 +301,6 @@ assert.match(
 );
 assert.match(
   transactionsSource,
-  /async function validateTransactionCreate[\s\S]*?if \(data\.type === 'stock_transfer'\)[\s\S]*?Stock transfer is not available\./,
-  'validateTransactionCreate must reject stock_transfer',
-);
-assert.match(
-  transactionsSource,
   /data\.type === 'purchase_return'[\s\S]*?Cannot enter return without an existing purchase entry/,
   'purchase_return must reference purchase entry',
 );

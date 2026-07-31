@@ -271,6 +271,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   type txn_type NOT NULL,
   draw_id INTEGER NOT NULL REFERENCES draws(id) ON DELETE CASCADE,
   provider_id INTEGER REFERENCES providers(id),
+  to_provider_id INTEGER REFERENCES providers(id),
   buyer_id INTEGER REFERENCES buyers(id),
   company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   user_id INTEGER NOT NULL REFERENCES users(id),
@@ -332,6 +333,18 @@ CREATE TABLE IF NOT EXISTS user_sessions (
   company_id INTEGER NOT NULL,
   last_seen TIMESTAMP DEFAULT NOW(),
   ip_address TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sale_quotas (
+  id SERIAL PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  buyer_id INTEGER NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+  draw_id INTEGER NOT NULL REFERENCES draws(id) ON DELETE CASCADE,
+  item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  max_qty INTEGER NOT NULL CHECK (max_qty >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (company_id, buyer_id, draw_id, item_id)
 );
 `;
 
@@ -627,6 +640,12 @@ DO $$ BEGIN
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'transactions' AND column_name = 'to_provider_id'
+  ) THEN
+    ALTER TABLE transactions ADD COLUMN to_provider_id INTEGER REFERENCES providers(id);
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'transactions' AND column_name = 'amount'
   ) THEN
     ALTER TABLE transactions ADD COLUMN amount NUMERIC(12,2);
@@ -717,6 +736,18 @@ DO $$ BEGIN
     ALTER TABLE items ADD COLUMN prefix TEXT;
   END IF;
 END $$;
+
+CREATE TABLE IF NOT EXISTS sale_quotas (
+  id SERIAL PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  buyer_id INTEGER NOT NULL REFERENCES buyers(id) ON DELETE CASCADE,
+  draw_id INTEGER NOT NULL REFERENCES draws(id) ON DELETE CASCADE,
+  item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+  max_qty INTEGER NOT NULL CHECK (max_qty >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (company_id, buyer_id, draw_id, item_id)
+);
 `;
 
 async function ensureSchema(client: Pool): Promise<void> {
