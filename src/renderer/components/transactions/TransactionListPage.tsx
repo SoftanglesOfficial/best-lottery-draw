@@ -2,8 +2,9 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import ConfirmDialog from '../ConfirmDialog';
 import EmptyState from '../EmptyState';
 import { FullPageLoading } from '../LoadingSpinner';
+import Modal from '../Modal';
 import { useToast } from '../Toast';
-import { PageHeader } from '../ui';
+import { Button, Input, PageHeader } from '../ui';
 import { useAuth } from '../../lib/auth';
 import { useActiveCompany } from '../../lib/useActiveCompany';
 import { useRoleGuard } from '../../lib/useRoleGuard';
@@ -16,6 +17,7 @@ import {
   formatTxnDate,
 } from '../../lib/transactionDisplay';
 import { endOfLocalDay, startOfLocalDay } from '../../../shared/localDate';
+import { countFromTicketData, removeTicketsFromData } from '../../../shared/ticketData';
 import type { DrawRecord, TransactionRecord, TransactionType } from '../../../shared/types';
 
 type TransactionListPageProps = {
@@ -51,9 +53,13 @@ export default function TransactionListPage({
   const [dateTo, setDateTo] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TransactionRecord | null>(null);
+  const [editTarget, setEditTarget] = useState<TransactionRecord | null>(null);
+  const [removeInput, setRemoveInput] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const canDelete = user ? isAtLeastRole(user.role, 'supervisor') : false;
+  const canEditTickets = canDelete;
 
   const load = useCallback(async () => {
     if (companyId == null) {
@@ -147,6 +153,58 @@ export default function TransactionListPage({
       void load();
     } else {
       showToast(result.error, 'error');
+    }
+  };
+
+  const handleRemoveTickets = async () => {
+    if (!editTarget || !user || companyId == null) return;
+    const draw = draws.find((d) => d.id === editTarget.drawId);
+    if (!draw || draw.status !== 'open') {
+      showToast('Can only remove tickets from open draws.', 'error');
+      return;
+    }
+    const toRemove = removeInput
+      .split(/[\s,]+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (toRemove.length === 0) {
+      showToast('Enter ticket number(s) to remove.', 'error');
+      return;
+    }
+    const nextData = removeTicketsFromData(editTarget.ticketData, toRemove);
+    const ticketCount = countFromTicketData(nextData);
+    if (ticketCount <= 0) {
+      showToast('Cannot remove all tickets. Delete the memo instead.', 'error');
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const result = await api.transactionsUpdate(editTarget.id, {
+        type: editTarget.type,
+        companyId,
+        userId: user.id,
+        drawId: editTarget.drawId,
+        providerId: editTarget.providerId,
+        toProviderId: editTarget.toProviderId,
+        buyerId: editTarget.buyerId,
+        memoId: editTarget.memoId,
+        amount: editTarget.amount != null ? Number(editTarget.amount) : null,
+        ticketCount,
+        ticketData: nextData,
+        voucherNo: editTarget.voucherNo,
+      });
+      if (result.success) {
+        showToast('Tickets removed.', 'success');
+        setEditTarget(null);
+        setRemoveInput('');
+        void load();
+      } else {
+        showToast(result.error, 'error');
+      }
+    } catch {
+      showToast('Failed to update transaction.', 'error');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -292,6 +350,18 @@ export default function TransactionListPage({
                         >
                           View
                         </button>
+                        {canEditTickets ? (
+                          <button
+                            type="button"
+                            className="rounded-cyber px-1.5 py-1 text-cyber-hover hover:bg-cyber/10 focus:outline-none focus:ring-2 focus:ring-cyber/30"
+                            onClick={() => {
+                              setEditTarget(row);
+                              setRemoveInput('');
+                            }}
+                          >
+                            Remove tickets
+                          </button>
+                        ) : null}
                         {canDelete ? (
                           <button
                             type="button"
@@ -342,6 +412,46 @@ export default function TransactionListPage({
           onCancel={() => setDeleteTarget(null)}
           confirmLabel="Delete"
         />
+      ) : null}
+
+      {editTarget ? (
+        <Modal
+          title={`Remove tickets — memo ${editTarget.memoId ?? editTarget.id}`}
+          onClose={() => {
+            if (!savingEdit) {
+              setEditTarget(null);
+              setRemoveInput('');
+            }
+          }}
+        >
+          <div className="space-y-3">
+            <p className="font-mono text-xs text-content-muted">
+              Current: {formatRanges(editTarget.ticketData)}
+            </p>
+            <Input
+              label="Tickets to remove"
+              value={removeInput}
+              onChange={(event) => setRemoveInput(event.target.value)}
+              placeholder="e.g. 00123 00124"
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={savingEdit}
+                onClick={() => {
+                  setEditTarget(null);
+                  setRemoveInput('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="button" disabled={savingEdit} onClick={() => void handleRemoveTickets()}>
+                {savingEdit ? 'Saving…' : 'Remove'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       ) : null}
     </div>
   );

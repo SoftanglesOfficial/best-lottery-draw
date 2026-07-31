@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react';
+import { Link } from 'react-router-dom';
 import EmptyState from '../../components/EmptyState';
 import Table, { type TableColumn } from '../../components/Table';
 import { useToast } from '../../components/Toast';
@@ -58,6 +59,23 @@ export default function TicketSearchPage() {
     { key: 'type', header: 'Type', render: (row) => row.type },
     { key: 'amount', header: 'Amount', render: (row) => formatAmount(row.amount) },
     { key: 'ticketNumber', header: 'Ticket', render: (row) => row.ticketNumber },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (row) =>
+        row.type === 'sale' || row.type === 'booking' ? (
+          <Link
+            className="text-cyber-hover underline"
+            to={`/transactions/sale-return?drawId=${row.drawId}&ticket=${encodeURIComponent(row.ticketNumber)}${
+              row.buyerId != null ? `&buyerId=${row.buyerId}` : ''
+            }`}
+          >
+            Sale return
+          </Link>
+        ) : (
+          '—'
+        ),
+    },
   ];
 
   if (!allowed) return null;

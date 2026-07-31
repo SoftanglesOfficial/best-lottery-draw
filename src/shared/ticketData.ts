@@ -84,3 +84,33 @@ export function extractTicketNumbers(ticketData: string | null | undefined): str
 
   return numbers;
 }
+
+/** Drop ticket numbers from JSON ticket_data; rebuild as ranges when possible. */
+export function removeTicketsFromData(
+  ticketData: string | null | undefined,
+  numbersToRemove: string[],
+): string {
+  const remove = new Set(numbersToRemove.map((n) => String(n).padStart(5, '0')));
+  const kept = extractTicketNumbers(ticketData).filter((n) => !remove.has(n));
+  if (kept.length === 0) return JSON.stringify({ tickets: [] });
+  // Compact consecutive numbers into ranges
+  const sorted = [...kept].sort((a, b) => Number(a) - Number(b));
+  const ranges: Array<{ from: string; to: string; qty: number }> = [];
+  let from = sorted[0];
+  let to = sorted[0];
+  let qty = 1;
+  for (let i = 1; i < sorted.length; i += 1) {
+    const next = sorted[i];
+    if (Number(next) === Number(to) + 1) {
+      to = next;
+      qty += 1;
+    } else {
+      ranges.push({ from, to, qty });
+      from = next;
+      to = next;
+      qty = 1;
+    }
+  }
+  ranges.push({ from, to, qty });
+  return JSON.stringify({ ranges });
+}
