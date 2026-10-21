@@ -7,8 +7,8 @@
   "private": true,
   "scripts": {
     "start": "node api.js && electron-forge start",
-    "build": "electron-forge make",
-    "build:icons": "node scripts/build-icons.js",
+    "build": "node api.js && electron-forge make",
+    "build:icons": "node api.js && node scripts/build-icons.js",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
